@@ -21,13 +21,13 @@ export class PhysicsWorld {
   addStaticBox(
     position: THREE.Vector3,
     size: THREE.Vector3,
-    rotationY: number,
+    rotation?: THREE.Quaternion,
   ): RAPIER.Collider {
-    const body = this.world.createRigidBody(
-      RAPIER.RigidBodyDesc.fixed()
-        .setTranslation(position.x, position.y, position.z)
-        .setRotation(yawToQuat(rotationY)),
-    );
+    let desc = RAPIER.RigidBodyDesc.fixed().setTranslation(position.x, position.y, position.z);
+    if (rotation) {
+      desc = desc.setRotation({ x: rotation.x, y: rotation.y, z: rotation.z, w: rotation.w });
+    }
+    const body = this.world.createRigidBody(desc);
     return this.world.createCollider(
       RAPIER.ColliderDesc.cuboid(size.x / 2, size.y / 2, size.z / 2),
       body,
@@ -47,8 +47,4 @@ export class PhysicsWorld {
     );
     return { rigidBody, collider };
   }
-}
-
-function yawToQuat(yaw: number): RAPIER.Rotation {
-  return { x: 0, y: Math.sin(yaw / 2), z: 0, w: Math.cos(yaw / 2) };
 }

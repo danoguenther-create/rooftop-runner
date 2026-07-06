@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { EventBus } from './EventBus';
 import { Input } from './Input';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
+import { LevelLoader } from '../level/LevelLoader';
 
 /** Systeme mit Physik-Takt (1/60 s, deterministisch). */
 export interface FixedUpdatable {
@@ -23,6 +24,7 @@ export class Game {
   readonly bus = new EventBus();
   readonly input: Input;
   readonly physics = new PhysicsWorld();
+  readonly level: LevelLoader;
 
   private fixedSystems: FixedUpdatable[] = [];
   private frameSystems: Updatable[] = [];
@@ -34,8 +36,7 @@ export class Game {
   private frameCount = 0;
   private statsTimer = 0;
 
-  // Temporär (Task 3/4): Testszene, fliegt in Task 5 raus
-  private cube!: THREE.Mesh;
+  // Temporär (Task 4/5): Physik-Demo-Box, fliegt mit dem Player-Task raus
   private debugBoxMesh!: THREE.Mesh;
   private debugBoxBody!: import('@dimforge/rapier3d-compat').RigidBody;
 
@@ -56,6 +57,7 @@ export class Game {
     this.camera.lookAt(0, 1.5, 0);
 
     this.input = new Input(canvas);
+    this.level = new LevelLoader(this.scene, this.physics);
 
     window.addEventListener('resize', () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
@@ -69,38 +71,23 @@ export class Game {
       'color:#9f9;font:12px monospace;border-radius:4px;pointer-events:none;';
     document.getElementById('hud')!.appendChild(this.statsEl);
 
-    this.buildTestScene();
+    this.buildEnvironment();
   }
 
-  private buildTestScene(): void {
+  /** Licht + Himmel (levelunabhängig). */
+  private buildEnvironment(): void {
     this.scene.background = new THREE.Color(0x87b7dc);
 
     const sun = new THREE.DirectionalLight(0xffffff, 2.5);
-    sun.position.set(10, 20, 8);
+    sun.position.set(15, 30, 12);
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
-    sun.shadow.camera.left = -20;
-    sun.shadow.camera.right = 20;
-    sun.shadow.camera.top = 20;
-    sun.shadow.camera.bottom = -20;
+    sun.shadow.camera.left = -40;
+    sun.shadow.camera.right = 40;
+    sun.shadow.camera.top = 40;
+    sun.shadow.camera.bottom = -40;
     this.scene.add(sun);
     this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x5a6b50, 1.2));
-
-    const ground = new THREE.Mesh(
-      new THREE.PlaneGeometry(100, 100),
-      new THREE.MeshLambertMaterial({ color: 0x6a8f5a }),
-    );
-    ground.rotation.x = -Math.PI / 2;
-    ground.receiveShadow = true;
-    this.scene.add(ground);
-
-    this.cube = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color: 0xff6a00 }),
-    );
-    this.cube.position.set(0, 1.5, 0);
-    this.cube.castShadow = true;
-    this.scene.add(this.cube);
   }
 
   addFixedSystem(system: FixedUpdatable): void {
@@ -115,14 +102,17 @@ export class Game {
   async start(): Promise<void> {
     await this.physics.init();
 
-    // Task 4: statischer Boden-Collider + dynamische Test-Box
-    this.physics.addStaticBox(
-      new THREE.Vector3(0, -0.5, 0),
-      new THREE.Vector3(100, 1, 100),
-      0,
-    );
+    // Level aus URL-Parameter (?level=...) oder Default laden
+    const levelName = new URLSearchParams(location.search).get('level') ?? 'testlevel';
+    await this.level.load(levelName);
+
+    // Kamera vorerst statisch schräg über dem Level (FollowCamera: Task 7)
+    this.camera.position.set(-18, 22, 32);
+    this.camera.lookAt(8, 2, 4);
+
+    // Physik-Demo: dynamische Box fällt über dem Spawn ins Level
     const dyn = this.physics.addDynamicBox(
-      new THREE.Vector3(1.5, 6, 0.5),
+      this.level.spawn.clone().add(new THREE.Vector3(0.5, 6, 0.5)),
       new THREE.Vector3(1, 1, 1),
     );
     this.debugBoxBody = dyn.rigidBody;
@@ -157,8 +147,7 @@ export class Game {
     // Render-Takt
     for (const s of this.frameSystems) s.update(dt);
 
-    // Temporäre Testszene animieren
-    this.cube.rotation.y += dt * 1.2;
+    // Temporäre Physik-Demo-Box animieren
     const t = this.debugBoxBody.translation();
     const r = this.debugBoxBody.rotation();
     this.debugBoxMesh.position.set(t.x, t.y, t.z);
