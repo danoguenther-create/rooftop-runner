@@ -1,4 +1,5 @@
 import type { StateName } from '../player/PlayerStates';
+import type { WallSide } from '../player/WallRun';
 
 /**
  * Zentrales Event-Map-Interface. Jedes System, das Events einführt,
@@ -9,6 +10,14 @@ export interface GameEvents {
   'player:roll': { fallHeight: number };
   'player:hardLanding': { fallHeight: number };
   'player:bail': { fallHeight: number };
+  'trick:wallrun': { side: WallSide };
+  'trick:walljump': { side: WallSide };
+  'trick:vault': { obstacleHeight: number };
+  'trick:grindStart': { rail: number };
+  'trick:grindTick': { seconds: number };
+  'trick:grindEnd': { durationMs: number };
+  'trick:gap': { id: string };
+  'trick:precision': { id: string };
 }
 
 type Handler<T> = (payload: T) => void;

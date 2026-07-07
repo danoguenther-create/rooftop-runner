@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { PlayerController } from '../player/PlayerController';
 import type { InputState } from '../core/Input';
-import { SPRINT_SPEED } from '../player/tuning';
+import { SPRINT_SPEED, WALLRUN_CAMERA_TILT_DEG } from '../player/tuning';
 
 const SENSITIVITY = 0.0025; // rad pro Pixel
 const DISTANCE = 4.5;
@@ -27,6 +27,7 @@ export class FollowCamera {
   private pitch = 0.25;
   private smoothedDist = DISTANCE;
   private currentFov = FOV_BASE;
+  private roll = 0; // Wall-Run-Neigung (rad)
   private initialized = false;
 
   constructor(
@@ -83,6 +84,15 @@ export class FollowCamera {
       this.camera.position.lerp(_desired, k);
     }
     this.camera.lookAt(_target);
+
+    // Wall-Run: Kamera neigt sich zur Wand (gedämpft rein und raus)
+    const side = this.player.currentWallSide;
+    const targetRoll =
+      side === null
+        ? 0
+        : ((side === 'right' ? -1 : 1) * WALLRUN_CAMERA_TILT_DEG * Math.PI) / 180;
+    this.roll = damp(this.roll, targetRoll, 8, dt);
+    if (Math.abs(this.roll) > 0.0001) this.camera.rotateZ(this.roll);
 
     // Speed-FOV
     const speedT = THREE.MathUtils.clamp(this.player.horizontalSpeed / SPRINT_SPEED, 0, 1);

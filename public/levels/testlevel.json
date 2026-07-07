@@ -46,5 +46,10 @@
       ]
     }
   ],
-  "markers": []
+  "markers": [
+    { "type": "gap", "id": "gap-row1", "pos": [9.5, 3.2, 0], "size": [2.5, 2.5, 3.5] },
+    { "type": "gap", "id": "gap-row2", "pos": [27, 5.3, 4], "size": [3.5, 2.5, 3] },
+    { "type": "precision", "id": "prec-plat", "pos": [20, 3.0, 8] },
+    { "type": "precision", "id": "prec-low", "pos": [13, 1.2, 16] }
+  ]
 }

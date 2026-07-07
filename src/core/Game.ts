@@ -5,6 +5,7 @@ import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
 import { PlayerController } from '../player/PlayerController';
 import { FollowCamera } from '../camera/FollowCamera';
+import { Markers } from '../gameplay/Markers';
 
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
@@ -19,6 +20,8 @@ export class Game {
   readonly level: LevelLoader;
   player!: PlayerController;
   followCamera!: FollowCamera;
+  markers!: Markers;
+  private lastTrick = '–';
 
   private clock = new THREE.Clock();
   private accumulator = 0;
@@ -112,8 +115,22 @@ export class Game {
     const levelName = new URLSearchParams(location.search).get('level') ?? 'testlevel';
     await this.level.load(levelName);
 
-    this.player = new PlayerController(this.physics, this.bus, this.scene, this.level.spawn);
+    this.player = new PlayerController(this.physics, this.bus, this.scene, this.level);
     this.followCamera = new FollowCamera(this.camera, this.player);
+    this.markers = new Markers(this.scene, this.level, this.bus, this.player);
+
+    // Debug: zuletzt ausgelöstes Trick-Event anzeigen
+    const trackTrick = (name: string) => {
+      this.lastTrick = name;
+    };
+    this.bus.on('trick:wallrun', (e) => trackTrick(`wallrun (${e.side})`));
+    this.bus.on('trick:walljump', (e) => trackTrick(`walljump (${e.side})`));
+    this.bus.on('trick:vault', (e) => trackTrick(`vault (${e.obstacleHeight.toFixed(2)}m)`));
+    this.bus.on('trick:grindStart', (e) => trackTrick(`grindStart (rail ${e.rail})`));
+    this.bus.on('trick:grindTick', (e) => trackTrick(`grindTick (${e.seconds}s)`));
+    this.bus.on('trick:grindEnd', (e) => trackTrick(`grindEnd (${e.durationMs}ms)`));
+    this.bus.on('trick:gap', (e) => trackTrick(`gap (${e.id})`));
+    this.bus.on('trick:precision', (e) => trackTrick(`precision (${e.id})`));
 
     this.clock.start();
     requestAnimationFrame(this.loop);
@@ -134,6 +151,7 @@ export class Game {
     while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
       this.player.fixedUpdate(FIXED_DT);
       this.physics.step();
+      this.markers.fixedUpdate();
       this.accumulator -= FIXED_DT;
       steps++;
     }
@@ -142,6 +160,7 @@ export class Game {
     // Render-Takt
     this.player.update(dt);
     this.followCamera.update(dt, input);
+    this.markers.update(dt);
 
     this.renderer.render(this.scene, this.camera);
 
@@ -155,10 +174,15 @@ export class Game {
       this.statsTimer = 0;
     }
     if (this.debugVisible) {
+      const wall =
+        this.player.currentWallSide ??
+        (this.player.fsm.current === 'AIR' ? (this.player.wallHit?.side ?? 'none') : 'none');
       this.debugEl.textContent =
         `state: ${this.player.fsm.current}\n` +
         `speed: ${this.player.horizontalSpeed.toFixed(1)} m/s\n` +
-        `grounded: ${this.player.grounded}`;
+        `grounded: ${this.player.grounded}\n` +
+        `wall: ${wall}\n` +
+        `trick: ${this.lastTrick}`;
     }
 
     requestAnimationFrame(this.loop);

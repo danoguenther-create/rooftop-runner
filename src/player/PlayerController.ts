@@ -3,7 +3,11 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import type { EventBus } from '../core/EventBus';
 import type { InputState } from '../core/Input';
+import type { LevelLoader } from '../level/LevelLoader';
 import { StateMachine } from './PlayerStates';
+import { WallRunDetector, type WallHit, type WallSide } from './WallRun';
+import { VaultDetector, type VaultPlan } from './Vault';
+import { RailGrinder } from './RailGrind';
 import {
   ACCEL,
   AIR_CONTROL,
@@ -48,6 +52,17 @@ export class PlayerController {
   /** Kamera-Yaw für kamerarelative Bewegung (jeden Frame von Game gesetzt) */
   cameraYaw = 0;
 
+  // Parkour-Systeme (M2)
+  readonly wallDetector = new WallRunDetector();
+  readonly vaultDetector = new VaultDetector();
+  readonly grinder: RailGrinder;
+  /** Aktueller Wanderkennungs-Treffer (AIR) bzw. aktive Wand (WALLRUN) */
+  wallHit: WallHit | null = null;
+  /** Für Kamera-Tilt + Debug: Seite der aktiven Wall-Run-Wand */
+  currentWallSide: WallSide | null = null;
+  /** Vom Zustandswechsel RUN/AIR -> VAULT übergebener Bewegungsplan */
+  pendingVault: VaultPlan | null = null;
+
   /** Sichtbarer Platzhalter (Kapsel); Charaktermodell kommt in Task 21 */
   readonly mesh: THREE.Group;
 
@@ -73,9 +88,11 @@ export class PlayerController {
     readonly physics: PhysicsWorld,
     readonly bus: EventBus,
     scene: THREE.Scene,
-    spawn: THREE.Vector3,
+    readonly level: LevelLoader,
   ) {
+    const spawn = level.spawn;
     this.spawnPos.copy(spawn);
+    this.grinder = new RailGrinder(this);
 
     const startY = spawn.y + CENTER_TO_FEET + 0.1;
     this.body = physics.world.createRigidBody(
@@ -207,6 +224,16 @@ export class PlayerController {
     return true;
   }
 
+  /**
+   * Gepufferte Sprung-Eingabe abholen, ohne Boden-Bedingung — für
+   * kontextabhängige Sprünge (Wall-Jump, Rail-Absprung).
+   */
+  consumeJumpRequest(): boolean {
+    if (performance.now() - this.jumpRequestedAt > JUMP_BUFFER_MS) return false;
+    this.jumpRequestedAt = -Infinity;
+    return true;
+  }
+
   /** Geschwindigkeit über den Character-Controller anwenden (Kollision). */
   applyMovement(dt: number): void {
     _move.x = this.velocity.x * dt;
@@ -282,18 +309,21 @@ export class PlayerController {
   // ---------------------------------------------------------- Sonstiges
 
   respawn(): void {
+    // Aktiven Zustand sauber verlassen (GRIND würde sonst die Position
+    // weiter auf die Rail setzen; WALLRUN/VAULT halten Referenzen)
+    if (this.fsm.current === 'GRIND') this.grinder.jumpOff(0);
+    if (this.fsm.current === 'BAIL') this.fsm.transition('RUN');
+    else this.fsm.transition('AIR'); // aus RUN/AIR/WALLRUN/GRIND/VAULT erlaubt
+
     const y = this.spawnPos.y + CENTER_TO_FEET + 0.1;
     this.body.setTranslation({ x: this.spawnPos.x, y, z: this.spawnPos.z }, true);
     this.body.setNextKinematicTranslation({ x: this.spawnPos.x, y, z: this.spawnPos.z });
     this.velocity.set(0, 0, 0);
     this.peakY = y;
     this.pendingLanding = null;
+    this.pendingVault = null;
     this.boostRemaining = 0;
     this.noAccelRemaining = 0;
-    if (this.fsm.current === 'BAIL') {
-      // Bail-Timer überspringen
-      this.fsm.transition('RUN');
-    }
   }
 
   getPosition(out: THREE.Vector3): THREE.Vector3 {

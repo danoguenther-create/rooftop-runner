@@ -43,3 +43,42 @@ export const ROLL_BOOST_S = 0.5;
 export const HARD_LANDING_LOCK_S = 0.3;
 /** Bail: Dauer der Aufsteh-Phase (s) */
 export const BAIL_S = 1.5;
+
+// ------------------------------------------------------------- Wall-Run
+/** Gravitation im Wall-Run (Faktor auf GRAVITY) */
+export const WALLRUN_GRAVITY_FACTOR = 0.25;
+/** Maximale Wall-Run-Dauer (ms) */
+export const WALLRUN_MAX_MS = 2000;
+/** Mindestgeschwindigkeit für Start & Fortsetzung (m/s) */
+export const WALLRUN_MIN_SPEED = 4;
+/** Wall-Jump: Impuls entlang der Wandnormale (m/s) */
+export const WALLJUMP_NORMAL_IMPULSE = 6;
+/** Wall-Jump: Impuls nach oben (m/s) */
+export const WALLJUMP_UP_IMPULSE = 5;
+/** Kamera-Roll zur Wand im Wall-Run (Grad) */
+export const WALLRUN_CAMERA_TILT_DEG = 10;
+/** Raycast-Länge der Wanderkennung (m) */
+export const WALLRUN_RAY_LEN = 0.8;
+
+// ------------------------------------------------------------- Vault
+/** Mindest-Speed für Vault (m/s) */
+export const VAULT_MIN_SPEED = 3;
+/** Hindernishöhe min/max (m, relativ zu den Füßen) */
+export const VAULT_MIN_HEIGHT = 0.5;
+export const VAULT_MAX_HEIGHT = 1.2;
+/** Dauer der Vault-Bewegung (s) */
+export const VAULT_DURATION_S = 0.4;
+/** Frühestens alle (ms) erneut vaulten */
+export const VAULT_COOLDOWN_MS = 500;
+
+// ------------------------------------------------------------- Rail-Grind
+/** Aufschnapp-Radius zur Rail (m) */
+export const GRIND_SNAP_RADIUS = 0.8;
+/** Mindest-Grind-Geschwindigkeit (m/s) */
+export const GRIND_MIN_SPEED = 5;
+/** Abbremsung auf der Rail (m/s²) */
+export const GRIND_FRICTION = 0.4;
+/** Absprung von der Rail: vertikale Geschwindigkeit (m/s) */
+export const GRIND_JUMP_VELOCITY = 7;
+/** Nach Verlassen: dieselbe Rail so lange nicht erneut fangen (ms) */
+export const GRIND_RESNAP_MS = 300;
