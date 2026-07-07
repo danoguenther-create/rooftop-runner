@@ -1,9 +1,14 @@
+import type { StateName } from '../player/PlayerStates';
+
 /**
  * Zentrales Event-Map-Interface. Jedes System, das Events einführt,
  * erweitert dieses Interface (Task-weise wachsend).
  */
 export interface GameEvents {
-  'debug:jumpPressed': void;
+  'player:stateChange': { from: StateName; to: StateName };
+  'player:roll': { fallHeight: number };
+  'player:hardLanding': { fallHeight: number };
+  'player:bail': { fallHeight: number };
 }
 
 type Handler<T> = (payload: T) => void;

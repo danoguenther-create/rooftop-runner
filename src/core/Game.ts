@@ -3,16 +3,8 @@ import { EventBus } from './EventBus';
 import { Input } from './Input';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
-
-/** Systeme mit Physik-Takt (1/60 s, deterministisch). */
-export interface FixedUpdatable {
-  fixedUpdate(dt: number): void;
-}
-
-/** Systeme mit Render-Takt (variabel: Kamera, Animation, UI). */
-export interface Updatable {
-  update(dt: number): void;
-}
+import { PlayerController } from '../player/PlayerController';
+import { FollowCamera } from '../camera/FollowCamera';
 
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
@@ -25,20 +17,19 @@ export class Game {
   readonly input: Input;
   readonly physics = new PhysicsWorld();
   readonly level: LevelLoader;
+  player!: PlayerController;
+  followCamera!: FollowCamera;
 
-  private fixedSystems: FixedUpdatable[] = [];
-  private frameSystems: Updatable[] = [];
   private clock = new THREE.Clock();
   private accumulator = 0;
 
-  // Stats-Overlay
+  // Overlays
   private statsEl: HTMLDivElement;
+  private debugEl: HTMLDivElement;
+  private hintEl: HTMLDivElement;
+  private debugVisible = true;
   private frameCount = 0;
   private statsTimer = 0;
-
-  // Temporär (Task 4/5): Physik-Demo-Box, fliegt mit dem Player-Task raus
-  private debugBoxMesh!: THREE.Mesh;
-  private debugBoxBody!: import('@dimforge/rapier3d-compat').RigidBody;
 
   constructor(canvas: HTMLCanvasElement) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
@@ -53,8 +44,6 @@ export class Game {
       0.1,
       500,
     );
-    this.camera.position.set(6, 5, 9);
-    this.camera.lookAt(0, 1.5, 0);
 
     this.input = new Input(canvas);
     this.level = new LevelLoader(this.scene, this.physics);
@@ -65,11 +54,37 @@ export class Game {
       this.renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
+    const hud = document.getElementById('hud')!;
+
     this.statsEl = document.createElement('div');
     this.statsEl.style.cssText =
       'position:absolute;top:8px;left:8px;padding:4px 8px;background:rgba(0,0,0,.55);' +
-      'color:#9f9;font:12px monospace;border-radius:4px;pointer-events:none;';
-    document.getElementById('hud')!.appendChild(this.statsEl);
+      'color:#9f9;font:12px monospace;border-radius:4px;';
+    hud.appendChild(this.statsEl);
+
+    // Debug-Panel (Task 9), F3 blendet um
+    this.debugEl = document.createElement('div');
+    this.debugEl.style.cssText =
+      'position:absolute;bottom:8px;left:8px;padding:4px 8px;background:rgba(0,0,0,.55);' +
+      'color:#fc6;font:12px monospace;border-radius:4px;white-space:pre;';
+    hud.appendChild(this.debugEl);
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'F3') {
+        e.preventDefault();
+        this.debugVisible = !this.debugVisible;
+        this.debugEl.style.display = this.debugVisible ? 'block' : 'none';
+      }
+    });
+
+    // Pointer-Lock-Hinweis
+    this.hintEl = document.createElement('div');
+    this.hintEl.textContent =
+      'Click to play — WASD laufen · Maus Kamera · Space Sprung · Shift Sprint · C Roll · R Respawn';
+    this.hintEl.style.cssText =
+      'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'padding:14px 22px;background:rgba(0,0,0,.65);color:#fff;font:15px system-ui;' +
+      'border-radius:8px;border:1px solid #ff6a00;';
+    hud.appendChild(this.hintEl);
 
     this.buildEnvironment();
   }
@@ -90,38 +105,15 @@ export class Game {
     this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x5a6b50, 1.2));
   }
 
-  addFixedSystem(system: FixedUpdatable): void {
-    this.fixedSystems.push(system);
-  }
-
-  addFrameSystem(system: Updatable): void {
-    this.frameSystems.push(system);
-  }
-
   /** Async wegen RAPIER.init(); erst danach startet der Loop. */
   async start(): Promise<void> {
     await this.physics.init();
 
-    // Level aus URL-Parameter (?level=...) oder Default laden
     const levelName = new URLSearchParams(location.search).get('level') ?? 'testlevel';
     await this.level.load(levelName);
 
-    // Kamera vorerst statisch schräg über dem Level (FollowCamera: Task 7)
-    this.camera.position.set(-18, 22, 32);
-    this.camera.lookAt(8, 2, 4);
-
-    // Physik-Demo: dynamische Box fällt über dem Spawn ins Level
-    const dyn = this.physics.addDynamicBox(
-      this.level.spawn.clone().add(new THREE.Vector3(0.5, 6, 0.5)),
-      new THREE.Vector3(1, 1, 1),
-    );
-    this.debugBoxBody = dyn.rigidBody;
-    this.debugBoxMesh = new THREE.Mesh(
-      new THREE.BoxGeometry(1, 1, 1),
-      new THREE.MeshStandardMaterial({ color: 0x3aa0ff }),
-    );
-    this.debugBoxMesh.castShadow = true;
-    this.scene.add(this.debugBoxMesh);
+    this.player = new PlayerController(this.physics, this.bus, this.scene, this.level.spawn);
+    this.followCamera = new FollowCamera(this.camera, this.player);
 
     this.clock.start();
     requestAnimationFrame(this.loop);
@@ -131,13 +123,16 @@ export class Game {
     const dt = Math.min(this.clock.getDelta(), 0.25);
     const input = this.input.poll();
 
-    if (input.jumpPressed) this.bus.emit('debug:jumpPressed', undefined);
+    this.hintEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
+
+    this.player.handleFrameInput(input);
+    this.player.cameraYaw = this.followCamera.getYaw();
 
     // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
     this.accumulator += dt;
     let steps = 0;
     while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
-      for (const s of this.fixedSystems) s.fixedUpdate(FIXED_DT);
+      this.player.fixedUpdate(FIXED_DT);
       this.physics.step();
       this.accumulator -= FIXED_DT;
       steps++;
@@ -145,17 +140,12 @@ export class Game {
     if (steps === MAX_STEPS) this.accumulator = 0; // Spiral of death vermeiden
 
     // Render-Takt
-    for (const s of this.frameSystems) s.update(dt);
-
-    // Temporäre Physik-Demo-Box animieren
-    const t = this.debugBoxBody.translation();
-    const r = this.debugBoxBody.rotation();
-    this.debugBoxMesh.position.set(t.x, t.y, t.z);
-    this.debugBoxMesh.quaternion.set(r.x, r.y, r.z, r.w);
+    this.player.update(dt);
+    this.followCamera.update(dt, input);
 
     this.renderer.render(this.scene, this.camera);
 
-    // Stats jede Sekunde
+    // Overlays
     this.frameCount++;
     this.statsTimer += dt;
     if (this.statsTimer >= 1) {
@@ -163,6 +153,12 @@ export class Game {
       this.statsEl.textContent = `${fps} fps · ${this.renderer.info.render.calls} calls`;
       this.frameCount = 0;
       this.statsTimer = 0;
+    }
+    if (this.debugVisible) {
+      this.debugEl.textContent =
+        `state: ${this.player.fsm.current}\n` +
+        `speed: ${this.player.horizontalSpeed.toFixed(1)} m/s\n` +
+        `grounded: ${this.player.grounded}`;
     }
 
     requestAnimationFrame(this.loop);

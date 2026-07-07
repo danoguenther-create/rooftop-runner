@@ -16,12 +16,14 @@ export interface InputState {
   sprintHeld: boolean;
   rollHeld: boolean;
   pausePressed: boolean;
+  respawnPressed: boolean;
 }
 
 export class Input {
   private keys = new Set<string>();
   private jumpQueued = false;
   private pauseQueued = false;
+  private respawnQueued = false;
   private accDX = 0;
   private accDY = 0;
   private pointerLocked = false;
@@ -36,6 +38,7 @@ export class Input {
     sprintHeld: false,
     rollHeld: false,
     pausePressed: false,
+    respawnPressed: false,
   };
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -44,6 +47,7 @@ export class Input {
       this.keys.add(e.code);
       if (e.code === 'Space') this.jumpQueued = true;
       if (e.code === 'Escape') this.pauseQueued = true;
+      if (e.code === 'KeyR') this.respawnQueued = true;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
@@ -79,6 +83,8 @@ export class Input {
     this.jumpQueued = false;
     s.pausePressed = this.pauseQueued;
     this.pauseQueued = false;
+    s.respawnPressed = this.respawnQueued;
+    this.respawnQueued = false;
     s.jumpHeld = this.keys.has('Space');
     s.sprintHeld = this.keys.has('ShiftLeft');
     s.rollHeld = this.keys.has('KeyC') || this.keys.has('ControlLeft');
