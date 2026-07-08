@@ -7,6 +7,7 @@ import type { LevelLoader } from '../level/LevelLoader';
 import { StateMachine } from './PlayerStates';
 import { AirTricks } from './AirTricks';
 import { Climber } from './Climb';
+import { Swinger } from './Swing';
 import { WallRunDetector, type WallHit, type WallSide } from './WallRun';
 import { VaultDetector, type VaultPlan } from './Vault';
 import { RailGrinder } from './RailGrind';
@@ -66,6 +67,8 @@ export class PlayerController {
   private diving = false;
   /** Wandlauf + Ledge-Grab (Task 16b) */
   readonly climb = new Climber();
+  /** Stangenschwingen (Task 16c) */
+  readonly swinger: Swinger;
   /** Aktueller Wanderkennungs-Treffer (AIR) bzw. aktive Wand (WALLRUN) */
   wallHit: WallHit | null = null;
   /** Für Kamera-Tilt + Debug: Seite der aktiven Wall-Run-Wand */
@@ -104,6 +107,7 @@ export class PlayerController {
     const spawn = level.spawn;
     this.spawnPos.copy(spawn);
     this.grinder = new RailGrinder(this);
+    this.swinger = new Swinger(this);
 
     const startY = spawn.y + CENTER_TO_FEET + 0.1;
     this.body = physics.world.createRigidBody(
@@ -299,6 +303,7 @@ export class PlayerController {
   onLanded(): boolean {
     const fallHeight = Math.max(0, this.peakY - this.body.translation().y);
     this.lastFallHeight = fallHeight;
+    this.swinger.resetChain(); // Bodenkontakt beendet die Stangen-Kette
 
     // Lufttricks zuerst: unfertige Rotation überstimmt die Roll-Logik
     if (this.airTricks.evaluateLanding(this.bus, this.horizontalSpeed)) {
@@ -373,6 +378,7 @@ export class PlayerController {
     // Aktiven Zustand sauber verlassen (GRIND/HANG würden sonst die
     // Position weiter setzen; WALLRUN/VAULT halten Referenzen)
     if (this.fsm.current === 'GRIND') this.grinder.jumpOff(0);
+    if (this.fsm.current === 'SWING') this.swinger.release();
     if (this.fsm.current === 'BAIL') this.fsm.transition('RUN');
     else this.fsm.transition('AIR'); // aus RUN/AIR/WALLRUN/GRIND/VAULT erlaubt
 

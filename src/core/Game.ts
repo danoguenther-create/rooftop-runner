@@ -146,6 +146,7 @@ export class Game {
     );
     this.bus.on('trick:spin', (e) => trackTrick(`spin (${e.halfTurns * 180}°)`));
     this.bus.on('trick:diveroll', (e) => trackTrick(`diveroll (${e.fallHeight.toFixed(1)}m)`));
+    this.bus.on('trick:swing', (e) => trackTrick(`swing (x${e.chain})`));
 
     this.clock.start();
     requestAnimationFrame(this.loop);

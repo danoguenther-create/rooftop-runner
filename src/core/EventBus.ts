@@ -25,6 +25,8 @@ export interface GameEvents {
   'trick:spin': { halfTurns: number };
   /** Diveroll: Hechtsprung (C in der Luft gehalten) mit Auto-Rolle gelandet. */
   'trick:diveroll': { fallHeight: number };
+  /** Stangen-Abgang; chain = Stangen in Folge ohne Bodenkontakt. */
+  'trick:swing': { chain: number };
   /** Laufende Combo geändert (Trick hinzugekommen) oder beendet (active=false). */
   'score:combo': { sum: number; multiplier: number; active: boolean };
   /** Combo sauber gebankt: amount = sum × multiplier. */

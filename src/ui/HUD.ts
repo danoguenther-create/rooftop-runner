@@ -129,6 +129,7 @@ export class HUD {
     });
     bus.on('trick:spin', ({ halfTurns }) => this.tick(`${halfTurns * 180}!`));
     bus.on('trick:diveroll', () => this.tick('DIVEROLL'));
+    bus.on('trick:swing', ({ chain }) => this.tick(chain > 1 ? `BAR ×${chain}` : 'SWING'));
     bus.on('trick:grindStart', () => {
       this.grindTickerEntry = this.tick('GRIND');
     });

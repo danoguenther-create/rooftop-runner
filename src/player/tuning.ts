@@ -137,3 +137,23 @@ export const HANG_CENTER_BELOW = 0.7;
 export const MANTLE_S = 0.7;
 /** Hangeln entlang der Kante (m/s) */
 export const SHIMMY_SPEED = 1.5;
+
+// ------------------------------------------------------------- Bar-Swing (Task 16c)
+/** Aufschnapp-Radius der Hände zur Stange (m) */
+export const SWING_SNAP = 0.7;
+/** Pendelradius Stange -> Körperzentrum (m) */
+export const SWING_RADIUS = 1.1;
+/** Dämpfung der Pendelbewegung (1/s) */
+export const SWING_DAMPING = 0.4;
+/** Pump-Stärke mit W/S nahe dem Tiefpunkt (rad/s²-Äquivalent) */
+export const SWING_PUMP = 2.5;
+/** Nur innerhalb dieses Winkels vom Tiefpunkt pumpen (°) */
+export const SWING_PUMP_PHI_DEG = 30;
+/** Kleiner Aufwärts-Bonus beim Loslassen (m/s) */
+export const SWING_RELEASE_UP = 1.5;
+/** Hände über dem Körperzentrum (m) */
+export const SWING_HAND_OFFSET = 0.6;
+/** Nach Loslassen: dieselbe Stange so lange nicht erneut fangen (ms) */
+export const SWING_RESNAP_MS = 300;
+/** Kein Aufschnappen, wenn schneller als so aufwärts (m/s) */
+export const SWING_MAX_VY = 2;

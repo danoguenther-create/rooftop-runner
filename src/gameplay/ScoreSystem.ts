@@ -23,6 +23,8 @@ const BASE_POINTS: Record<string, number> = {
   spin2: 200,
   spin3: 400,
   diveroll: 75,
+  swing: 100,
+  swingChain: 50,
 };
 
 /** Roll zählt nur nach echten Stürzen als Trick. */
@@ -74,6 +76,11 @@ export class ScoreSystem {
     // Diveroll punktet erst ab echter Sprunghöhe (kein Farmen auf Flachsprüngen)
     bus.on('trick:diveroll', ({ fallHeight }) => {
       if (fallHeight >= 2) this.addTrick('diveroll');
+    });
+    bus.on('trick:swing', ({ chain }) => {
+      this.addTrick('swing');
+      // Kettenbonus: +50 je weitere Stange, ohne zweiten Multiplikator-Schritt
+      for (let i = 1; i < chain; i++) this.addTrick('swingChain', false);
     });
 
     bus.on('player:bail', () => this.discard());

@@ -19,17 +19,18 @@ import {
   WALLRUN_MIN_SPEED,
 } from './tuning';
 
-export type StateName = 'RUN' | 'AIR' | 'WALLRUN' | 'GRIND' | 'VAULT' | 'BAIL' | 'HANG';
+export type StateName = 'RUN' | 'AIR' | 'WALLRUN' | 'GRIND' | 'VAULT' | 'BAIL' | 'HANG' | 'SWING';
 
-/** Erlaubte Übergänge (Tasks 9/11/12/13/16b). */
+/** Erlaubte Übergänge (Tasks 9/11/12/13/16b/16c). */
 const ALLOWED: Record<StateName, readonly StateName[]> = {
   RUN: ['AIR', 'VAULT', 'BAIL'],
-  AIR: ['RUN', 'WALLRUN', 'GRIND', 'VAULT', 'BAIL', 'HANG'],
+  AIR: ['RUN', 'WALLRUN', 'GRIND', 'VAULT', 'BAIL', 'HANG', 'SWING'],
   WALLRUN: ['AIR'],
   GRIND: ['AIR'],
   VAULT: ['RUN', 'AIR'],
   BAIL: ['RUN'],
   HANG: ['AIR', 'RUN'],
+  SWING: ['AIR'],
 };
 
 export abstract class PlayerState {
@@ -53,6 +54,7 @@ export class StateMachine {
       VAULT: new VaultState(player),
       BAIL: new BailState(player),
       HANG: new HangState(player),
+      SWING: new SwingState(player),
     };
     this.currentState = this.states.AIR; // Spawn: fällt kurz auf den Boden
     this.currentState.enter();
@@ -120,6 +122,12 @@ class AirState extends PlayerState {
     // Rail fangen? (spezifischster Move zuerst)
     if (p.grinder.trySnap()) {
       p.fsm.transition('GRIND');
+      return;
+    }
+
+    // Stange von unten? -> SWING
+    if (p.swinger.trySnap()) {
+      p.fsm.transition('SWING');
       return;
     }
 
@@ -319,6 +327,26 @@ class BailState extends PlayerState {
     p.applyMovement(dt);
     this.remaining -= dt;
     if (this.remaining <= 0) p.fsm.transition('RUN');
+  }
+}
+
+// --------------------------------------------------------------- SWING (Task 16c)
+
+class SwingState extends PlayerState {
+  readonly name = 'SWING' as const;
+
+  override update(dt: number): void {
+    const p = this.player;
+
+    // Loslassen: Pendel-Timing bestimmt die Flugbahn
+    if (p.consumeJumpRequest()) {
+      const chain = p.swinger.release();
+      p.bus.emit('trick:swing', { chain });
+      p.fsm.transition('AIR');
+      return;
+    }
+
+    p.swinger.ride(dt);
   }
 }
 
