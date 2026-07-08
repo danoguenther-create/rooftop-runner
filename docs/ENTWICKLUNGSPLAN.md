@@ -161,31 +161,40 @@ Feeling-Details, die den Unterschied zwischen "billig" und "gut" machen (alle im
 - **Momentum:** Beschleunigung/Abbremsung über Lerp statt Sofort-Geschwindigkeit; Sprint erhöht Maximalgeschwindigkeit von 6 auf 9 m/s.
 
 ### Zustandsmaschine (FSM)
-Der Spieler ist immer in genau einem Zustand: `RUN | AIR | WALLRUN | GRIND | VAULT | BAIL`. Jeder Zustand ist eine Klasse mit `enter() / update(dt) / exit()`. Übergänge sind explizit erlaubt/verboten (z. B. `GRIND → WALLRUN` nur via Sprung). Die FSM ist das Rückgrat: Animation, Kamera-Verhalten und Score-Events hängen alle am Zustandswechsel. **Dieser Task muss vor allen Parkour-Moves fertig sein.**
+Der Spieler ist immer in genau einem Zustand: `RUN | AIR | WALLRUN | GRIND | VAULT | BAIL` — ab M3.5 kommen `HANG` (Kantenhang) und `SWING` (Stangenschwingen) hinzu, und `GRIND` wird zu `BALANCE` umgebaut (siehe Design-Update 2026-07-08 unten). Jeder Zustand ist eine Klasse mit `enter() / update(dt) / exit()`. Übergänge sind explizit erlaubt/verboten (z. B. `GRIND → WALLRUN` nur via Sprung). Die FSM ist das Rückgrat: Animation, Kamera-Verhalten und Score-Events hängen alle am Zustandswechsel. **Dieser Task muss vor allen Parkour-Moves fertig sein.**
 
 ### Wall-Run-Erkennung
 Zwei horizontale Raycasts (links/rechts vom Spieler, Länge 0.8 m) pro Frame, nur im Zustand `AIR`. Bedingungen für Start: Wand-Normale annähernd horizontal (|n.y| < 0.3), horizontale Geschwindigkeit > 4 m/s, Blickrichtung nicht frontal in die Wand. Im Wall-Run: Gravitation auf 25 % reduziert, Bewegung entlang der Wandtangente, Max-Dauer 2 s, Kamera neigt sich 10° zur Wand. Abbruch: Taste loslassen, Wand endet (Raycast verliert Kontakt), oder Wall-Jump (Impuls = Wandnormale × 6 + hoch × 5).
 
-### Rail-Grinding [schwierigster Teil des Projekts]
-Rails stehen im Level-JSON als Punktlisten (`[[x,y,z], ...]`). Der LevelLoader baut daraus `THREE.CatmullRomCurve3` + ein Rohr-Mesh (`TubeGeometry`). **Kein Physik-Collider für Rails** — Grinding ist rein kinematisch:
-- **Aufschnappen:** Im Zustand `AIR` mit Fallgeschwindigkeit ≥ 0 wird die nächstgelegene Rail-Kurve gesucht (Sampling: 50 Punkte pro Kurve cachen, Distanz < 0.8 m). Bei Treffer: Zustand `GRIND`, Spieler wird auf die Kurve gesetzt.
-- **Fahren:** Kurvenparameter `t` läuft mit konstanter Geschwindigkeit (Startgeschwindigkeit = horizontale Geschwindigkeit beim Aufschnappen, min. 5 m/s) entlang der Kurve; Fahrtrichtung = Vorzeichen des Skalarprodukts aus Spielergeschwindigkeit und Kurventangente beim Aufschnappen. Spieler-Rotation folgt der Tangente.
-- **Verlassen:** Sprung (→ `AIR` mit Tangenten-Momentum + Sprungimpuls) oder Kurvenende (→ `AIR`).
-- Balance-Minispiel wie in THPS: **bewusst weggelassen** (Phase 3-Kandidat) — es verdoppelt die Komplexität für wenig MVP-Wert.
+### Rails: Balancieren, Schwingen, Precision [schwierigster Teil des Projekts]
+**Design-Update 2026-07-08:** Rail-Slides gibt es im echten Parkour nicht. Das ursprünglich geplante THPS-Grinden (in M2 als erster Wurf gebaut) wird in M3.5 (Task 16d) zum parkour-authentischen **Balancieren** umgebaut. Die technische Basis bleibt: Rails stehen im Level-JSON als Punktlisten (`[[x,y,z], ...]`), der LevelLoader baut daraus `THREE.CatmullRomCurve3` + ein Rohr-Mesh (`TubeGeometry`), **kein Physik-Collider für Rails** — alles rein kinematisch über den Bogenlängen-Parameter (Aufschnappen: 50 gecachte Sample-Punkte pro Kurve, Distanz < 0.8 m). Der Anflug entscheidet, was passiert:
+- **Von oben landen → `BALANCE`:** Der Landeschwung trägt kurz weiter, dann kontrolliertes Balancieren: W/S bewegt vor/zurück (Gehtempo), seitliches Schwanken muss mit A/D ausgeglichen werden; kippt die Balance zu weit, fällt der Spieler. Je schneller gegangen wird, desto stärker das Schwanken (Risk/Reward).
+- **Von unten anfliegen → `SWING`:** Rails mit Freiraum darunter funktionieren automatisch als Schwungstangen (siehe Bar-Swing im Design-Update unten). Kein eigener Objekttyp im Level-JSON nötig.
+- **Precision-Landung auf der Rail:** Landung aus > 2 m Fall + sofort gefangen → Precision-Bonus zusätzlich zum Balance-Einstieg (läuft über die Kanten-Precision aus Task 15c — schmaler als eine Rail wird ein Precision-Ziel nicht).
+- **Verlassen:** Sprung (→ `AIR` mit Momentum + Sprungimpuls), Kurvenende oder Balance-Sturz.
 
 ### Vault (Hindernis-Überwinden)
 Raycast nach vorn auf Hüfthöhe (1 m, Länge 1 m). Treffer + freier Raum darüber (zweiter Raycast auf 1.6 m Höhe trifft nichts) + Hindernishöhe 0.5–1.2 m → Zustand `VAULT`: Spieler wird über 0.4 s entlang einer kleinen Bogen-Kurve über das Hindernis bewegt (Positions-Lerp, Collider währenddessen ignoriert), dann zurück zu `RUN`/`AIR`.
 
+### Erweitertes Movement (Design-Update 2026-07-08 — Tasks 15b/15c & M3.5)
+- **Flips (Task 15b):** In der Luft per Pfeiltaste — ↑ Frontflip, ↓ Backflip, ←/→ Sideflip. Erneutes Drücken während der Rotation hängt eine weitere Umdrehung an (**Double/Triple**). Punkte gibt es nur, wenn die Rotation bei der Landung vollendet ist — sonst Bail. Mehrfach-Flips brauchen also echte Fallhöhe. Bis Task 21 rotiert das Platzhalter-Mesh sichtbar mit.
+- **Spins 180/360 (Task 15b):** Q/E drehen um die Hochachse, gezählt in 180°-Schritten. Nach der Landung läuft der Spieler in Kamerarichtung weiter — ein Spin verhunzt nicht die Steuerung. Mit Flips kombinierbar („360 Frontflip"), zählt als eigener Trick für den Multiplikator.
+- **Gainer:** Rückwärtsflip beim Vorwärts-Abgang (von der Kante oder aus dem SWING-Loslassen) — wird automatisch erkannt (Flugrichtung vorwärts + Backflip) und bringt einen Punktebonus.
+- **Diveroll (Task 15c):** C bereits **in der Luft gehalten** = Hechtsprung: Körper kippt nach vorn, Flugbahn wird flacher/weiter, die Landung geht automatisch in die Rolle über (größerer Speed-Boost als die normale Landeroll). Wer den Dive ansetzt, aber nicht rollt, bailt schon ab geringerer Höhe — Risk/Reward.
+- **Kanten-Precision (Task 15c):** Echte Precision-Jumps zielen auf Kanten, nicht auf Markierungen. Landung näher als ~0,35 m an der Oberkante einer beliebigen Plattform + Sprung sauber gestanden (Tempo binnen ~0,3 s unter Kontrolle) → Precision-Bonus auf **jeder** Kante im Level, ohne Marker. Die leuchtenden Precision-Pads bleiben als sichtbare, besonders wertvolle Challenge-Ziele. Die Kantendistanz wird aus der Box-Level-Geometrie berechnet — dieselbe Infrastruktur wie die Ledge-Erkennung fürs Klettern.
+- **Vertikaler Wandlauf + Hang/Climb (M3.5, Task 16b):** Frontal mit Tempo gegen eine Wand = 2–3 Schritte hoch (~1,5–2 m, abklingend). Kommt die Wand-Oberkante in Griffweite → `HANG`: an der Kante hängen, W/Space = hochziehen (Mantle ~0,7 s), S = fallen lassen, A/D = hangeln. Greifen geht auch direkt aus dem Fall, wenn Richtung Wand gedrückt wird — rettet knapp verfehlte Sprünge.
+- **Bar-Swing (M3.5, Task 16c):** Hände in Reichweite einer Stange (= Rail von unten) → `SWING`: Pendel um die Stange, das Anflugtempo wird in Schwung umgesetzt, W/S pumpt nach. Space = loslassen — der Zeitpunkt im Pendel bestimmt die Flugbahn (früh unten = weit und flach, später im Aufschwung = hoch). Stange-zu-Stange-Ketten treiben den Combo-Multiplikator; die Flip-Tasten sind beim Loslassen scharf (→ Gainer).
+
 ### Trick-/Combo-/Score-System
 Reines Event-Konsumenten-System, keine Physik:
-- Jede Aktion emittiert ein Event: `trick:wallrun` (+100 Basis), `trick:grind` (+50/Sekunde), `trick:vault` (+75), `trick:walljump` (+150), `trick:gap` (+200, Sprung über markierte Lücke), `trick:precision` (+250, Landung in markierter Zone).
+- Jede Aktion emittiert ein Event: `trick:wallrun` (+100 Basis), `trick:balance` (50 Einstieg + 50/Sekunde + 100 volle Länge; bis Task 16d heißt das Event noch `trick:grind*`), `trick:vault` (+75), `trick:walljump` (+150), `trick:gap` (+200, Sprung über markierte Lücke), `trick:precision` (+250, Landung auf Pad, Kante oder Rail), `trick:flip` (120 / Double 300 / Triple 600; Gainer-Bonus +150), `trick:spin` (180° = 80, 360° = 200, 540° = 400), `trick:diveroll` (+75), `trick:swing` (+100 pro Stangen-Abgang, +50 je weitere Stange in einer Kette ohne Bodenkontakt).
 - **Combo:** Läuft, solange der Spieler nicht länger als 1,5 s im Zustand `RUN` ohne neuen Trick ist. Multiplikator = Anzahl Tricks in der Combo (max ×10). Combo-Punkte = Summe der Basispunkte × Multiplikator.
 - **Banking:** Combo wird gutgeschrieben, wenn sie sauber endet (Timeout im Stand). **Bail** (Sturz aus > 6 m Fallhöhe ohne Roll-Taste, oder frontal mit > 7 m/s gegen Wand) = Combo verfällt, 1,5 s Aufsteh-Animation.
 
 ## 2.3 Kamera & Steuerung (Desktop)
 
 - **Kamera:** Third-Person-Follow. Sollposition = Spieler − Blickrichtung × 4,5 m + hoch 2 m; Glättung per `damp` (framerate-unabhängig!), Maus steuert Orbit (Pointer Lock API), Raycast von Spieler zu Kamera verhindert Wand-Clipping (Kamera rückt näher). FOV steigt mit Geschwindigkeit (60° → 75°) — billiger, wirkungsvoller Speed-Effekt.
-- **Tasten:** WASD bewegen · Maus Kamera · Leertaste Sprung (kontextabhängig: Wall-Jump im Wall-Run, Absprung im Grind) · Shift Sprint · Strg/C Roll-Landung · R Respawn am letzten Checkpoint · Esc Pause. Vault triggert automatisch (kein Extra-Knopf — reduziert Frust).
+- **Tasten:** WASD bewegen · Maus Kamera · Leertaste Sprung (kontextabhängig: Wall-Jump im Wall-Run, Absprung auf der Rail, Loslassen im Swing) · Shift Sprint · Strg/C Roll-Landung, in der Luft gehalten = Diveroll · Pfeiltasten Flips (↑ Front, ↓ Back, ←/→ Side; erneut drücken = Double/Triple) · Q/E Spin 180°-Schritte · R Respawn am letzten Checkpoint · Esc Pause. Vault und Ledge-Grab triggern automatisch (kein Extra-Knopf — reduziert Frust); im HANG: W/Space hochziehen, S loslassen, A/D hangeln.
 
 ## 2.4 City-Map: Beschaffung & Aufbau
 
@@ -213,7 +222,7 @@ Konkret: `MeshLambertMaterial`/`MeshStandardMaterial` mit Vertex-Colors oder Min
 
 | Kategorie | Quelle | Lizenz | Hinweis |
 |---|---|---|---|
-| Charakter + Animationen | **Mixamo** (mixamo.com, Adobe-Konto nötig, kostenlos) | Adobe-Nutzungsbedingungen: Nutzung in eigenen Spielen inkl. kommerziell erlaubt; **Weiterverkauf der rohen Assets verboten** | Charakter "X Bot"/"Y Bot" oder eigenen Charakter hochladen (Auto-Rigging). Benötigte Clips: Idle, Run, Sprint, Jump, Fall, Roll, Wall-Run (li/re, notfalls "Running Slide" zweckentfremden), Vault, Balance/Grind (z. B. "Skateboarding"-Pose), Stumble/Fall Flat |
+| Charakter + Animationen | **Mixamo** (mixamo.com, Adobe-Konto nötig, kostenlos) | Adobe-Nutzungsbedingungen: Nutzung in eigenen Spielen inkl. kommerziell erlaubt; **Weiterverkauf der rohen Assets verboten** | Charakter "X Bot"/"Y Bot" oder eigenen Charakter hochladen (Auto-Rigging). Benötigte Clips: Idle, Run, Sprint, Jump, Fall, Roll, Wall-Run (li/re, notfalls "Running Slide" zweckentfremden), Vault, Balance-Walk, Front Flip/Backflip, Hanging Idle + Shimmy + Climb (Mantle), Swing, Stumble/Fall Flat |
 | Stadt-Props, Module | **Kenney.nl** (City Kit, Roads, Props) | CC0 (keinerlei Auflagen) | Erste Wahl, konsistenter Stil |
 | Low-Poly-Gebäude, Props | **Quaternius.com** | CC0 | Passt stilistisch zu Kenney |
 | Einzelne Modelle | **Sketchfab** (Filter: Downloadable + CC) | Pro Asset prüfen! CC-BY erfordert Namensnennung (Credits-Screen) | Lizenz je Asset dokumentieren (eine `CREDITS.md` pflegen) |
@@ -430,8 +439,9 @@ Realistisch einplanen: Store-Bürokratie (Konten, Formulare, Screenshots, Testph
 | **M0 — Fundament** | Projekt, Deployment, Game-Loop, Physik | 1–4 | Drehender Würfel + fallende Physik-Box online auf GitHub Pages |
 | **M1 — Movement-MVP** | Testlevel, Laufen, Springen, Kamera, Feeling | 5–9 | Man kann mit gutem Gefühl durch das Graybox-Level laufen und springen |
 | **M2 — Parkour-Kern** | Wall-Run, Wall-Jump, Vault, Rail-Grind | 10–14 | Alle vier Moves funktionieren im Testlevel; **Spielspaß-Check:** 10 Min. spielen macht Lust auf mehr — sonst erst tunen, nicht weiterbauen! |
-| **M3 — Spiel-MVP** | Score/Combo, HUD, Bail | 15–16 | Ein Run erzeugt nachvollziehbare Punkte mit Combo-Multiplikator |
-| **M4 — Vertical Slice** | City-Level, Collectibles, Zeitrennen, Missionen | 17–20 | Ein schöner Stadt-Distrikt mit 3 Missionen, Sammelobjekten, Zeitrennen |
+| **M3 — Spiel-MVP** | Score/Combo, HUD, Bail; Flips/Spins/Gainer, Diveroll, Kanten-Precision | 15, 15b, 15c, 16 | Ein Run erzeugt nachvollziehbare Punkte mit Combo-Multiplikator; Lufttricks funktionieren inkl. Bail bei unfertiger Rotation |
+| **M3.5 — Advanced Movement** | Vertikaler Wandlauf, Ledge-Hang/Climb, Bar-Swing, Rail-Umbau Grind→Balance | 16b–16d | Klettern, Hangeln, Stangenschwingen und Balancieren funktionieren im erweiterten Testlevel |
+| **M4 — Vertical Slice** | City-Level, Collectibles, Zeitrennen, Missionen | 17–20 | Ein schöner Stadt-Distrikt mit 3 Missionen, Sammelobjekten, Zeitrennen; nutzt alle Movement-Mechaniken |
 | **M5 — Präsentation** | Charakter + Animationen, Audio, Menüs, Save | 21–24 | Sieht und klingt nach echtem Spiel; Fortschritt bleibt erhalten |
 | **M6 — Web-Release** | Supabase-Auth, Leaderboard, Impressum/DSGVO, Performance-Pass | 25–28 | Öffentlich spielbar mit Online-Highscores und Rechtstexten |
 | **M7 — Mobile** | Capacitor, Touch, Store-Release | 29–31 | Läuft auf deinem Android-Gerät / TestFlight; Store-Einreichung raus |
@@ -826,7 +836,7 @@ Drüber-Steigen ohne Hängenbleiben; gegen hohe Wände passiert weiterhin nichts
 
 - **Verifikation:** Alle drei Vault-Hindernisse im Testlevel funktionieren; hohe Wände nicht.
 
-### Task 13 — Rail-Grind **[OPUS]**
+### Task 13 — Rail-Grind **[OPUS]** *(Design-Update 2026-07-08: wird in Task 16d zum Balance-System umgebaut)*
 - **Ziel:** Aufschnappen, Fahren, Abspringen auf Rails.
 - **Abhängigkeiten:** Task 9, Task 5 (railCurves). **Dateien:** `src/player/RailGrind.ts`, `src/player/PlayerStates.ts`, `src/player/tuning.ts`.
 - **Build-Prompt:**
@@ -902,6 +912,9 @@ TASK 15 — Score & Combo
 src/gameplay/ScoreSystem.ts, rein eventgetrieben (lauscht auf dem EventBus):
 - Basispunkte: wallrun 100, walljump 150, vault 75, grindStart 50 +
   grindTick 50, gap 200, precision 250, roll (nach >4 m Fall) 50.
+- Basispunkte als zentrale, leicht erweiterbare Tabelle (Record<string,
+  number>) — Tasks 15b/15c und M3.5 ergänzen flip/spin/diveroll/
+  balance/swing, ohne die Combo-Logik anzufassen.
 - Combo-Logik: Erster Trick startet eine Combo. Jeder weitere Trick erhöht
   den Multiplikator um 1 (max 10) und fügt Basispunkte zur Combo-Summe
   hinzu. Die Combo endet ("Banking": comboSumme × Multiplikator wird dem
@@ -917,6 +930,77 @@ Walljump -> Grind -> Gap -> saubere Landung ergibt (100+150+50+…+200) × 4+.
 ```
 
 - **Verifikation:** Kette aus 3+ Tricks bankt korrekt; Bail verwirft.
+
+### Task 15b — Flips & Spins (Lufttricks) **[OPUS]**
+- **Ziel:** Front-/Back-/Sideflips (auch Double/Triple), 180°/360°-Spins, Gainer-Erkennung.
+- **Abhängigkeiten:** Tasks 9, 15. **Dateien:** `src/player/AirTricks.ts`, `src/core/Input.ts`, `src/player/PlayerController.ts`, `src/player/PlayerStates.ts`, `src/player/tuning.ts`, `src/gameplay/ScoreSystem.ts`.
+- **Build-Prompt:**
+
+```text
+TASK 15B — Flips & Spins
+1) Input.ts: Pfeiltasten als Edge-Trigger flipQueued: 'front'|'back'|
+   'left'|'right'|null; KeyQ/KeyE als spinQueued: -1|0|+1 (pro Frame
+   gepollt, wie jumpPressed).
+2) src/player/AirTricks.ts: verwaltet aktive Rotationen, nur solange der
+   Spieler in der Luft ist (AIR, später auch SWING-Abgang):
+   - Flip: startet bei flipQueued; 360° Rotation über FLIP_DURATION_S=0.55
+     um die kamerarelative Achse (front/back = Querachse, left/right =
+     Längsachse). Erneutes Drücken derselben Richtung während der Rotation
+     queued eine weitere Umdrehung (max 3, Dauer je +0.55 s).
+   - Spin: Q/E addieren je 180° Soll-Rotation um die Hochachse,
+     Drehgeschwindigkeit SPIN_SPEED_DEG=540/s. Spins beeinflussen NUR das
+     Mesh und die Trick-Zählung — nicht Bewegungsrichtung, nicht Kamera.
+   - Alle Rotationen wirken rein visuell auf player.mesh (die
+     Physik-Kapsel rotiert nie).
+3) Landung (in onLanded, VOR der Roll-/Bail-Logik):
+   - Flip aktiv und Fortschritt der letzten Umdrehung >= FLIP_COMPLETE_
+     MIN=0.8 -> Event trick:flip { kind, count, gainer }; darunter ->
+     erzwungener BAIL (Combo weg), Mesh-Rotation zurücksetzen.
+   - Spin: abgeschlossene 180°-Schritte werten (trick:spin { halfTurns }),
+     Rest < 60° wird verziehen (Mesh snappt auf die nächste Stufe).
+   - Gainer: kind='back' UND horizontale Bewegung vorwärts
+     (dot(velocity, Blickrichtung) > 2 m/s) -> gainer:true im Event.
+4) ScoreSystem erweitern: flip 120/300/600 (count 1/2/3), gainer +150,
+   spin 80/200/400 (halfTurns 1/2/>=3), beide erhöhen den Multiplikator.
+5) Alle neuen Konstanten nach tuning.ts.
+Fertig, wenn: Sprung von hoher Plattform + 2x Pfeil-runter = Double-
+Backflip mit 300 Punkten; halb fertige Rotation bei Landung = Bail;
+Q-360 über einem Gap stapelt die Combo.
+```
+
+- **Verifikation:** Alle 4 Flip-Richtungen + Double auf hoher Plattform; unfertige Rotation → Bail; Spin ändert die Laufrichtung nach der Landung nicht.
+
+### Task 15c — Diveroll & Kanten-Precision **[S5]**
+- **Ziel:** Aktiver Hechtsprung mit Auto-Rolle; Precision-Bonus auf jeder Plattformkante, ohne Marker.
+- **Abhängigkeiten:** Tasks 8, 15. **Dateien:** `src/player/PlayerController.ts`, `src/gameplay/EdgeDetection.ts`, `src/gameplay/Markers.ts`, `src/player/tuning.ts`, `src/gameplay/ScoreSystem.ts`.
+- **Build-Prompt:**
+
+```text
+TASK 15C — Diveroll & Kanten-Precision
+1) Diveroll: Wird C in der Luft GEHALTEN (nicht nur im Landefenster
+   gedrückt), kippt das Mesh nach vorn (Dive-Pose) und die Flugbahn wird
+   flacher/weiter: solange vy > 0 und C gehalten gilt GRAVITY*0.75.
+   Die Landung geht automatisch in die Rolle über: ROLL_BOOST_DIVE=1.35
+   (statt 1.2), Event trick:diveroll. Wird der Dive angesetzt, aber C vor
+   der Landung losgelassen (keine Rolle), gilt die Bail-Schwelle schon ab
+   LANDING_SOFT_M (3 m) statt 6 m.
+2) src/gameplay/EdgeDetection.ts: sammelt beim Levelladen alle begehbaren
+   Top-Flächen der Boxen/Rampen (pos/size/rotY aus dem LevelLoader).
+   API: distanceToTopEdge(point): horizontale Distanz des Punkts zur
+   nächsten Kante der Fläche, auf der er steht (null, wenn auf keiner).
+3) Kanten-Precision: Bei Landung (AIR->RUN) mit lastFallHeight >= 2 m:
+   distanceToTopEdge <= 0.35 UND der Spieler "steht den Sprung"
+   (horizontale Geschwindigkeit fällt binnen 0.3 s unter 2 m/s, kein
+   Zustandswechsel) -> trick:precision { id: 'edge' } (+250 wie gehabt).
+   3 s Cooldown pro Fläche. Die leuchtenden Precision-PADS aus Task 14
+   bleiben unverändert parallel bestehen.
+Fertig, wenn: Sprung von hoher Plattform + C halten = sichtbar weiterer
+Flug + Rolle mit stärkerem Boost; Landung nahe einer Plattformkante +
+sofort stehen bleiben gibt "PRECISION" ohne Pad — mitten auf der
+Plattform gibt es nichts.
+```
+
+- **Verifikation:** Diveroll-Weite messbar größer; Kanten-Landung mittig auf der Fläche gibt keinen Bonus; Dive ohne Rolle bailt ab 3 m.
 
 ### Task 16 — HUD **[S5]**
 - **Ziel:** Sichtbares Feedback statt Konsole.
@@ -944,11 +1028,118 @@ Fertig, wenn: Ein Parkour-Run liest sich komplett im HUD ohne Konsole.
 
 ---
 
+## M3.5 — Advanced Movement (Design-Update 2026-07-08)
+
+Parkour-authentische Vertikal-Mechaniken: Klettern, Hangeln, Stangenschwingen — und der Umbau des THPS-Grinds zum Balancieren. **Muss vor dem City-Level (M4) fertig sein**, damit das Leveldesign Kletterwände, Hangelkanten und Stangen von Anfang an einplant.
+
+### Task 16b — Vertikaler Wandlauf + Ledge-Hang + Climb **[OPUS]**
+- **Ziel:** Frontal die Wand hochlaufen, an Kanten hängen, hochziehen, hangeln.
+- **Abhängigkeiten:** Tasks 9–11, 15c (EdgeDetection). **Dateien:** `src/player/Climb.ts`, `src/player/PlayerStates.ts`, `src/player/PlayerController.ts`, `src/player/tuning.ts`, `public/levels/testlevel.json`.
+- **Build-Prompt:**
+
+```text
+TASK 16B — Vertikaler Wandlauf + Hang/Climb
+1) Neuer FSM-Zustand HANG. Erlaubte Übergänge: AIR->HANG, HANG->AIR
+   (loslassen), HANG->RUN (Mantle abgeschlossen).
+2) Vertikaler Wandlauf: Im AIR- oder RUN-Zustand frontal gegen eine Wand
+   (dot(moveDir, -wandNormale) > 0.7, |normal.y| < 0.3) mit hSpeed >= 4:
+   vy = min(vy + WALLCLIMB_BOOST=6, 7), wirkt einmalig, klingt über
+   WALLCLIMB_MAX_MS=700 ab; danach leichter Push von der Wand weg.
+   Kein eigener FSM-Zustand (bleibt AIR), aber Flag isWallClimbing für
+   das spätere Animations-Blending (Task 21).
+3) Ledge-Grab -> HANG: Während der Aufwärtsbewegung an der Wand ODER im
+   Fall mit Input Richtung Wand: liegt eine Top-Kante (EdgeDetection aus
+   Task 15c) zwischen Handhöhe (Füße+1.6 m) und Füße+2.1 m, horizontal
+   < 0.5 m entfernt -> HANG: Position snappt (Hände an der Kante, Körper
+   hängt darunter), velocity = 0. Re-Grab-Cooldown 300 ms nach Loslassen.
+4) Im HANG: W oder Space = Mantle (0.7 s Bezier-Kurve auf die Fläche,
+   danach RUN); S = loslassen (AIR); A/D = hangeln entlang der Kante
+   (1.5 m/s, stoppt am Flächenende). Kein Ausdauer-System (bewusst
+   simpel). Kamera bleibt frei drehbar.
+5) testlevel.json ergänzen: eine 3.5-m-Wand (zu hoch für Vault und
+   Sprung) mit begehbarem Dach + eine Hangel-Passage (vorstehende Kante
+   über einem Abgrund zwischen zwei Plattformen).
+Fertig, wenn: Die 3.5-m-Wand ist per Anlauf + Wandlauf + Grab + Mantle
+erreichbar; ein knapp verfehlter Sprung an eine Plattformkante + W
+gedrückt rettet in den HANG.
+```
+
+- **Verifikation:** Debug-Panel zeigt HANG; Mantle endet sauber oben in RUN; Hangeln funktioniert in beide Richtungen und stoppt an Flächenenden.
+
+### Task 16c — Bar-Swing + Gainer-Abgänge **[OPUS]**
+- **Ziel:** An Stangen (Rails von unten) schwingen, Stangenketten, Trick-Abgänge.
+- **Abhängigkeiten:** Tasks 13, 15b. **Dateien:** `src/player/Swing.ts`, `src/player/PlayerStates.ts`, `src/player/tuning.ts`, `public/levels/testlevel.json`, `src/gameplay/ScoreSystem.ts`.
+- **Build-Prompt:**
+
+```text
+TASK 16C — Bar-Swing
+1) Neuer FSM-Zustand SWING (AIR->SWING, SWING->AIR). Aufschnappen: im
+   AIR kommen die Hände (Kapselzentrum + 0.6 m) einer Rail-Kurve von
+   UNTEN (Spielerzentrum unterhalb der Rail) näher als SWING_SNAP=0.7 m
+   -> SWING. Gleiche Re-Snap-Cooldown-Logik wie beim Rail-Aufschnappen
+   (300 ms).
+2) Pendelphysik kinematisch (KEIN Rapier-Joint): Zustand = Winkel phi +
+   Winkelgeschwindigkeit omega um die lokale Rail-Tangente,
+   SWING_RADIUS=1.1 m. Start-omega aus der horizontalen Anflug-
+   geschwindigkeit senkrecht zur Rail (v/r). Integration pro Fixed-Step:
+   omega += -(GRAVITY/r)*sin(phi)*dt - 0.4*omega*dt (Dämpfung);
+   W/S pumpen nahe dem Tiefpunkt (|phi| < 30°): omega +/-= PUMP=2.5/s.
+   Zusätzlich träge Restbewegung entlang der Rail-Tangente (gedämpft).
+   Position = Rail-Punkt + Pendelversatz; Mesh neigt sich mit phi.
+3) Space = loslassen: velocity = omega*r in Pendel-Tangentialrichtung
+   + kleiner Up-Bonus (1.5). Der Release-Zeitpunkt bestimmt die Flugbahn
+   (früh unten = weit/flach, spät im Aufschwung = hoch). Event
+   trick:swing { chain } — chain zählt Stangen ohne Bodenkontakt.
+   Punkte: 100 + 50 je weitere Stange der Kette. Flip-Tasten sind beim
+   Loslassen aktiv (AirTricks); Backflip + Vorwärtsflug = Gainer (15b).
+4) testlevel.json ergänzen: Stangenreihe — 3 parallele Rails auf 2.8 m
+   Höhe, Abstand 3.5 m, Freiraum darunter, Start- und Zielplattform.
+Fertig, wenn: Anspringen -> pumpen -> am vorderen Pendelpunkt loslassen
+erreicht die nächste Stange; Kette über 3 Stangen + Gainer-Abgang bankt
+eine fette Combo.
+```
+
+- **Verifikation:** Release-Timing verändert die Flugbahn spürbar; Re-Snap-Cooldown verhindert Festkleben an derselben Stange.
+
+### Task 16d — Rail-Umbau: Grind → Balance **[OPUS]**
+- **Ziel:** THPS-Grinden durch parkour-authentisches Balancieren ersetzen (Design-Update 2026-07-08).
+- **Abhängigkeiten:** Tasks 13, 15, 16. **Dateien:** `src/player/RailGrind.ts` → `src/player/RailBalance.ts`, `src/player/PlayerStates.ts`, `src/player/tuning.ts`, `src/core/EventBus.ts`, `src/gameplay/ScoreSystem.ts`, `src/ui/HUD.ts`.
+- **Build-Prompt:**
+
+```text
+TASK 16D — Balance statt Grind
+1) GRIND-Zustand zu BALANCE umbauen: RailGrind.ts -> RailBalance.ts,
+   Events trick:grindStart/Tick/End -> trick:balanceStart/Tick/End
+   (EventBus-Typen, ScoreSystem und HUD-Ticker mit anpassen).
+2) Einstieg wie bisher (Landung von oben auf die Kurve schnappt auf),
+   ABER: Der Landeschwung trägt nur noch BALANCE_CARRY_S=0.5 s
+   (exponentiell abgebremst), danach steuert W/S vor/zurück mit
+   BALANCE_WALK=2.5 m/s. Kein automatisches Entlangrutschen mehr.
+3) Balance-Minispiel: sway in [-1, 1] mit zufälligen Störimpulsen
+   (Stärke skaliert mit Gehtempo; beim Einstieg einmalig mit der
+   Landegeschwindigkeit). A/D wirken dagegen (BALANCE_CORRECT=3.0/s).
+   |sway| > 1 -> kippen: kleiner seitlicher Impuls + AIR (Sturz).
+   HUD: schmale Balance-Anzeige (Zeiger auf Linie) über dem
+   Speed-Balken, nur im BALANCE-Zustand sichtbar.
+4) Sprung von der Rail bleibt (GRIND_JUMP_VELOCITY -> BALANCE_JUMP_
+   VELOCITY=7). Precision-Landung auf der Rail (>= 2 m Fall, Einstieg
+   sofort gefangen) gibt zusätzlich trick:precision (Task-15c-Logik,
+   Rails zählen als Kante).
+5) Punkte: balanceStart 50, balanceTick 50/s, volle Rail-Länge +100.
+Fertig, wenn: Landung auf der Rail -> kurzes Weiterrutschen ->
+kontrolliertes Balancieren mit A/D-Korrektur; volle Länge gibt Bonus;
+wer den Sway ignoriert, fällt.
+```
+
+- **Verifikation:** Alter Grind-Autoslide ist vollständig weg; Headless-Smoke-Test auf BALANCE-Events umgestellt; Spielspaß-Check: Balancieren fühlt sich fordernd, aber fair an.
+
+---
+
 ## M4 — Vertical Slice
 
 ### Task 17 — City-Level „Rooftops District" **[S5, ggf. mehrfach iterieren]**
 - **Ziel:** Erstes echtes Level (~200×200 m Dächerlandschaft).
-- **Abhängigkeiten:** Task 14. **Dateien:** `public/levels/city01.json`, `src/level/LevelLoader.ts` (kleine Erweiterungen), `src/core/Game.ts` (Levelwahl per URL-Param `?level=`).
+- **Abhängigkeiten:** Task 14 + M3.5 (das Level soll Klettern, Hangeln, Schwingen und Balancieren gezielt nutzen). **Dateien:** `public/levels/city01.json`, `src/level/LevelLoader.ts` (kleine Erweiterungen), `src/core/Game.ts` (Levelwahl per URL-Param `?level=`).
 - **Build-Prompt:**
 
 ```text
@@ -963,10 +1154,15 @@ TASK 17 — City-Level
    "Straßenzügen" mit 2.5-5 m Sprunglücken zwischen benachbarten Dächern
    (springbar bei RUN_SPEED 6 bis SPRINT 9 + Sprungweite ~4-7 m; Höhenabfall
    in Sprungrichtung großzügig erlauben, Aufwärtssprünge max +1 m).
-   Elemente: mind. 8 Rails (Dachkanten, schräge Verbindungen zwischen
-   Gebäuden), 6 Wall-Run-Passagen (Aufzugstürme/Reklamewände mit
-   Plattform-Anschluss), 10 Vault-Hindernisse (Lüftungskästen), 12
-   gap-Marker über den besten Lücken, 6 precision-Marker, Farbpalette:
+   Elemente: mind. 8 Balance-Rails (Dachkanten, schräge Verbindungen
+   zwischen Gebäuden), 4 Stangen-Reihen für Bar-Swing (Rails mit
+   Freiraum darunter, z. B. zwischen zwei Dächern gespannt), 5 Kletter-
+   wände (2.5-4 m, per Wandlauf + Mantle auf höhere Dächer), 3 Hangel-
+   Passagen (Kanten über Abgründen), 6 Wall-Run-Passagen (Aufzugstürme/
+   Reklamewände mit Plattform-Anschluss), 10 Vault-Hindernisse
+   (Lüftungskästen), 12 gap-Marker über den besten Lücken, 6
+   precision-Marker (zusätzlich zur überall aktiven Kanten-Precision),
+   Farbpalette:
    3 Gebäude-Grautöne + Terrakotta-Akzente, Rails dunkel. spawn auf einem
    mittelhohen Dach. Unten auf Straßenniveau: durchgehender Boden
    (Respawn-Trigger bleibt y=-10, Straße liegt auf y=0 — Sturz auf die
@@ -1063,15 +1259,17 @@ Fertig, wenn: Alle 3 Missionstypen sind spiel- und gewinnbar/verlierbar.
 ### Task 21 — Charakter + Animationen **[OPUS]**
 - **Ziel:** Mixamo-Charakter ersetzt die Kapsel.
 - **Abhängigkeiten:** Task 13 (alle Zustände existieren). **Dateien:** `src/player/PlayerAnimator.ts`, `src/core/AssetLoader.ts`, `public/models/runner.glb`.
-- **Vorarbeit durch dich (manuell, ~1–2 h):** Auf mixamo.com Charakter „X Bot" wählen; Animationen einzeln **ohne Skin** als FBX laden: Idle, Running, Sprinting, Jump, Falling Idle, Rolling, Running Slide (als Grind-Pose), Left/Right Wall Run (falls vorhanden, sonst Running geneigt), Vaulting/Jumping Over, Stumble Backwards (Bail), Getting Up. In Blender: Charakter + Animationen importieren, als **eine GLB** mit benannten Clips exportieren (`public/models/runner.glb`). Alternativ das Modell + Clips einzeln als GLB und im Prompt die Dateinamen nennen.
+- **Vorarbeit durch dich (manuell, ~1–2 h):** Auf mixamo.com Charakter „X Bot" wählen; Animationen einzeln **ohne Skin** als FBX laden: Idle, Running, Sprinting, Jump, Falling Idle, Rolling, Walking (auf der Rail, als Balance-Pose ggf. „Catwalk Walk"), Left/Right Wall Run (falls vorhanden, sonst Running geneigt), Vaulting/Jumping Over, Stumble Backwards (Bail), Getting Up, Front Flip, Backflip, Hanging Idle, Braced Hang Shimmy (Hangeln), Climbing/Freehang Climb (Mantle), Swing To Land o. Ä. (Stangenschwingen). In Blender: Charakter + Animationen importieren, als **eine GLB** mit benannten Clips exportieren (`public/models/runner.glb`). Alternativ das Modell + Clips einzeln als GLB und im Prompt die Dateinamen nennen.
 - **Build-Prompt:**
 
 ```text
 TASK 21 — Charakter & Animation
 Gegeben: public/models/runner.glb — ein geriggter Charakter mit
-AnimationClips namens: Idle, Run, Sprint, Jump, Fall, Roll, Grind,
-WallRunL, WallRunR, Vault, Bail, GetUp. (Passe die Namen an die an, die
-ich dir nenne: <HIER DEINE CLIPNAMEN EINFÜGEN>.)
+AnimationClips namens: Idle, Run, Sprint, Jump, Fall, Roll, Balance,
+WallRunL, WallRunR, Vault, Bail, GetUp, FlipFront, FlipBack, Hang,
+Shimmy, Mantle, Swing. (Passe die Namen an die an, die ich dir nenne:
+<HIER DEINE CLIPNAMEN EINFÜGEN>. Flips/Spins rotieren zusätzlich das
+Mesh prozedural — der Clip liefert nur die Körperpose.)
 1) src/core/AssetLoader.ts: GLTFLoader (+ DRACO optional), lädt das Modell
    einmalig mit einfachem Lade-Overlay (Prozent), Cache per URL.
 2) src/player/PlayerAnimator.ts: AnimationMixer auf dem geladenen Modell.
