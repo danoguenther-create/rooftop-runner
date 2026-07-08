@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { LevelData, MarkerData } from './levelTypes';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
+import type { TopFace } from '../gameplay/EdgeDetection';
 
 /** Anzahl gecachter Sample-Punkte pro Rail (für Abstands-Queries beim Grind). */
 const RAIL_SAMPLES = 50;
@@ -22,6 +23,8 @@ export class LevelLoader {
   readonly group = new THREE.Group();
   readonly rails: LoadedRail[] = [];
   readonly markers: MarkerData[] = [];
+  /** Begehbare Deckflächen für Kanten-Precision (15c) und Ledge-Grab (M3.5) */
+  readonly topFaces: TopFace[] = [];
   readonly spawn = new THREE.Vector3(0, 1, 0);
   name = '';
 
@@ -82,6 +85,20 @@ export class LevelLoader {
 
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, rotY, 0, 'YXZ'));
     this.physics.addStaticBox(mesh.position, new THREE.Vector3(...size), quat);
+
+    // Deckfläche registrieren: nur ebene Flächen, und keine Riesenflächen
+    // wie der Boden (deren „Kanten" sind keine Precision-Ziele)
+    if (tiltX === 0 && Math.min(size[0], size[2]) / 2 <= 10) {
+      this.topFaces.push({
+        cx: pos[0],
+        cz: pos[2],
+        y: pos[1] + size[1] / 2,
+        halfX: size[0] / 2,
+        halfZ: size[2] / 2,
+        rotY,
+        cooldownUntil: 0,
+      });
+    }
   }
 
   private addRail(points: THREE.Vector3[]): void {

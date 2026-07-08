@@ -6,6 +6,7 @@ import { LevelLoader } from '../level/LevelLoader';
 import { PlayerController } from '../player/PlayerController';
 import { FollowCamera } from '../camera/FollowCamera';
 import { Markers } from '../gameplay/Markers';
+import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
 import { HUD } from '../ui/HUD';
 
@@ -23,6 +24,7 @@ export class Game {
   player!: PlayerController;
   followCamera!: FollowCamera;
   markers!: Markers;
+  edges!: EdgePrecision;
   score!: ScoreSystem;
   hud!: HUD;
   private lastTrick = '–';
@@ -123,6 +125,7 @@ export class Game {
     this.player = new PlayerController(this.physics, this.bus, this.scene, this.level);
     this.followCamera = new FollowCamera(this.camera, this.player);
     this.markers = new Markers(this.scene, this.level, this.bus, this.player);
+    this.edges = new EdgePrecision(this.level.topFaces, this.player, this.bus);
     this.score = new ScoreSystem(this.bus);
     this.hud = new HUD(this.bus);
 
@@ -142,6 +145,7 @@ export class Game {
       trackTrick(`flip (${e.kind} x${e.count}${e.gainer ? ', gainer' : ''})`),
     );
     this.bus.on('trick:spin', (e) => trackTrick(`spin (${e.halfTurns * 180}°)`));
+    this.bus.on('trick:diveroll', (e) => trackTrick(`diveroll (${e.fallHeight.toFixed(1)}m)`));
 
     this.clock.start();
     requestAnimationFrame(this.loop);
@@ -163,6 +167,7 @@ export class Game {
       this.player.fixedUpdate(FIXED_DT);
       this.physics.step();
       this.markers.fixedUpdate();
+      this.edges.fixedUpdate(FIXED_DT);
       this.accumulator -= FIXED_DT;
       steps++;
     }

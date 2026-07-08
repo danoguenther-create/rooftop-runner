@@ -128,6 +128,7 @@ export class HUD {
       this.tick(gainer ? `GAINER ${prefix}${name}` : `${prefix}${name}`);
     });
     bus.on('trick:spin', ({ halfTurns }) => this.tick(`${halfTurns * 180}!`));
+    bus.on('trick:diveroll', () => this.tick('DIVEROLL'));
     bus.on('trick:grindStart', () => {
       this.grindTickerEntry = this.tick('GRIND');
     });

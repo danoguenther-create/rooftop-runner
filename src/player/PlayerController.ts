@@ -16,6 +16,7 @@ import {
   CAPSULE_RADIUS,
   COYOTE_MS,
   DECEL,
+  DIVE_GRAVITY_FACTOR,
   GRAVITY,
   HARD_LANDING_LOCK_S,
   JUMP_BUFFER_MS,
@@ -25,6 +26,7 @@ import {
   ROLL_AFTER_MS,
   ROLL_BEFORE_MS,
   ROLL_BOOST,
+  ROLL_BOOST_DIVE,
   ROLL_BOOST_S,
   RUN_SPEED,
   SPRINT_SPEED,
@@ -59,6 +61,8 @@ export class PlayerController {
   readonly grinder: RailGrinder;
   /** Lufttricks (Task 15b): Flips + Spins, rein visuell bis zur Landung */
   readonly airTricks = new AirTricks();
+  /** Diveroll (Task 15c): C in der Luft gehalten = Hechtsprung */
+  private diving = false;
   /** Aktueller Wanderkennungs-Treffer (AIR) bzw. aktive Wand (WALLRUN) */
   wallHit: WallHit | null = null;
   /** Für Kamera-Tilt + Debug: Seite der aktiven Wall-Run-Wand */
@@ -83,6 +87,7 @@ export class PlayerController {
   private pendingLanding: { fallHeight: number; remaining: number; landedAt: number } | null =
     null;
   private boostRemaining = 0;
+  private boostFactor = ROLL_BOOST;
   private noAccelRemaining = 0;
 
   private meshYaw = 0;
@@ -143,6 +148,7 @@ export class PlayerController {
     if (this.fsm.current === 'AIR') {
       if (input.flipPressed) this.airTricks.queueFlip(input.flipPressed);
       if (input.spinPressed !== 0) this.airTricks.queueSpin(input.spinPressed);
+      if (input.rollHeld) this.diving = true; // Dive angesetzt (bis zur Landung)
     }
     if (input.respawnPressed) this.respawn();
   }
@@ -162,6 +168,10 @@ export class PlayerController {
     }
     this.mesh.rotation.y = this.meshYaw;
     this.airTricks.applyVisual(this.mesh);
+    // Dive-Pose: nach vorn gekippt, solange kein Flip rotiert
+    if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
+      this.mesh.rotation.x = 0.7;
+    }
   }
 
   // ---------------------------------------------------------- Physik-Takt
@@ -176,7 +186,10 @@ export class PlayerController {
     // Lufttricks rotieren nur im freien Flug weiter; wer stattdessen an
     // Wand/Rail/Hindernis landet, verliert die Rotation kommentarlos
     if (this.fsm.current === 'AIR') this.airTricks.update(dt);
-    else if (this.fsm.current !== 'RUN' && this.airTricks.active) this.airTricks.cancel();
+    else if (this.fsm.current !== 'RUN') {
+      if (this.airTricks.active) this.airTricks.cancel();
+      this.diving = false;
+    }
 
     this.fsm.update(dt);
 
@@ -193,7 +206,9 @@ export class PlayerController {
   /** Luftbewegung: reduzierte Steuerwirkung + Gravitation. */
   airMove(dt: number): void {
     this.accelerateHorizontal(dt, AIR_CONTROL);
-    this.velocity.y -= GRAVITY * dt;
+    // Gehaltener Dive streckt den Steigflug: flachere, weitere Flugbahn
+    const diveFloat = this.diving && this.velocity.y > 0 && (this.input?.rollHeld ?? false);
+    this.velocity.y -= GRAVITY * (diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
     const y = this.body.translation().y;
     if (y > this.peakY) this.peakY = y;
   }
@@ -212,7 +227,7 @@ export class PlayerController {
     if (wishLen > 0) _wish.normalize();
 
     let maxSpeed = input.sprintHeld ? SPRINT_SPEED : RUN_SPEED;
-    if (this.boostRemaining > 0) maxSpeed *= ROLL_BOOST;
+    if (this.boostRemaining > 0) maxSpeed *= this.boostFactor;
 
     const targetX = _wish.x * maxSpeed * wishLen;
     const targetZ = _wish.z * maxSpeed * wishLen;
@@ -284,7 +299,22 @@ export class PlayerController {
     // Lufttricks zuerst: unfertige Rotation überstimmt die Roll-Logik
     if (this.airTricks.evaluateLanding(this.bus, this.horizontalSpeed)) {
       this.pendingLanding = null;
+      this.diving = false;
       return true;
+    }
+
+    // Diveroll (Task 15c): Dive angesetzt?
+    if (this.diving) {
+      this.diving = false;
+      if (this.input?.rollHeld) {
+        // C bis zur Landung gehalten -> automatische Rolle mit stärkerem Boost
+        this.boostRemaining = ROLL_BOOST_S;
+        this.boostFactor = ROLL_BOOST_DIVE;
+        this.bus.emit('trick:diveroll', { fallHeight });
+        return false;
+      }
+      // Dive ohne Rolle: Bail-Schwelle sinkt auf LANDING_SOFT_M
+      if (fallHeight > LANDING_SOFT_M) return true;
     }
 
     if (fallHeight <= LANDING_SOFT_M) return false;
@@ -329,6 +359,7 @@ export class PlayerController {
 
   private doRoll(fallHeight: number): void {
     this.boostRemaining = ROLL_BOOST_S;
+    this.boostFactor = ROLL_BOOST;
     this.bus.emit('player:roll', { fallHeight });
   }
 
@@ -351,6 +382,7 @@ export class PlayerController {
     this.boostRemaining = 0;
     this.noAccelRemaining = 0;
     this.airTricks.cancel();
+    this.diving = false;
   }
 
   getPosition(out: THREE.Vector3): THREE.Vector3 {

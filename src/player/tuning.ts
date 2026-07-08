@@ -96,3 +96,19 @@ export const SPIN_SPEED_DEG = 540;
 export const SPIN_FORGIVE_DEG = 60;
 /** Mindest-Horizontalgeschwindigkeit, ab der ein Backflip als Gainer zählt (m/s) */
 export const GAINER_MIN_SPEED = 2;
+
+// ------------------------------------------------------------- Diveroll + Kanten-Precision (Task 15c)
+/** Gravitation im Steigflug bei gehaltenem Dive (flachere, weitere Flugbahn) */
+export const DIVE_GRAVITY_FACTOR = 0.75;
+/** Speed-Boost der Dive-Rolle (normale Rolle: ROLL_BOOST) */
+export const ROLL_BOOST_DIVE = 1.35;
+/** Max. Kantendistanz für Kanten-Precision (m) */
+export const EDGE_PRECISION_DIST = 0.35;
+/** Mindest-Fallhöhe, damit eine Kantenlandung als Precision zählt (m) */
+export const EDGE_PRECISION_MIN_FALL_M = 2;
+/** Zeitfenster, in dem der Sprung „gestanden" werden muss (s) */
+export const EDGE_PRECISION_SETTLE_S = 0.3;
+/** …und unter diese Geschwindigkeit (m/s) */
+export const EDGE_PRECISION_SETTLE_SPEED = 2;
+/** Cooldown pro Fläche (ms) */
+export const EDGE_PRECISION_COOLDOWN_MS = 3000;

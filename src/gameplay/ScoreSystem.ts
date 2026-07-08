@@ -22,6 +22,7 @@ const BASE_POINTS: Record<string, number> = {
   spin: 80,
   spin2: 200,
   spin3: 400,
+  diveroll: 75,
 };
 
 /** Roll zählt nur nach echten Stürzen als Trick. */
@@ -69,6 +70,10 @@ export class ScoreSystem {
     });
     bus.on('trick:spin', ({ halfTurns }) => {
       this.addTrick(halfTurns >= 3 ? 'spin3' : halfTurns === 2 ? 'spin2' : 'spin');
+    });
+    // Diveroll punktet erst ab echter Sprunghöhe (kein Farmen auf Flachsprüngen)
+    bus.on('trick:diveroll', ({ fallHeight }) => {
+      if (fallHeight >= 2) this.addTrick('diveroll');
     });
 
     bus.on('player:bail', () => this.discard());

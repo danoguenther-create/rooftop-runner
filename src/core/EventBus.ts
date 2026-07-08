@@ -23,6 +23,8 @@ export interface GameEvents {
   'trick:flip': { kind: FlipKind; count: number; gainer: boolean };
   /** Gestandener Spin in 180°-Schritten (1 = 180°, 2 = 360°, …). */
   'trick:spin': { halfTurns: number };
+  /** Diveroll: Hechtsprung (C in der Luft gehalten) mit Auto-Rolle gelandet. */
+  'trick:diveroll': { fallHeight: number };
   /** Laufende Combo geändert (Trick hinzugekommen) oder beendet (active=false). */
   'score:combo': { sum: number; multiplier: number; active: boolean };
   /** Combo sauber gebankt: amount = sum × multiplier. */
