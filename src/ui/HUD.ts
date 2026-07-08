@@ -122,6 +122,12 @@ export class HUD {
     bus.on('trick:gap', () => this.tick('GAP!'));
     bus.on('trick:precision', () => this.tick('PRECISION!'));
     bus.on('player:roll', () => this.tick('ROLL'));
+    bus.on('trick:flip', ({ kind, count, gainer }) => {
+      const name = kind === 'front' ? 'FRONTFLIP' : kind === 'back' ? 'BACKFLIP' : 'SIDEFLIP';
+      const prefix = count >= 3 ? 'TRIPLE ' : count === 2 ? 'DOUBLE ' : '';
+      this.tick(gainer ? `GAINER ${prefix}${name}` : `${prefix}${name}`);
+    });
+    bus.on('trick:spin', ({ halfTurns }) => this.tick(`${halfTurns * 180}!`));
     bus.on('trick:grindStart', () => {
       this.grindTickerEntry = this.tick('GRIND');
     });

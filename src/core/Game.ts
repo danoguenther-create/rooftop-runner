@@ -86,7 +86,8 @@ export class Game {
     // Pointer-Lock-Hinweis
     this.hintEl = document.createElement('div');
     this.hintEl.textContent =
-      'Click to play — WASD laufen · Maus Kamera · Space Sprung · Shift Sprint · C Roll · R Respawn';
+      'Click to play — WASD laufen · Maus Kamera · Space Sprung · Shift Sprint · ' +
+      'C Roll · Pfeile Flips · Q/E Spin · R Respawn';
     this.hintEl.style.cssText =
       'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
       'padding:14px 22px;background:rgba(0,0,0,.65);color:#fff;font:15px system-ui;' +
@@ -137,6 +138,10 @@ export class Game {
     this.bus.on('trick:grindEnd', (e) => trackTrick(`grindEnd (${e.durationMs}ms)`));
     this.bus.on('trick:gap', (e) => trackTrick(`gap (${e.id})`));
     this.bus.on('trick:precision', (e) => trackTrick(`precision (${e.id})`));
+    this.bus.on('trick:flip', (e) =>
+      trackTrick(`flip (${e.kind} x${e.count}${e.gainer ? ', gainer' : ''})`),
+    );
+    this.bus.on('trick:spin', (e) => trackTrick(`spin (${e.halfTurns * 180}°)`));
 
     this.clock.start();
     requestAnimationFrame(this.loop);

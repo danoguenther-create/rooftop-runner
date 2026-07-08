@@ -82,3 +82,17 @@ export const GRIND_FRICTION = 0.4;
 export const GRIND_JUMP_VELOCITY = 7;
 /** Nach Verlassen: dieselbe Rail so lange nicht erneut fangen (ms) */
 export const GRIND_RESNAP_MS = 300;
+
+// ------------------------------------------------------------- Lufttricks (Task 15b)
+/** Dauer einer Flip-Umdrehung (s) — jede weitere Umdrehung addiert dieselbe Zeit */
+export const FLIP_DURATION_S = 0.55;
+/** Maximal queuebare Umdrehungen (Triple) */
+export const FLIP_MAX_COUNT = 3;
+/** Fortschritt der letzten Umdrehung, ab dem die Landung als „gestanden" gilt */
+export const FLIP_COMPLETE_MIN = 0.8;
+/** Spin-Drehgeschwindigkeit (°/s) um die Hochachse */
+export const SPIN_SPEED_DEG = 540;
+/** Unvollendete Spins bis zu diesem Rest (°) werden bei der Landung verziehen */
+export const SPIN_FORGIVE_DEG = 60;
+/** Mindest-Horizontalgeschwindigkeit, ab der ein Backflip als Gainer zählt (m/s) */
+export const GAINER_MIN_SPEED = 2;

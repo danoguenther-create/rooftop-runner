@@ -17,13 +17,26 @@ export interface InputState {
   rollHeld: boolean;
   pausePressed: boolean;
   respawnPressed: boolean;
+  /** Flip-Richtung, nur im Frame des Tastendrucks (Pfeiltasten) */
+  flipPressed: 'front' | 'back' | 'left' | 'right' | null;
+  /** Spin-Richtung (-1 = Q, +1 = E), nur im Frame des Tastendrucks */
+  spinPressed: -1 | 0 | 1;
 }
+
+const FLIP_KEYS: Record<string, 'front' | 'back' | 'left' | 'right'> = {
+  ArrowUp: 'front',
+  ArrowDown: 'back',
+  ArrowLeft: 'left',
+  ArrowRight: 'right',
+};
 
 export class Input {
   private keys = new Set<string>();
   private jumpQueued = false;
   private pauseQueued = false;
   private respawnQueued = false;
+  private flipQueued: 'front' | 'back' | 'left' | 'right' | null = null;
+  private spinQueued: -1 | 0 | 1 = 0;
   private accDX = 0;
   private accDY = 0;
   private pointerLocked = false;
@@ -39,6 +52,8 @@ export class Input {
     rollHeld: false,
     pausePressed: false,
     respawnPressed: false,
+    flipPressed: null,
+    spinPressed: 0,
   };
 
   constructor(private canvas: HTMLCanvasElement) {
@@ -48,6 +63,13 @@ export class Input {
       if (e.code === 'Space') this.jumpQueued = true;
       if (e.code === 'Escape') this.pauseQueued = true;
       if (e.code === 'KeyR') this.respawnQueued = true;
+      const flip = FLIP_KEYS[e.code];
+      if (flip) {
+        e.preventDefault(); // Pfeiltasten sollen nie scrollen
+        this.flipQueued = flip;
+      }
+      if (e.code === 'KeyQ') this.spinQueued = -1;
+      if (e.code === 'KeyE') this.spinQueued = 1;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
@@ -85,6 +107,10 @@ export class Input {
     this.pauseQueued = false;
     s.respawnPressed = this.respawnQueued;
     this.respawnQueued = false;
+    s.flipPressed = this.flipQueued;
+    this.flipQueued = null;
+    s.spinPressed = this.spinQueued;
+    this.spinQueued = 0;
     s.jumpHeld = this.keys.has('Space');
     s.sprintHeld = this.keys.has('ShiftLeft');
     s.rollHeld = this.keys.has('KeyC') || this.keys.has('ControlLeft');

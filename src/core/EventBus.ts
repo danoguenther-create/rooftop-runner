@@ -1,3 +1,4 @@
+import type { FlipKind } from '../player/AirTricks';
 import type { StateName } from '../player/PlayerStates';
 import type { WallSide } from '../player/WallRun';
 
@@ -18,6 +19,10 @@ export interface GameEvents {
   'trick:grindEnd': { durationMs: number };
   'trick:gap': { id: string };
   'trick:precision': { id: string };
+  /** Gestandener Flip: count = Umdrehungen (1-3), gainer = Backflip vorwärts. */
+  'trick:flip': { kind: FlipKind; count: number; gainer: boolean };
+  /** Gestandener Spin in 180°-Schritten (1 = 180°, 2 = 360°, …). */
+  'trick:spin': { halfTurns: number };
   /** Laufende Combo geändert (Trick hinzugekommen) oder beendet (active=false). */
   'score:combo': { sum: number; multiplier: number; active: boolean };
   /** Combo sauber gebankt: amount = sum × multiplier. */

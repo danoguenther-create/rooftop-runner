@@ -5,6 +5,7 @@ import type { EventBus } from '../core/EventBus';
 import type { InputState } from '../core/Input';
 import type { LevelLoader } from '../level/LevelLoader';
 import { StateMachine } from './PlayerStates';
+import { AirTricks } from './AirTricks';
 import { WallRunDetector, type WallHit, type WallSide } from './WallRun';
 import { VaultDetector, type VaultPlan } from './Vault';
 import { RailGrinder } from './RailGrind';
@@ -56,6 +57,8 @@ export class PlayerController {
   readonly wallDetector = new WallRunDetector();
   readonly vaultDetector = new VaultDetector();
   readonly grinder: RailGrinder;
+  /** Lufttricks (Task 15b): Flips + Spins, rein visuell bis zur Landung */
+  readonly airTricks = new AirTricks();
   /** Aktueller Wanderkennungs-Treffer (AIR) bzw. aktive Wand (WALLRUN) */
   wallHit: WallHit | null = null;
   /** Für Kamera-Tilt + Debug: Seite der aktiven Wall-Run-Wand */
@@ -136,6 +139,11 @@ export class PlayerController {
     if (input.jumpPressed) this.jumpRequestedAt = now;
     if (input.rollHeld && !this.prevRollHeld) this.lastRollPressAt = now;
     this.prevRollHeld = input.rollHeld;
+    // Lufttricks nur im freien Flug queuen
+    if (this.fsm.current === 'AIR') {
+      if (input.flipPressed) this.airTricks.queueFlip(input.flipPressed);
+      if (input.spinPressed !== 0) this.airTricks.queueSpin(input.spinPressed);
+    }
     if (input.respawnPressed) this.respawn();
   }
 
@@ -151,8 +159,9 @@ export class PlayerController {
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
       this.meshYaw += delta * (1 - Math.exp(-12 * dt));
-      this.mesh.rotation.y = this.meshYaw;
     }
+    this.mesh.rotation.y = this.meshYaw;
+    this.airTricks.applyVisual(this.mesh);
   }
 
   // ---------------------------------------------------------- Physik-Takt
@@ -163,6 +172,11 @@ export class PlayerController {
     this.timeSinceGroundedS = this.grounded ? 0 : this.timeSinceGroundedS + dt;
     if (this.boostRemaining > 0) this.boostRemaining -= dt;
     if (this.noAccelRemaining > 0) this.noAccelRemaining -= dt;
+
+    // Lufttricks rotieren nur im freien Flug weiter; wer stattdessen an
+    // Wand/Rail/Hindernis landet, verliert die Rotation kommentarlos
+    if (this.fsm.current === 'AIR') this.airTricks.update(dt);
+    else if (this.fsm.current !== 'RUN' && this.airTricks.active) this.airTricks.cancel();
 
     this.fsm.update(dt);
 
@@ -258,11 +272,22 @@ export class PlayerController {
     this.peakY = this.body.translation().y;
   }
 
-  /** Beim Übergang AIR -> RUN aufrufen. */
-  onLanded(): void {
+  /**
+   * Beim Übergang AIR -> RUN aufrufen.
+   * @returns true, wenn eine unfertige Flip-Rotation die Landung in einen
+   *          BAIL zwingt (Aufrufer wechselt dann nach BAIL statt RUN).
+   */
+  onLanded(): boolean {
     const fallHeight = Math.max(0, this.peakY - this.body.translation().y);
     this.lastFallHeight = fallHeight;
-    if (fallHeight <= LANDING_SOFT_M) return;
+
+    // Lufttricks zuerst: unfertige Rotation überstimmt die Roll-Logik
+    if (this.airTricks.evaluateLanding(this.bus, this.horizontalSpeed)) {
+      this.pendingLanding = null;
+      return true;
+    }
+
+    if (fallHeight <= LANDING_SOFT_M) return false;
 
     const now = performance.now();
     if (now - this.lastRollPressAt <= ROLL_BEFORE_MS) {
@@ -275,6 +300,7 @@ export class PlayerController {
         landedAt: now,
       };
     }
+    return false;
   }
 
   /** Läuft im RUN-Zustand: löst das Roll-Nachdrück-Fenster auf. */
@@ -324,6 +350,7 @@ export class PlayerController {
     this.pendingVault = null;
     this.boostRemaining = 0;
     this.noAccelRemaining = 0;
+    this.airTricks.cancel();
   }
 
   getPosition(out: THREE.Vector3): THREE.Vector3 {

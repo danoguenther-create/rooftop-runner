@@ -135,8 +135,9 @@ class AirState extends PlayerState {
     p.tryJump(); // Coyote-Sprung kurz nach Kantenverlust
     p.applyMovement(dt);
     if (p.grounded && p.velocity.y <= 0) {
-      p.onLanded();
-      p.fsm.transition('RUN');
+      // Unfertiger Flip bei der Landung -> direkt BAIL statt RUN
+      const flipBail = p.onLanded();
+      p.fsm.transition(flipBail ? 'BAIL' : 'RUN');
     }
   }
 }

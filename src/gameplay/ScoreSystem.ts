@@ -15,6 +15,13 @@ const BASE_POINTS: Record<string, number> = {
   gap: 200,
   precision: 250,
   roll: 50,
+  flip: 120,
+  flip2: 300,
+  flip3: 600,
+  gainer: 150,
+  spin: 80,
+  spin2: 200,
+  spin3: 400,
 };
 
 /** Roll zählt nur nach echten Stürzen als Trick. */
@@ -54,6 +61,14 @@ export class ScoreSystem {
     bus.on('trick:precision', () => this.addTrick('precision'));
     bus.on('player:roll', ({ fallHeight }) => {
       if (fallHeight > ROLL_MIN_FALL_M) this.addTrick('roll');
+    });
+    bus.on('trick:flip', ({ count, gainer }) => {
+      this.addTrick(count >= 3 ? 'flip3' : count === 2 ? 'flip2' : 'flip');
+      // Gainer: Bonuspunkte auf denselben Trick, kein zweiter Multiplikator-Schritt
+      if (gainer) this.addTrick('gainer', false);
+    });
+    bus.on('trick:spin', ({ halfTurns }) => {
+      this.addTrick(halfTurns >= 3 ? 'spin3' : halfTurns === 2 ? 'spin2' : 'spin');
     });
 
     bus.on('player:bail', () => this.discard());
