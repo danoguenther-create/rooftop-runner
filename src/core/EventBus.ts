@@ -18,6 +18,14 @@ export interface GameEvents {
   'trick:grindEnd': { durationMs: number };
   'trick:gap': { id: string };
   'trick:precision': { id: string };
+  /** Laufende Combo geändert (Trick hinzugekommen) oder beendet (active=false). */
+  'score:combo': { sum: number; multiplier: number; active: boolean };
+  /** Combo sauber gebankt: amount = sum × multiplier. */
+  'score:banked': { amount: number; total: number };
+  /** Combo durch Bail/harte Landung verworfen (amount = entgangene Punkte). */
+  'score:lost': { amount: number };
+  /** Gesamtscore geändert. */
+  'score:total': { total: number };
 }
 
 type Handler<T> = (payload: T) => void;
