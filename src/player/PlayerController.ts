@@ -6,6 +6,7 @@ import type { InputState } from '../core/Input';
 import type { LevelLoader } from '../level/LevelLoader';
 import { StateMachine } from './PlayerStates';
 import { AirTricks } from './AirTricks';
+import { Climber } from './Climb';
 import { WallRunDetector, type WallHit, type WallSide } from './WallRun';
 import { VaultDetector, type VaultPlan } from './Vault';
 import { RailGrinder } from './RailGrind';
@@ -63,6 +64,8 @@ export class PlayerController {
   readonly airTricks = new AirTricks();
   /** Diveroll (Task 15c): C in der Luft gehalten = Hechtsprung */
   private diving = false;
+  /** Wandlauf + Ledge-Grab (Task 16b) */
+  readonly climb = new Climber();
   /** Aktueller Wanderkennungs-Treffer (AIR) bzw. aktive Wand (WALLRUN) */
   wallHit: WallHit | null = null;
   /** Für Kamera-Tilt + Debug: Seite der aktiven Wall-Run-Wand */
@@ -191,6 +194,7 @@ export class PlayerController {
       this.diving = false;
     }
 
+    this.climb.tick(this); // Wand-Push nach abgelaufenem Wandlauf
     this.fsm.update(dt);
 
     // Sicherheitsnetz: aus der Welt gefallen
@@ -366,8 +370,8 @@ export class PlayerController {
   // ---------------------------------------------------------- Sonstiges
 
   respawn(): void {
-    // Aktiven Zustand sauber verlassen (GRIND würde sonst die Position
-    // weiter auf die Rail setzen; WALLRUN/VAULT halten Referenzen)
+    // Aktiven Zustand sauber verlassen (GRIND/HANG würden sonst die
+    // Position weiter setzen; WALLRUN/VAULT halten Referenzen)
     if (this.fsm.current === 'GRIND') this.grinder.jumpOff(0);
     if (this.fsm.current === 'BAIL') this.fsm.transition('RUN');
     else this.fsm.transition('AIR'); // aus RUN/AIR/WALLRUN/GRIND/VAULT erlaubt
@@ -392,6 +396,22 @@ export class PlayerController {
 
   get horizontalSpeed(): number {
     return Math.hypot(this.velocity.x, this.velocity.z);
+  }
+
+  /** Aktueller Frame-Input (für Zustände wie HANG). */
+  get currentInput(): InputState | null {
+    return this.input;
+  }
+
+  /** Kamerarelative Wunschrichtung (normalisiert) oder null ohne Input. */
+  getWishDir(out: THREE.Vector3): THREE.Vector3 | null {
+    const input = this.input;
+    if (!input) return null;
+    _forward.set(-Math.sin(this.cameraYaw), 0, -Math.cos(this.cameraYaw));
+    _right.set(Math.cos(this.cameraYaw), 0, -Math.sin(this.cameraYaw));
+    out.set(0, 0, 0).addScaledVector(_right, input.moveX).addScaledVector(_forward, input.moveY);
+    if (out.lengthSq() < 0.25) return null;
+    return out.normalize();
   }
 }
 

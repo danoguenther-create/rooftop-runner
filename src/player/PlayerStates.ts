@@ -4,8 +4,13 @@ import type { VaultPlan } from './Vault';
 import type { WallSide } from './WallRun';
 import {
   BAIL_S,
+  CAPSULE_HALFHEIGHT,
+  CAPSULE_RADIUS,
   GRAVITY,
   GRIND_JUMP_VELOCITY,
+  HANG_CENTER_BELOW,
+  MANTLE_S,
+  SHIMMY_SPEED,
   VAULT_DURATION_S,
   WALLJUMP_NORMAL_IMPULSE,
   WALLJUMP_UP_IMPULSE,
@@ -14,16 +19,17 @@ import {
   WALLRUN_MIN_SPEED,
 } from './tuning';
 
-export type StateName = 'RUN' | 'AIR' | 'WALLRUN' | 'GRIND' | 'VAULT' | 'BAIL';
+export type StateName = 'RUN' | 'AIR' | 'WALLRUN' | 'GRIND' | 'VAULT' | 'BAIL' | 'HANG';
 
-/** Erlaubte Übergänge (Tasks 9/11/12/13). */
+/** Erlaubte Übergänge (Tasks 9/11/12/13/16b). */
 const ALLOWED: Record<StateName, readonly StateName[]> = {
   RUN: ['AIR', 'VAULT', 'BAIL'],
-  AIR: ['RUN', 'WALLRUN', 'GRIND', 'VAULT', 'BAIL'],
+  AIR: ['RUN', 'WALLRUN', 'GRIND', 'VAULT', 'BAIL', 'HANG'],
   WALLRUN: ['AIR'],
   GRIND: ['AIR'],
   VAULT: ['RUN', 'AIR'],
   BAIL: ['RUN'],
+  HANG: ['AIR', 'RUN'],
 };
 
 export abstract class PlayerState {
@@ -46,6 +52,7 @@ export class StateMachine {
       GRIND: new GrindState(player),
       VAULT: new VaultState(player),
       BAIL: new BailState(player),
+      HANG: new HangState(player),
     };
     this.currentState = this.states.AIR; // Spawn: fällt kurz auf den Boden
     this.currentState.enter();
@@ -82,6 +89,7 @@ class RunState extends PlayerState {
     const p = this.player;
     p.tickLandingWindow(dt);
     p.groundMove(dt);
+    p.climb.tryWallClimb(p); // frontaler Wandlauf hebt ab -> AIR
 
     const plan = p.vaultDetector.tryPlan(p);
     if (plan) {
@@ -112,6 +120,13 @@ class AirState extends PlayerState {
     // Rail fangen? (spezifischster Move zuerst)
     if (p.grinder.trySnap()) {
       p.fsm.transition('GRIND');
+      return;
+    }
+
+    // Frontaler Wandlauf (Boost) + Kante in Griffweite? -> HANG
+    p.climb.tryWallClimb(p);
+    if (p.climb.tryGrab(p)) {
+      p.fsm.transition('HANG');
       return;
     }
 
@@ -304,6 +319,104 @@ class BailState extends PlayerState {
     p.applyMovement(dt);
     this.remaining -= dt;
     if (this.remaining <= 0) p.fsm.transition('RUN');
+  }
+}
+
+// --------------------------------------------------------------- HANG (Task 16b)
+
+const _edge = new THREE.Vector3();
+const _out = new THREE.Vector3();
+const _edgeDir = new THREE.Vector3();
+const _hangPos = new THREE.Vector3();
+const _mantleStart = new THREE.Vector3();
+const _mantleControl = new THREE.Vector3();
+const _mantleEnd = new THREE.Vector3();
+const _camRight = new THREE.Vector3();
+
+const HANG_CENTER_OFFSET = CAPSULE_RADIUS + 0.1;
+const CENTER_TO_FEET_H = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
+
+class HangState extends PlayerState {
+  readonly name = 'HANG' as const;
+  private mantleT = -1; // -1 = hängend, sonst Fortschritt 0..1
+  private inputLockUntil = 0;
+
+  override enter(): void {
+    const p = this.player;
+    this.mantleT = -1;
+    // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
+    // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
+    this.inputLockUntil = performance.now() + 250;
+    p.velocity.set(0, 0, 0);
+    p.grounded = false;
+    this.applyHangPosition();
+  }
+
+  override update(dt: number): void {
+    const p = this.player;
+
+    // --- Hochziehen läuft
+    if (this.mantleT >= 0) {
+      this.mantleT = Math.min(this.mantleT + dt / MANTLE_S, 1);
+      quadraticBezier(_mantleStart, _mantleControl, _mantleEnd, this.mantleT, _hangPos);
+      p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
+      if (this.mantleT >= 1) {
+        p.velocity.set(0, 0, 0);
+        p.grounded = true;
+        p.fsm.transition('RUN');
+      }
+      return;
+    }
+
+    const input = p.currentInput;
+    const locked = performance.now() < this.inputLockUntil;
+    const moveY = locked ? 0 : (input?.moveY ?? 0);
+    const moveX = input?.moveX ?? 0;
+
+    // --- Hochziehen starten (W oder Sprungtaste)
+    if (moveY > 0.5 || (!locked && p.consumeJumpRequest())) {
+      p.getPosition(_mantleStart);
+      p.climb.edgePoint(_edge);
+      p.climb.outward(_out);
+      _mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
+      _mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
+      _mantleControl.copy(_edge);
+      _mantleControl.y = _mantleEnd.y + 0.3;
+      this.mantleT = 0;
+      return;
+    }
+
+    // --- Loslassen (S)
+    if (moveY < -0.5) {
+      p.climb.outward(_out);
+      p.velocity.set(_out.x * 1.5, 0, _out.z * 1.5); // leicht von der Wand weg
+      p.fsm.transition('AIR');
+      return;
+    }
+
+    // --- Hangeln (A/D, kamerarelativ entlang der Kante)
+    if (Math.abs(moveX) > 0.5) {
+      p.climb.edgeDir(_edgeDir);
+      _camRight.set(Math.cos(p.cameraYaw), 0, -Math.sin(p.cameraYaw));
+      const align = _edgeDir.dot(_camRight) >= 0 ? 1 : -1;
+      p.climb.shimmy(moveX * align * SHIMMY_SPEED * dt);
+    }
+
+    this.applyHangPosition();
+  }
+
+  override exit(): void {
+    this.player.climb.releaseGrab();
+  }
+
+  /** Kapselzentrum: knapp außerhalb der Kante, Hände auf Kantenhöhe. */
+  private applyHangPosition(): void {
+    const p = this.player;
+    p.climb.edgePoint(_edge);
+    p.climb.outward(_out);
+    _hangPos.copy(_edge).addScaledVector(_out, HANG_CENTER_OFFSET);
+    _hangPos.y = p.climb.grab!.face.y - HANG_CENTER_BELOW;
+    p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
   }
 }
 

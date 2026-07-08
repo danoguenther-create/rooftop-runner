@@ -112,3 +112,28 @@ export const EDGE_PRECISION_SETTLE_S = 0.3;
 export const EDGE_PRECISION_SETTLE_SPEED = 2;
 /** Cooldown pro Fläche (ms) */
 export const EDGE_PRECISION_COOLDOWN_MS = 3000;
+
+// ------------------------------------------------------------- Wandlauf + Hang/Climb (Task 16b)
+/** Wandlauf setzt vy auf diesen Wert (m/s) — ~1.6 m Steighöhe */
+export const WALLCLIMB_VY = 8;
+/** Dauer der Wandlauf-Phase (ms) — danach leichter Push von der Wand */
+export const WALLCLIMB_MAX_MS = 700;
+/** Mindest-Horizontalgeschwindigkeit für den Wandlauf (m/s) */
+export const WALLCLIMB_MIN_SPEED = 4;
+/** Push von der Wand weg nach abgelaufenem Wandlauf (m/s) */
+export const WALLCLIMB_PUSH = 1.5;
+/** Frühestens danach erneut Wandlauf (ms) */
+export const WALLCLIMB_COOLDOWN_MS = 1000;
+/** Ledge-Grab: Kante muss zwischen Füße+MIN und Füße+MAX liegen (m) */
+export const LEDGE_GRAB_HAND_MIN = 1.6;
+export const LEDGE_GRAB_HAND_MAX = 2.1;
+/** Max. horizontale Distanz zur Kante (m) */
+export const LEDGE_GRAB_DIST = 0.5;
+/** Nach Loslassen: so lange nicht erneut greifen (ms) */
+export const LEDGE_REGRAB_MS = 300;
+/** Kapselzentrum hängt so weit unter der Kante (m) */
+export const HANG_CENTER_BELOW = 0.7;
+/** Hochziehen auf die Fläche (s) */
+export const MANTLE_S = 0.7;
+/** Hangeln entlang der Kante (m/s) */
+export const SHIMMY_SPEED = 1.5;
