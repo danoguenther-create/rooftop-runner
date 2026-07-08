@@ -71,17 +71,25 @@ export const VAULT_DURATION_S = 0.4;
 /** Frühestens alle (ms) erneut vaulten */
 export const VAULT_COOLDOWN_MS = 500;
 
-// ------------------------------------------------------------- Rail-Grind
+// ------------------------------------------------------------- Rail-Balance (Task 16d, ehem. Grind)
 /** Aufschnapp-Radius zur Rail (m) */
 export const GRIND_SNAP_RADIUS = 0.8;
-/** Mindest-Grind-Geschwindigkeit (m/s) */
-export const GRIND_MIN_SPEED = 5;
-/** Abbremsung auf der Rail (m/s²) */
-export const GRIND_FRICTION = 0.4;
-/** Absprung von der Rail: vertikale Geschwindigkeit (m/s) */
-export const GRIND_JUMP_VELOCITY = 7;
 /** Nach Verlassen: dieselbe Rail so lange nicht erneut fangen (ms) */
 export const GRIND_RESNAP_MS = 300;
+/** Abklingzeit des Landeschwungs (Tau in s — nach ~0.5 s praktisch weg) */
+export const BALANCE_CARRY_TAU = 0.15;
+/** Gehtempo auf der Rail mit W/S (m/s) */
+export const BALANCE_WALK = 2.5;
+/** Gegensteuer-Wirkung von A/D (sway/s) */
+export const BALANCE_CORRECT = 3.0;
+/** Grund-Störung der Balance (sway/s) … */
+export const BALANCE_SWAY_BASE = 0.25;
+/** … plus Anteil pro m/s Gehtempo */
+export const BALANCE_SWAY_SPEED = 0.08;
+/** Absprung von der Rail: vertikale Geschwindigkeit (m/s) */
+export const BALANCE_JUMP_VELOCITY = 7;
+/** Abgedeckter Kurvenanteil für den Volle-Länge-Bonus */
+export const BALANCE_FULL_MIN = 0.95;
 
 // ------------------------------------------------------------- Lufttricks (Task 15b)
 /** Dauer einer Flip-Umdrehung (s) — jede weitere Umdrehung addiert dieselbe Zeit */

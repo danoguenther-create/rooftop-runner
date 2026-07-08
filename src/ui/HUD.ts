@@ -17,7 +17,9 @@ export class HUD {
   private readonly bankEl: HTMLDivElement;
   private readonly speedFillEl: HTMLDivElement;
   private readonly tickerEl: HTMLDivElement;
-  private grindTickerEntry: HTMLDivElement | null = null;
+  private readonly balanceEl: HTMLDivElement;
+  private readonly balanceNeedleEl: HTMLDivElement;
+  private balanceTickerEntry: HTMLDivElement | null = null;
 
   constructor(bus: EventBus) {
     const hud = document.getElementById('hud')!;
@@ -60,8 +62,21 @@ export class HUD {
         height:100%; width:0%; background:${ACCENT}; border-radius:2px;
         transition:width .1s linear;
       }
+      .hud-balance {
+        bottom:26px; left:50%; transform:translateX(-50%);
+        width:160px; height:5px; background:rgba(0,0,0,.55); border-radius:2px;
+        display:none;
+      }
+      .hud-balance::after {
+        content:''; position:absolute; left:50%; top:-2px; width:1px; height:9px;
+        background:rgba(255,255,255,.5);
+      }
+      .hud-balance-needle {
+        position:absolute; top:-3px; left:50%; width:4px; height:11px;
+        background:${ACCENT}; border-radius:1px; transform:translateX(-50%);
+      }
       .hud-ticker {
-        bottom:30px; left:50%; transform:translateX(-50%);
+        bottom:44px; left:50%; transform:translateX(-50%);
         display:flex; flex-direction:column-reverse; align-items:center; gap:3px;
       }
       .hud-tick {
@@ -81,6 +96,12 @@ export class HUD {
     this.speedFillEl = document.createElement('div');
     this.speedFillEl.className = 'hud-speed-fill';
     speed.appendChild(this.speedFillEl);
+
+    // Balance-Anzeige (nur im BALANCE-Zustand sichtbar)
+    this.balanceEl = this.panel(hud, 'hud-balance');
+    this.balanceNeedleEl = document.createElement('div');
+    this.balanceNeedleEl.className = 'hud-balance-needle';
+    this.balanceEl.appendChild(this.balanceNeedleEl);
 
     this.tickerEl = this.panel(hud, 'hud-ticker');
 
@@ -130,24 +151,33 @@ export class HUD {
     bus.on('trick:spin', ({ halfTurns }) => this.tick(`${halfTurns * 180}!`));
     bus.on('trick:diveroll', () => this.tick('DIVEROLL'));
     bus.on('trick:swing', ({ chain }) => this.tick(chain > 1 ? `BAR ×${chain}` : 'SWING'));
-    bus.on('trick:grindStart', () => {
-      this.grindTickerEntry = this.tick('GRIND');
+    bus.on('trick:balanceStart', () => {
+      this.balanceTickerEntry = this.tick('BALANCE');
     });
-    bus.on('trick:grindTick', ({ seconds }) => {
-      // Grind aktualisiert seinen Eintrag statt zu stapeln
-      if (this.grindTickerEntry?.isConnected) {
-        this.grindTickerEntry.textContent = `GRIND ${seconds}s`;
-        this.grindTickerEntry.dataset.until = String(performance.now() + TICKER_LIFETIME_MS);
+    bus.on('trick:balanceTick', ({ seconds }) => {
+      // Balance aktualisiert ihren Eintrag statt zu stapeln
+      if (this.balanceTickerEntry?.isConnected) {
+        this.balanceTickerEntry.textContent = `BALANCE ${seconds}s`;
+        this.balanceTickerEntry.dataset.until = String(performance.now() + TICKER_LIFETIME_MS);
       } else {
-        this.grindTickerEntry = this.tick(`GRIND ${seconds}s`);
+        this.balanceTickerEntry = this.tick(`BALANCE ${seconds}s`);
       }
     });
   }
 
-  /** Pro Frame: Speed-Balken + Ticker-Verfall. */
-  update(_dt: number, speed: number): void {
+  /** Pro Frame: Speed-Balken, Balance-Zeiger + Ticker-Verfall. */
+  update(_dt: number, speed: number, balanceSway: number | null = null): void {
     const pct = Math.min(speed / SPEED_MAX, 1) * 100;
     this.speedFillEl.style.width = `${pct.toFixed(1)}%`;
+
+    if (balanceSway === null) {
+      this.balanceEl.style.display = 'none';
+    } else {
+      this.balanceEl.style.display = 'block';
+      const clamped = Math.max(-1, Math.min(1, balanceSway));
+      this.balanceNeedleEl.style.left = `${(50 + clamped * 48).toFixed(1)}%`;
+      this.balanceNeedleEl.style.background = Math.abs(clamped) > 0.7 ? '#ff2d2d' : ACCENT;
+    }
 
     const now = performance.now();
     for (const child of Array.from(this.tickerEl.children) as HTMLDivElement[]) {

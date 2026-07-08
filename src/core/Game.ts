@@ -136,9 +136,11 @@ export class Game {
     this.bus.on('trick:wallrun', (e) => trackTrick(`wallrun (${e.side})`));
     this.bus.on('trick:walljump', (e) => trackTrick(`walljump (${e.side})`));
     this.bus.on('trick:vault', (e) => trackTrick(`vault (${e.obstacleHeight.toFixed(2)}m)`));
-    this.bus.on('trick:grindStart', (e) => trackTrick(`grindStart (rail ${e.rail})`));
-    this.bus.on('trick:grindTick', (e) => trackTrick(`grindTick (${e.seconds}s)`));
-    this.bus.on('trick:grindEnd', (e) => trackTrick(`grindEnd (${e.durationMs}ms)`));
+    this.bus.on('trick:balanceStart', (e) => trackTrick(`balanceStart (rail ${e.rail})`));
+    this.bus.on('trick:balanceTick', (e) => trackTrick(`balanceTick (${e.seconds}s)`));
+    this.bus.on('trick:balanceEnd', (e) =>
+      trackTrick(`balanceEnd (${e.durationMs}ms${e.full ? ', full' : ''})`),
+    );
     this.bus.on('trick:gap', (e) => trackTrick(`gap (${e.id})`));
     this.bus.on('trick:precision', (e) => trackTrick(`precision (${e.id})`));
     this.bus.on('trick:flip', (e) =>
@@ -179,7 +181,7 @@ export class Game {
     this.followCamera.update(dt, input);
     this.markers.update(dt);
     this.score.update(dt);
-    this.hud.update(dt, this.player.horizontalSpeed);
+    this.hud.update(dt, this.player.horizontalSpeed, this.player.balancer.sway);
 
     this.renderer.render(this.scene, this.camera);
 

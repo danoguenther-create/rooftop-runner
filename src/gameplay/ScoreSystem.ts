@@ -10,8 +10,9 @@ const BASE_POINTS: Record<string, number> = {
   wallrun: 100,
   walljump: 150,
   vault: 75,
-  grindStart: 50,
-  grindTick: 50,
+  balanceStart: 50,
+  balanceTick: 50,
+  balanceFull: 100,
   gap: 200,
   precision: 250,
   roll: 50,
@@ -56,10 +57,13 @@ export class ScoreSystem {
     bus.on('trick:wallrun', () => this.addTrick('wallrun'));
     bus.on('trick:walljump', () => this.addTrick('walljump'));
     bus.on('trick:vault', () => this.addTrick('vault'));
-    bus.on('trick:grindStart', () => this.addTrick('grindStart'));
-    // Grind-Ticks geben Punkte, treiben aber nicht den Multiplikator —
-    // sonst wäre ein langer Grind allein schon ×10.
-    bus.on('trick:grindTick', () => this.addTrick('grindTick', false));
+    bus.on('trick:balanceStart', () => this.addTrick('balanceStart'));
+    // Balance-Ticks geben Punkte, treiben aber nicht den Multiplikator —
+    // sonst wäre eine lange Rail allein schon ×10.
+    bus.on('trick:balanceTick', () => this.addTrick('balanceTick', false));
+    bus.on('trick:balanceEnd', ({ full }) => {
+      if (full) this.addTrick('balanceFull', false); // Volle-Länge-Bonus
+    });
     bus.on('trick:gap', () => this.addTrick('gap'));
     bus.on('trick:precision', () => this.addTrick('precision'));
     bus.on('player:roll', ({ fallHeight }) => {

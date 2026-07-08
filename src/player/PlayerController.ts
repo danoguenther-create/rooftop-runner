@@ -10,7 +10,7 @@ import { Climber } from './Climb';
 import { Swinger } from './Swing';
 import { WallRunDetector, type WallHit, type WallSide } from './WallRun';
 import { VaultDetector, type VaultPlan } from './Vault';
-import { RailGrinder } from './RailGrind';
+import { RailBalancer } from './RailBalance';
 import {
   ACCEL,
   AIR_CONTROL,
@@ -60,7 +60,7 @@ export class PlayerController {
   // Parkour-Systeme (M2)
   readonly wallDetector = new WallRunDetector();
   readonly vaultDetector = new VaultDetector();
-  readonly grinder: RailGrinder;
+  readonly balancer: RailBalancer;
   /** Lufttricks (Task 15b): Flips + Spins, rein visuell bis zur Landung */
   readonly airTricks = new AirTricks();
   /** Diveroll (Task 15c): C in der Luft gehalten = Hechtsprung */
@@ -106,7 +106,7 @@ export class PlayerController {
   ) {
     const spawn = level.spawn;
     this.spawnPos.copy(spawn);
-    this.grinder = new RailGrinder(this);
+    this.balancer = new RailBalancer(this);
     this.swinger = new Swinger(this);
 
     const startY = spawn.y + CENTER_TO_FEET + 0.1;
@@ -375,9 +375,9 @@ export class PlayerController {
   // ---------------------------------------------------------- Sonstiges
 
   respawn(): void {
-    // Aktiven Zustand sauber verlassen (GRIND/HANG würden sonst die
-    // Position weiter setzen; WALLRUN/VAULT halten Referenzen)
-    if (this.fsm.current === 'GRIND') this.grinder.jumpOff(0);
+    // Aktiven Zustand sauber verlassen (BALANCE/SWING/HANG würden sonst
+    // die Position weiter setzen; WALLRUN/VAULT halten Referenzen)
+    if (this.fsm.current === 'BALANCE') this.balancer.jumpOff(0);
     if (this.fsm.current === 'SWING') this.swinger.release();
     if (this.fsm.current === 'BAIL') this.fsm.transition('RUN');
     else this.fsm.transition('AIR'); // aus RUN/AIR/WALLRUN/GRIND/VAULT erlaubt

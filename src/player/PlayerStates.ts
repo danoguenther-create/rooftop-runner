@@ -4,10 +4,10 @@ import type { VaultPlan } from './Vault';
 import type { WallSide } from './WallRun';
 import {
   BAIL_S,
+  BALANCE_JUMP_VELOCITY,
   CAPSULE_HALFHEIGHT,
   CAPSULE_RADIUS,
   GRAVITY,
-  GRIND_JUMP_VELOCITY,
   HANG_CENTER_BELOW,
   MANTLE_S,
   SHIMMY_SPEED,
@@ -19,14 +19,22 @@ import {
   WALLRUN_MIN_SPEED,
 } from './tuning';
 
-export type StateName = 'RUN' | 'AIR' | 'WALLRUN' | 'GRIND' | 'VAULT' | 'BAIL' | 'HANG' | 'SWING';
+export type StateName =
+  | 'RUN'
+  | 'AIR'
+  | 'WALLRUN'
+  | 'BALANCE'
+  | 'VAULT'
+  | 'BAIL'
+  | 'HANG'
+  | 'SWING';
 
-/** Erlaubte Übergänge (Tasks 9/11/12/13/16b/16c). */
+/** Erlaubte Übergänge (Tasks 9/11/12/16b/16c/16d). */
 const ALLOWED: Record<StateName, readonly StateName[]> = {
   RUN: ['AIR', 'VAULT', 'BAIL'],
-  AIR: ['RUN', 'WALLRUN', 'GRIND', 'VAULT', 'BAIL', 'HANG', 'SWING'],
+  AIR: ['RUN', 'WALLRUN', 'BALANCE', 'VAULT', 'BAIL', 'HANG', 'SWING'],
   WALLRUN: ['AIR'],
-  GRIND: ['AIR'],
+  BALANCE: ['AIR'],
   VAULT: ['RUN', 'AIR'],
   BAIL: ['RUN'],
   HANG: ['AIR', 'RUN'],
@@ -50,7 +58,7 @@ export class StateMachine {
       RUN: new RunState(player),
       AIR: new AirState(player),
       WALLRUN: new WallRunState(player),
-      GRIND: new GrindState(player),
+      BALANCE: new BalanceState(player),
       VAULT: new VaultState(player),
       BAIL: new BailState(player),
       HANG: new HangState(player),
@@ -119,9 +127,9 @@ class AirState extends PlayerState {
     const p = this.player;
     p.airMove(dt);
 
-    // Rail fangen? (spezifischster Move zuerst)
-    if (p.grinder.trySnap()) {
-      p.fsm.transition('GRIND');
+    // Rail von oben fangen? (spezifischster Move zuerst) -> Balancieren
+    if (p.balancer.trySnap()) {
+      p.fsm.transition('BALANCE');
       return;
     }
 
@@ -241,22 +249,22 @@ class WallRunState extends PlayerState {
   }
 }
 
-// --------------------------------------------------------------- GRIND
+// --------------------------------------------------------------- BALANCE (Task 16d)
 
-class GrindState extends PlayerState {
-  readonly name = 'GRIND' as const;
+class BalanceState extends PlayerState {
+  readonly name = 'BALANCE' as const;
 
   override update(dt: number): void {
     const p = this.player;
 
     if (p.consumeJumpRequest()) {
-      p.grinder.jumpOff(GRIND_JUMP_VELOCITY);
+      p.balancer.jumpOff(BALANCE_JUMP_VELOCITY);
       p.fsm.transition('AIR');
       return;
     }
 
-    if (!p.grinder.ride(dt)) {
-      p.fsm.transition('AIR');
+    if (!p.balancer.ride(dt)) {
+      p.fsm.transition('AIR'); // Kurvenende oder Balance verloren
     }
   }
 }

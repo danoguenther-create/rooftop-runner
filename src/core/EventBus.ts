@@ -14,9 +14,10 @@ export interface GameEvents {
   'trick:wallrun': { side: WallSide };
   'trick:walljump': { side: WallSide };
   'trick:vault': { obstacleHeight: number };
-  'trick:grindStart': { rail: number };
-  'trick:grindTick': { seconds: number };
-  'trick:grindEnd': { durationMs: number };
+  'trick:balanceStart': { rail: number };
+  'trick:balanceTick': { seconds: number };
+  /** full = (fast) die gesamte Rail-Länge balanciert -> Bonus. */
+  'trick:balanceEnd': { durationMs: number; full: boolean };
   'trick:gap': { id: string };
   'trick:precision': { id: string };
   /** Gestandener Flip: count = Umdrehungen (1-3), gainer = Backflip vorwärts. */
