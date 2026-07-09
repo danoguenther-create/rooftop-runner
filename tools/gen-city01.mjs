@@ -195,6 +195,59 @@ for (const [r, i] of [[0, 6], [1, 4], [2, 0], [2, 5], [3, 5], [3, 6]]) {
   });
 }
 
+// --- Sammelobjekte (Task 18): 20 Collectibles auf interessanten Routen
+let colN = 0;
+const pushCol = (pos) => {
+  colN++;
+  markers.push({ type: 'collectible', id: `col-${String(colN).padStart(2, '0')}`, pos });
+};
+
+// Über den 4 geneigten Balance-Rails (Mitte, 0.8 m über der Rail)
+for (const rail of slopedRails) {
+  const [rHi, zHi] = rail.from;
+  const [rLo, zLo] = rail.to;
+  const iHi = Math.round((rail.x - X0) / PITCH);
+  const yHi = h(rHi, iHi) + 0.4;
+  const yLo = h(rLo, iHi) + 0.4;
+  pushCol([rail.x, (yHi + yLo) / 2 + 0.8, (zHi + zLo) / 2]);
+}
+
+// Über den Schwungstangen-Reihen (zwischen Stange 1 und 2, auf Stangenhöhe)
+for (const row of barRows) {
+  pushCol([row.x, row.y, (row.zs[0] + row.zs[1]) / 2]);
+}
+
+// Über 5 Dachlücken (1 m über Dachniveau)
+for (const [r, i] of gapRowSpots.slice(0, 5)) {
+  pushCol([bx(i) + PITCH / 2, Math.max(h(r, i), h(r, i + 1)) + 1, rz(r)]);
+}
+
+// Auf 3 Kletterhäuschen-Dächern (+0.8 über deren Top)
+for (const [r, i] of [[0, 2], [1, 6], [3, 0]]) {
+  pushCol([bx(i) - 3, h(r, i) + 3 + 0.8, rz(r) - 3]);
+}
+
+// Rest auf Dachkanten
+for (const [r, i, dx, dz] of [[0, 7, 5, -5], [1, 7, -5, 5], [2, 7, 5, -5], [3, 1, -5, 5]]) {
+  pushCol([bx(i) + dx, h(r, i) + 1, rz(r) + dz]);
+}
+
+// --- Zeitrennen (Task 19): Start auf B3, über die B-Zeile westwärts,
+//     Rail runter zur A-Zeile, ostwärts über die Dachlücken zum Finish
+markers.push({ type: 'trialStart', id: 'trial-1', pos: [bx(3), h(1, 3) + 1.3, -25] });
+const cps = [
+  [bx(2), h(1, 2) + 1.4, -20], // cp1 B2
+  [bx(1), h(1, 1) + 1.4, -20], // cp2 B1
+  [bx(1), 12.4, -32.5],        // cp3 auf der geneigten Rail B1->A1
+  [bx(1), h(0, 1) + 1.4, -45], // cp4 A1
+  [bx(2), h(0, 2) + 1.4, -45], // cp5 A2
+  [bx(3), h(0, 3) + 1.4, -45], // cp6 A3
+  [bx(4), h(0, 4) + 1.4, -45], // cp7 A4
+  [bx(5), h(0, 5) + 1.4, -45], // cp8 A5
+];
+cps.forEach((pos, i) => markers.push({ type: 'checkpoint', id: `cp${i + 1}`, pos }));
+markers.push({ type: 'finish', id: 'finish-1', pos: [bx(6), h(0, 6) + 1.4, -45] });
+
 const level = {
   name: 'Rooftops District',
   spawn: [bx(3), h(1, 3) + 0.1, -20], // B3, mittelhohes Dach
@@ -202,6 +255,7 @@ const level = {
   ramps: [],
   rails,
   markers,
+  trialTimes: { gold: 60000, silver: 80000, bronze: 100000 },
 };
 
 writeFileSync(

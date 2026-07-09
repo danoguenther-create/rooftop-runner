@@ -27,6 +27,8 @@ export class LevelLoader {
   readonly topFaces: TopFace[] = [];
   readonly spawn = new THREE.Vector3(0, 1, 0);
   name = '';
+  /** Medaillen-Zielzeiten fürs Zeitrennen (Task 19), falls im Level definiert */
+  trialTimes: { gold: number; silver: number; bronze: number } | null = null;
 
   private materials = new Map<string, THREE.MeshLambertMaterial>();
 
@@ -45,6 +47,7 @@ export class LevelLoader {
 
     this.name = data.name;
     this.spawn.fromArray(data.spawn);
+    this.trialTimes = data.trialTimes ?? null;
 
     // Instanzierbare Boxen nach size+color bündeln (1 Draw-Call pro Gruppe)
     const instanceGroups = new Map<string, { size: [number, number, number]; color: string; items: typeof data.boxes }>();

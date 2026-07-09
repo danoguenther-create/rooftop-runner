@@ -2217,6 +2217,281 @@
     9,
     34
    ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-01",
+   "pos": [
+    -52.5,
+    13.200000000000001,
+    -32.5
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-02",
+   "pos": [
+    0,
+    9.700000000000001,
+    -7.5
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-03",
+   "pos": [
+    -35,
+    10.700000000000001,
+    17.5
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-04",
+   "pos": [
+    35,
+    8.200000000000001,
+    17.5
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-05",
+   "pos": [
+    -17.5,
+    13,
+    -30.25
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-06",
+   "pos": [
+    17.5,
+    13,
+    -9.75
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-07",
+   "pos": [
+    -70,
+    13,
+    19.75
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-08",
+   "pos": [
+    17.5,
+    9,
+    19.75
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-09",
+   "pos": [
+    -43.75,
+    12,
+    -45
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-10",
+   "pos": [
+    8.75,
+    10,
+    -45
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-11",
+   "pos": [
+    26.25,
+    13,
+    -20
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-12",
+   "pos": [
+    -26.25,
+    9,
+    5
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-13",
+   "pos": [
+    -8.75,
+    11,
+    30
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-14",
+   "pos": [
+    -38,
+    12.8,
+    -48
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-15",
+   "pos": [
+    32,
+    13.8,
+    -23
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-16",
+   "pos": [
+    -73,
+    15.8,
+    27
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-17",
+   "pos": [
+    57.5,
+    7,
+    -50
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-18",
+   "pos": [
+    47.5,
+    10,
+    -15
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-19",
+   "pos": [
+    57.5,
+    7,
+    0
+   ]
+  },
+  {
+   "type": "collectible",
+   "id": "col-20",
+   "pos": [
+    -57.5,
+    12,
+    35
+   ]
+  },
+  {
+   "type": "trialStart",
+   "id": "trial-1",
+   "pos": [
+    -17.5,
+    13.3,
+    -25
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp1",
+   "pos": [
+    -35,
+    15.4,
+    -20
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp2",
+   "pos": [
+    -52.5,
+    14.4,
+    -20
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp3",
+   "pos": [
+    -52.5,
+    12.4,
+    -32.5
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp4",
+   "pos": [
+    -52.5,
+    12.4,
+    -45
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp5",
+   "pos": [
+    -35,
+    10.4,
+    -45
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp6",
+   "pos": [
+    -17.5,
+    9.4,
+    -45
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp7",
+   "pos": [
+    0,
+    10.4,
+    -45
+   ]
+  },
+  {
+   "type": "checkpoint",
+   "id": "cp8",
+   "pos": [
+    17.5,
+    8.4,
+    -45
+   ]
+  },
+  {
+   "type": "finish",
+   "id": "finish-1",
+   "pos": [
+    35,
+    9.4,
+    -45
+   ]
   }
- ]
+ ],
+ "trialTimes": {
+  "gold": 60000,
+  "silver": 80000,
+  "bronze": 100000
+ }
 }

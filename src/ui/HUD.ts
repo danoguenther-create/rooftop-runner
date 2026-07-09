@@ -20,6 +20,7 @@ export class HUD {
   private readonly balanceEl: HTMLDivElement;
   private readonly balanceNeedleEl: HTMLDivElement;
   private balanceTickerEntry: HTMLDivElement | null = null;
+  private readonly collectEl: HTMLDivElement;
 
   constructor(bus: EventBus) {
     const hud = document.getElementById('hud')!;
@@ -84,6 +85,11 @@ export class HUD {
         font:700 14px/1.4 system-ui; letter-spacing:1px; border-radius:2px;
         border-left:3px solid ${ACCENT}; transition:opacity .4s ease;
       }
+      .hud-collect {
+        top:36px; left:8px; padding:4px 8px; background:rgba(0,0,0,.55);
+        font:12px monospace; border-radius:4px; display:none;
+      }
+      .hud-collect b { color:${ACCENT}; }
     `;
     hud.appendChild(style);
 
@@ -104,6 +110,10 @@ export class HUD {
     this.balanceEl.appendChild(this.balanceNeedleEl);
 
     this.tickerEl = this.panel(hud, 'hud-ticker');
+
+    // Sammelobjekte-Zähler (Task 18), unter dem Stats-Overlay; bis
+    // setCollectibleTotal() aufgerufen wird (kein Level mit Collectibles) unsichtbar
+    this.collectEl = this.panel(hud, 'hud-collect');
 
     // --- Score-Events
     bus.on('score:total', ({ total }) => {
@@ -151,6 +161,10 @@ export class HUD {
     bus.on('trick:spin', ({ halfTurns }) => this.tick(`${halfTurns * 180}!`));
     bus.on('trick:diveroll', () => this.tick('DIVEROLL'));
     bus.on('trick:swing', ({ chain }) => this.tick(chain > 1 ? `BAR ×${chain}` : 'SWING'));
+    bus.on('collect:pickup', ({ collected, total }) => {
+      this.collectEl.innerHTML = `<b>${collected}</b>/${total}`;
+      this.tick('COLLECT');
+    });
     bus.on('trick:balanceStart', () => {
       this.balanceTickerEntry = this.tick('BALANCE');
     });
@@ -185,6 +199,19 @@ export class HUD {
       if (now > until) child.remove();
       else if (now > until - 400) child.style.opacity = '0';
     }
+  }
+
+  /**
+   * Initialisiert den Sammelobjekte-Zähler (Task 18) auf „0/total". Level
+   * ohne Collectibles (total===0) lassen den Zähler unsichtbar.
+   */
+  setCollectibleTotal(total: number): void {
+    if (total === 0) {
+      this.collectEl.style.display = 'none';
+      return;
+    }
+    this.collectEl.style.display = 'block';
+    this.collectEl.innerHTML = `<b>0</b>/${total}`;
   }
 
   private tick(label: string): HTMLDivElement {

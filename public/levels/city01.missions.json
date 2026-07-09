@@ -1,0 +1,22 @@
+[
+  {
+    "id": "m-score",
+    "title": "Punktejagd: 5.000 Punkte",
+    "type": "score",
+    "target": 5000,
+    "timeLimitS": 120
+  },
+  {
+    "id": "m-collect",
+    "title": "Sammler: die 4 Rail-Marken",
+    "type": "collect",
+    "ids": ["col-01", "col-02", "col-03", "col-04"],
+    "timeLimitS": 90
+  },
+  {
+    "id": "m-combo",
+    "title": "Combo-König: banke eine ×6-Combo",
+    "type": "combo",
+    "targetMultiplier": 6
+  }
+]

@@ -26,6 +26,7 @@ const BASE_POINTS: Record<string, number> = {
   diveroll: 75,
   swing: 100,
   swingChain: 50,
+  collect: 100,
 };
 
 /** Roll zählt nur nach echten Stürzen als Trick. */
@@ -66,6 +67,7 @@ export class ScoreSystem {
     });
     bus.on('trick:gap', () => this.addTrick('gap'));
     bus.on('trick:precision', () => this.addTrick('precision'));
+    bus.on('collect:pickup', () => this.addTrick('collect'));
     bus.on('player:roll', ({ fallHeight }) => {
       if (fallHeight > ROLL_MIN_FALL_M) this.addTrick('roll');
     });

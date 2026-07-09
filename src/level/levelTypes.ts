@@ -46,4 +46,6 @@ export interface LevelData {
   ramps: RampData[];
   rails: RailData[];
   markers?: MarkerData[];
+  /** Medaillen-Zielzeiten fürs Zeitrennen in ms (Task 19) */
+  trialTimes?: { gold: number; silver: number; bronze: number };
 }

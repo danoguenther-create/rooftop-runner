@@ -36,6 +36,13 @@ export interface GameEvents {
   'score:lost': { amount: number };
   /** Gesamtscore geändert. */
   'score:total': { total: number };
+  /** Sammelobjekt eingesammelt; collected/total treiben den HUD-Zähler. */
+  'collect:pickup': { id: string; collected: number; total: number };
+  /** Zeitrennen beendet (Task 19). */
+  'trial:finished': { timeMs: number; medal: 'gold' | 'silver' | 'bronze' | 'none' };
+  /** Missionsausgang (Task 20). */
+  'mission:completed': { id: string };
+  'mission:failed': { id: string };
 }
 
 type Handler<T> = (payload: T) => void;

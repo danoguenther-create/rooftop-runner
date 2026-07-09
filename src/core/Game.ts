@@ -6,6 +6,9 @@ import { LevelLoader } from '../level/LevelLoader';
 import { PlayerController } from '../player/PlayerController';
 import { FollowCamera } from '../camera/FollowCamera';
 import { Markers } from '../gameplay/Markers';
+import { Collectibles } from '../gameplay/Collectibles';
+import { TimeTrial } from '../gameplay/TimeTrial';
+import { Missions } from '../gameplay/Missions';
 import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
 import { HUD } from '../ui/HUD';
@@ -24,6 +27,9 @@ export class Game {
   player!: PlayerController;
   followCamera!: FollowCamera;
   markers!: Markers;
+  collectibles!: Collectibles;
+  trial!: TimeTrial;
+  missions!: Missions;
   edges!: EdgePrecision;
   score!: ScoreSystem;
   hud!: HUD;
@@ -127,9 +133,14 @@ export class Game {
     this.player = new PlayerController(this.physics, this.bus, this.scene, this.level);
     this.followCamera = new FollowCamera(this.camera, this.player);
     this.markers = new Markers(this.scene, this.level, this.bus, this.player);
+    this.collectibles = new Collectibles(this.scene, this.level, this.bus, this.player);
+    this.trial = new TimeTrial(this.scene, this.level, this.bus, this.player);
+    this.missions = new Missions(this.bus, this.trial);
+    await this.missions.load(levelName);
     this.edges = new EdgePrecision(this.level.topFaces, this.player, this.bus);
     this.score = new ScoreSystem(this.bus);
     this.hud = new HUD(this.bus);
+    this.hud.setCollectibleTotal(this.collectibles.total);
 
     // Debug: zuletzt ausgelöstes Trick-Event anzeigen
     const trackTrick = (name: string) => {
@@ -163,6 +174,8 @@ export class Game {
     this.hintEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
 
     this.player.handleFrameInput(input);
+    // R während des Rennens: Neustart am trialStart (überschreibt den Respawn)
+    if (input.respawnPressed) this.trial.onRespawn();
     this.player.cameraYaw = this.followCamera.getYaw();
 
     // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
@@ -172,6 +185,8 @@ export class Game {
       this.player.fixedUpdate(FIXED_DT);
       this.physics.step();
       this.markers.fixedUpdate();
+      this.collectibles.fixedUpdate();
+      this.trial.fixedUpdate();
       this.edges.fixedUpdate(FIXED_DT);
       this.accumulator -= FIXED_DT;
       steps++;
@@ -182,6 +197,9 @@ export class Game {
     this.player.update(dt);
     this.followCamera.update(dt, input);
     this.markers.update(dt);
+    this.collectibles.update(dt);
+    this.trial.update(dt);
+    this.missions.update(dt);
     this.score.update(dt);
     this.hud.update(dt, this.player.horizontalSpeed, this.player.balancer.sway);
 
