@@ -111,8 +111,22 @@ export class Menus {
       row.appendChild(input);
       settings.appendChild(row);
     };
-    slider('Musik', this.musicVol, (v) => (this.musicVol = v));
-    slider('SFX', this.sfxVol, (v) => (this.sfxVol = v));
+    // Nach jeder Einstellungsänderung debounced in den Spielstand schreiben (Task 24)
+    const persistSettings = () =>
+      this.game.save.saveSettings({
+        musicVol: this.musicVol,
+        sfxVol: this.sfxVol,
+        quality: this.quality,
+      });
+
+    slider('Musik', this.musicVol, (v) => {
+      this.musicVol = v;
+      persistSettings();
+    });
+    slider('SFX', this.sfxVol, (v) => {
+      this.sfxVol = v;
+      persistSettings();
+    });
 
     const q = document.createElement('button');
     const qLabel = () => `Qualität: ${this.quality}`;
@@ -124,8 +138,24 @@ export class Menus {
       this.quality = this.quality === 'hoch' ? 'niedrig' : 'hoch';
       this.game.setQuality(this.quality === 'hoch');
       q.textContent = qLabel();
+      persistSettings();
     };
     settings.appendChild(q);
+
+    // Fortschritt zurücksetzen (Task 24): dezenter Stil wie der Qualitäts-Button
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Fortschritt zurücksetzen';
+    resetBtn.style.cssText =
+      'margin-top:6px;margin-left:6px;padding:6px 14px;background:rgba(255,255,255,.08);' +
+      'border:none;color:#fff;font:13px system-ui;border-radius:2px;cursor:pointer;';
+    resetBtn.onclick = () => {
+      if (confirm('Kompletten Fortschritt löschen?')) {
+        this.game.save.resetAll();
+        location.reload();
+      }
+    };
+    settings.appendChild(resetBtn);
+
     this.panel.appendChild(settings);
   }
 }

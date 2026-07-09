@@ -13,6 +13,7 @@ import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
 import { HUD } from '../ui/HUD';
 import { Menus } from '../ui/Menus';
+import { SaveGame } from '../save/SaveGame';
 
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
@@ -35,6 +36,7 @@ export class Game {
   score!: ScoreSystem;
   hud!: HUD;
   menus!: Menus;
+  save!: SaveGame;
   /** Game-Flow (Task 23): Menü offen, Spiel läuft oder pausiert */
   state: 'MENU' | 'PLAYING' | 'PAUSED' = 'MENU';
   private sun!: THREE.DirectionalLight;
@@ -140,13 +142,28 @@ export class Game {
     this.followCamera = new FollowCamera(this.camera, this.player);
     this.markers = new Markers(this.scene, this.level, this.bus, this.player);
     this.collectibles = new Collectibles(this.scene, this.level, this.bus, this.player);
+    // SaveGame (Task 24): direkt nach Collectibles instanziieren, damit bereits
+    // eingesammelte Objekte ohne Pop-Animation entfernt werden, bevor irgendetwas
+    // anderes im Level darauf zugreift (z. B. der HUD-Zähler weiter unten).
+    this.save = new SaveGame(this.bus, levelName);
+    this.collectibles.setCollected(this.save.getCollectibles(levelName));
     this.trial = new TimeTrial(this.scene, this.level, this.bus, this.player);
     this.missions = new Missions(this.bus, this.trial);
     await this.missions.load(levelName);
+    this.missions.setCompleted(this.save.getMissions());
     this.edges = new EdgePrecision(this.level.topFaces, this.player, this.bus);
     this.score = new ScoreSystem(this.bus);
     this.hud = new HUD(this.bus);
     this.hud.setCollectibleTotal(this.collectibles.total);
+    // setCollectibleTotal zeigt immer "0/total" (kein Parameter für bereits
+    // eingesammelte Objekte); den bereits geladenen Stand nachträglich anzeigen,
+    // ohne 'collect:pickup' zu emittieren (würde ScoreSystem/Missions fälschlich
+    // erneut Punkte/Fortschritt für längst eingesammelte Objekte gutschreiben).
+    const alreadyCollected = this.collectibles.getCollected().size;
+    if (alreadyCollected > 0) {
+      const collectEl = document.querySelector<HTMLElement>('.hud-collect');
+      if (collectEl) collectEl.innerHTML = `<b>${alreadyCollected}</b>/${this.collectibles.total}`;
+    }
 
     // Debug: zuletzt ausgelöstes Trick-Event anzeigen
     const trackTrick = (name: string) => {
@@ -171,6 +188,14 @@ export class Game {
 
     // Menü/Direkteinstieg (Task 23): ?play=1 und ?trial=1 überspringen das Menü
     this.menus = new Menus(this);
+    // Gespeicherte Einstellungen (Task 24) auf die frisch gebaute Menus-Instanz
+    // anwenden, bevor das Menü ggf. angezeigt wird.
+    const s = this.save.getSettings();
+    this.menus.musicVol = s.musicVol;
+    this.menus.sfxVol = s.sfxVol;
+    this.menus.quality = s.quality;
+    this.setQuality(s.quality === 'hoch');
+
     const params = new URLSearchParams(location.search);
     if (params.get('trial') === '1') {
       this.trial.teleportToStart();
