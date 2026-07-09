@@ -12,6 +12,7 @@ import { Missions } from '../gameplay/Missions';
 import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
 import { HUD } from '../ui/HUD';
+import { Menus } from '../ui/Menus';
 
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
@@ -33,6 +34,10 @@ export class Game {
   edges!: EdgePrecision;
   score!: ScoreSystem;
   hud!: HUD;
+  menus!: Menus;
+  /** Game-Flow (Task 23): Menü offen, Spiel läuft oder pausiert */
+  state: 'MENU' | 'PLAYING' | 'PAUSED' = 'MENU';
+  private sun!: THREE.DirectionalLight;
   private lastTrick = '–';
 
   private clock = new THREE.Clock();
@@ -119,6 +124,7 @@ export class Game {
     sun.shadow.camera.right = 40;
     sun.shadow.camera.top = 40;
     sun.shadow.camera.bottom = -40;
+    this.sun = sun;
     this.scene.add(sun);
     this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x5a6b50, 1.2));
   }
@@ -163,45 +169,84 @@ export class Game {
     this.bus.on('trick:diveroll', (e) => trackTrick(`diveroll (${e.fallHeight.toFixed(1)}m)`));
     this.bus.on('trick:swing', (e) => trackTrick(`swing (x${e.chain})`));
 
+    // Menü/Direkteinstieg (Task 23): ?play=1 und ?trial=1 überspringen das Menü
+    this.menus = new Menus(this);
+    const params = new URLSearchParams(location.search);
+    if (params.get('trial') === '1') {
+      this.trial.teleportToStart();
+      this.state = 'PLAYING';
+    } else if (params.get('play') === '1') {
+      this.state = 'PLAYING';
+    } else {
+      this.menus.showStart();
+    }
+
     this.clock.start();
     requestAnimationFrame(this.loop);
+  }
+
+  resume(): void {
+    this.state = 'PLAYING';
+    this.menus.hide();
+  }
+
+  pause(): void {
+    if (this.state !== 'PLAYING') return;
+    this.state = 'PAUSED';
+    this.menus.showPause();
+    document.exitPointerLock();
+  }
+
+  /** Qualität hoch/niedrig: Schatten + Renderauflösung (Task 23). */
+  setQuality(high: boolean): void {
+    this.sun.castShadow = high;
+    this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
   }
 
   private loop = (): void => {
     const dt = Math.min(this.clock.getDelta(), 0.25);
     const input = this.input.poll();
 
-    this.hintEl.style.display = this.input.isPointerLocked ? 'none' : 'block';
-
-    this.player.handleFrameInput(input);
-    // R während des Rennens: Neustart am trialStart (überschreibt den Respawn)
-    if (input.respawnPressed) this.trial.onRespawn();
-    this.player.cameraYaw = this.followCamera.getYaw();
-
-    // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
-    this.accumulator += dt;
-    let steps = 0;
-    while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
-      this.player.fixedUpdate(FIXED_DT);
-      this.physics.step();
-      this.markers.fixedUpdate();
-      this.collectibles.fixedUpdate();
-      this.trial.fixedUpdate();
-      this.edges.fixedUpdate(FIXED_DT);
-      this.accumulator -= FIXED_DT;
-      steps++;
+    // Esc: Pause an/aus (Task 23)
+    if (input.pausePressed) {
+      if (this.state === 'PLAYING') this.pause();
+      else if (this.state === 'PAUSED') this.resume();
     }
-    if (steps === MAX_STEPS) this.accumulator = 0; // Spiral of death vermeiden
 
-    // Render-Takt
-    this.player.update(dt);
-    this.followCamera.update(dt, input);
-    this.markers.update(dt);
-    this.collectibles.update(dt);
-    this.trial.update(dt);
-    this.missions.update(dt);
-    this.score.update(dt);
-    this.hud.update(dt, this.player.horizontalSpeed, this.player.balancer.sway);
+    this.hintEl.style.display =
+      this.state === 'PLAYING' && !this.input.isPointerLocked ? 'block' : 'none';
+
+    if (this.state === 'PLAYING') {
+      this.player.handleFrameInput(input);
+      // R während des Rennens: Neustart am trialStart (überschreibt den Respawn)
+      if (input.respawnPressed) this.trial.onRespawn();
+      this.player.cameraYaw = this.followCamera.getYaw();
+
+      // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
+      this.accumulator += dt;
+      let steps = 0;
+      while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
+        this.player.fixedUpdate(FIXED_DT);
+        this.physics.step();
+        this.markers.fixedUpdate();
+        this.collectibles.fixedUpdate();
+        this.trial.fixedUpdate();
+        this.edges.fixedUpdate(FIXED_DT);
+        this.accumulator -= FIXED_DT;
+        steps++;
+      }
+      if (steps === MAX_STEPS) this.accumulator = 0; // Spiral of death vermeiden
+
+      // Render-Takt
+      this.player.update(dt);
+      this.followCamera.update(dt, input);
+      this.markers.update(dt);
+      this.collectibles.update(dt);
+      this.trial.update(dt);
+      this.missions.update(dt);
+      this.score.update(dt);
+      this.hud.update(dt, this.player.horizontalSpeed, this.player.balancer.sway);
+    }
 
     this.renderer.render(this.scene, this.camera);
 

@@ -25,7 +25,7 @@ const hudText = (sel) => page.evaluate((s) => document.querySelector(s)?.textCon
 const results = {};
 
 // ========== City: Mission (Combo) + Zeitrennen ==========
-await page.goto(`${base}?level=city01`, { waitUntil: 'load' });
+await page.goto(`${base}?level=city01&play=1`, { waitUntil: 'load' });
 await page.waitForTimeout(5000);
 
 // --- Mission 3 (Combo ×6): Tricks über den Bus simulieren, dann banken
@@ -67,7 +67,7 @@ results.trialOverlay = await page.evaluate(() => {
 });
 
 // ========== Testlevel: Collectible einsammeln ==========
-await page.goto(base, { waitUntil: 'load' });
+await page.goto(`${base}?play=1`, { waitUntil: 'load' });
 await page.waitForTimeout(4500);
 await teleport(6, 3.0, 0); // col-t1
 await page.waitForTimeout(600);

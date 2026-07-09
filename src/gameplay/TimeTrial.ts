@@ -96,6 +96,11 @@ export class TimeTrial {
     return this.running;
   }
 
+  /** Spieler zum Startring bringen (Menü-Einstieg „Time Trial"). */
+  teleportToStart(): void {
+    if (this.startPos) this.teleportTo(this.startPos);
+  }
+
   /** Von Game bei gedrücktem R aufgerufen: Rennen neu starten. */
   onRespawn(): void {
     if (!this.running || !this.startPos) return;

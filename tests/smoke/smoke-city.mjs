@@ -1,7 +1,7 @@
 import { chromium } from 'playwright-core';
 
 const base = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
-const url = `${base}?level=city01`;
+const url = `${base}?level=city01&play=1`;
 const browser = await chromium.launch({
   executablePath: '/usr/bin/chromium-browser',
   args: ['--use-gl=swiftshader', '--enable-unsafe-swiftshader', '--no-sandbox'],
