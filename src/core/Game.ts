@@ -102,6 +102,8 @@ export class Game {
   /** Licht + Himmel (levelunabhängig). */
   private buildEnvironment(): void {
     this.scene.background = new THREE.Color(0x87b7dc);
+    // Distanznebel in Himmelfarbe: kaschiert das Levelende (Task 17)
+    this.scene.fog = new THREE.Fog(0x87b7dc, 40, 180);
 
     const sun = new THREE.DirectionalLight(0xffffff, 2.5);
     sun.position.set(15, 30, 12);

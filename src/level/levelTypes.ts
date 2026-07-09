@@ -7,6 +7,8 @@ export interface BoxData {
   size: Vec3;
   rotY?: number;
   color?: string;
+  /** Gleiche size+color werden zu einem InstancedMesh gebündelt (Task 17) */
+  instanced?: boolean;
 }
 
 export interface RampData {

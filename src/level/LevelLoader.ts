@@ -46,9 +46,23 @@ export class LevelLoader {
     this.name = data.name;
     this.spawn.fromArray(data.spawn);
 
+    // Instanzierbare Boxen nach size+color bündeln (1 Draw-Call pro Gruppe)
+    const instanceGroups = new Map<string, { size: [number, number, number]; color: string; items: typeof data.boxes }>();
     for (const box of data.boxes) {
-      this.addBox(box.pos, box.size, box.rotY ?? 0, 0, box.color ?? '#9aa0a6');
+      if (!box.instanced) {
+        this.addBox(box.pos, box.size, box.rotY ?? 0, 0, box.color ?? '#9aa0a6');
+        continue;
+      }
+      const color = box.color ?? '#9aa0a6';
+      const key = `${box.size.join(',')}|${color}`;
+      let group = instanceGroups.get(key);
+      if (!group) {
+        group = { size: box.size, color, items: [] };
+        instanceGroups.set(key, group);
+      }
+      group.items.push(box);
     }
+    for (const group of instanceGroups.values()) this.addInstancedBoxes(group);
     for (const ramp of data.ramps ?? []) {
       this.addBox(ramp.pos, ramp.size, ramp.rotY ?? 0, ramp.tiltX ?? 0, ramp.color ?? '#8d939c');
     }
@@ -82,9 +96,48 @@ export class LevelLoader {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.group.add(mesh);
+    this.registerBoxPhysics(pos, size, rotY, tiltX);
+  }
 
+  /** Gebündelte Boxen: 1 InstancedMesh, Collider + Deckflächen einzeln. */
+  private addInstancedBoxes(group: {
+    size: [number, number, number];
+    color: string;
+    items: { pos: [number, number, number]; rotY?: number }[];
+  }): void {
+    const mesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(...group.size),
+      this.material(group.color),
+      group.items.length,
+    );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3(1, 1, 1);
+    for (let i = 0; i < group.items.length; i++) {
+      const item = group.items[i];
+      q.setFromEuler(new THREE.Euler(0, item.rotY ?? 0, 0, 'YXZ'));
+      m.compose(p.fromArray(item.pos), q, s);
+      mesh.setMatrixAt(i, m);
+      this.registerBoxPhysics(item.pos, group.size, item.rotY ?? 0, 0);
+    }
+    this.group.add(mesh);
+  }
+
+  private registerBoxPhysics(
+    pos: [number, number, number],
+    size: [number, number, number],
+    rotY: number,
+    tiltX: number,
+  ): void {
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, rotY, 0, 'YXZ'));
-    this.physics.addStaticBox(mesh.position, new THREE.Vector3(...size), quat);
+    this.physics.addStaticBox(
+      new THREE.Vector3().fromArray(pos),
+      new THREE.Vector3(...size),
+      quat,
+    );
 
     // Deckfläche registrieren: nur ebene Flächen, und keine Riesenflächen
     // wie der Boden (deren „Kanten" sind keine Precision-Ziele)
