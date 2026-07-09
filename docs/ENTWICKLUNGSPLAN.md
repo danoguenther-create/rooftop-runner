@@ -1176,6 +1176,30 @@ und eine Route über mind. 8 Dächer mit 2 Rails und 1 Wall-Run ist spielbar.
 
 - **Verifikation:** Route selbst abfahren; Stellen, die nicht springbar sind, notieren und als Korrektur-Prompt zurückgeben („Lücke zwischen Gebäude bei x,z … ist zu weit — rücke näher"). Rechne mit 2–3 Iterationen.
 
+### Task 17b — Fassaden-Detail-Pass **[S5]** *(ergänzt 2026-07-09, nach Spielspaß-Check umsetzen)*
+- **Ziel:** Stadtgefühl ohne Stilbruch — der Flat-Look bleibt, bekommt aber Maßstab.
+- **Abhängigkeiten:** Task 17. **Dateien:** `src/level/LevelLoader.ts`, `tools/gen-city01.mjs`.
+- **Build-Prompt:**
+
+```text
+TASK 17B — Fassaden-Details
+1) Prozedurale Fenster-Textur: per CanvasTexture im Code erzeugt (keine
+   Asset-Dateien) — schlichtes, dunkles Fensterraster auf hellem Grund,
+   2-3 Varianten. Auf die SEITENFLÄCHEN der Gebäude-Boxen (BoxGeometry-
+   Materialgruppen: Seiten texturiert, Dach/Boden flach), Textur-Repeat
+   an der Gebäudegröße ausgerichtet. Muss mit dem InstancedMesh-System
+   funktionieren (gleiche size+color = gleiche Material-Gruppe).
+2) Farbvariation: Gebäudefarben leicht randomisiert (Hue/Helligkeit ±5 %,
+   deterministisch aus der Position geseedet) + dunkler Sockelstreifen.
+3) GLB-Props (optional, wenn Assets vorliegen): Klimaanlagen/Antennen/
+   Wassertanks (Kenney/Quaternius, CC0) als Deko auf Dächern verteilen,
+   simple Box-Collider, InstancedMesh pro Prop-Typ.
+Fertig, wenn: Die City wirkt bewohnt, Draw-Calls bleiben < 150 und die
+Lesbarkeit von Kanten/Rails leidet nicht (Spielspaß-Check!).
+```
+
+- **Verifikation:** Vorher/Nachher-Screenshot; Draw-Calls im Stats-Overlay vergleichen.
+
 ### Task 18 — Sammelobjekte **[S5]**
 - **Ziel:** Collectibles mit Persistenz-Anschluss.
 - **Abhängigkeiten:** Task 17. **Dateien:** `src/gameplay/Collectibles.ts`, Level-JSONs.
@@ -1259,7 +1283,7 @@ Fertig, wenn: Alle 3 Missionstypen sind spiel- und gewinnbar/verlierbar.
 ### Task 21 — Charakter + Animationen **[OPUS]**
 - **Ziel:** Mixamo-Charakter ersetzt die Kapsel.
 - **Abhängigkeiten:** Task 13 (alle Zustände existieren). **Dateien:** `src/player/PlayerAnimator.ts`, `src/core/AssetLoader.ts`, `public/models/runner.glb`.
-- **Vorarbeit durch dich (manuell, ~1–2 h):** Auf mixamo.com Charakter „X Bot" wählen; Animationen einzeln **ohne Skin** als FBX laden: Idle, Running, Sprinting, Jump, Falling Idle, Rolling, Walking (auf der Rail, als Balance-Pose ggf. „Catwalk Walk"), Left/Right Wall Run (falls vorhanden, sonst Running geneigt), Vaulting/Jumping Over, Stumble Backwards (Bail), Getting Up, Front Flip, Backflip, Hanging Idle, Braced Hang Shimmy (Hangeln), Climbing/Freehang Climb (Mantle), Swing To Land o. Ä. (Stangenschwingen). In Blender: Charakter + Animationen importieren, als **eine GLB** mit benannten Clips exportieren (`public/models/runner.glb`). Alternativ das Modell + Clips einzeln als GLB und im Prompt die Dateinamen nennen.
+- **Vorarbeit durch dich (manuell, ~30–60 Min., OHNE Blender — Update 2026-07-09):** Three.js lädt Mixamo-FBX direkt, das Zusammenbauen in Blender entfällt. Auf mixamo.com (kostenloses Adobe-Konto): Charakter „X Bot" wählen und **einmal mit Skin** herunterladen (Format: FBX Binary, Pose: T-Pose, With Skin) → `public/models/mixamo/xbot.fbx`. Danach Animationen einzeln suchen, auf den Charakter anwenden und **ohne Skin** herunterladen (Format: FBX Binary, Skin: Without Skin, 30 fps, Keyframe Reduction: none; bei Lauf-Animationen die Checkbox **„In Place" aktivieren** — die Fortbewegung macht unsere Physik!). Dateien nach `public/models/mixamo/<name>.fbx`. Pflicht-Set zuerst (Suchbegriff → Dateiname): Idle → `idle.fbx`, Running (In Place) → `run.fbx`, Fast Run/Sprint (In Place) → `sprint.fbx`, Jump → `jump.fbx`, Falling Idle → `fall.fbx`. Erweiterung danach: Stand To Roll → `roll.fbx`, Catwalk Walk (In Place, schmal) → `balance.fbx`, Front Flip → `flipfront.fbx`, Backflip → `flipback.fbx`, Hanging Idle → `hang.fbx`, Braced Hang Shimmy → `shimmy.fbx`, Freehang Climb/Climbing → `mantle.fbx`, Stumble Backwards → `bail.fbx`, Getting Up → `getup.fbx`, Jump Over/ähnlich → `vault.fbx`. (Suchbegriffe sind Näherungen — nimm, was gut aussieht; fehlende Clips bekommen Code-Fallbacks.)
 - **Build-Prompt:**
 
 ```text
