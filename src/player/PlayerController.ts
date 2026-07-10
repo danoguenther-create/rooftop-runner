@@ -209,7 +209,7 @@ export class PlayerController {
     if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
       this.mesh.rotation.x = 0.7;
     }
-    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y);
+    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing);
   }
 
   // ---------------------------------------------------------- Physik-Takt

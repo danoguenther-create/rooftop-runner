@@ -6,12 +6,20 @@ const FADE_S = 0.15;
 /** Bodenrolle knackiger abspielen als der gemächliche Mixamo-Clip. */
 const ROLL_TIMESCALE = 1.5;
 /**
- * Einstiegszeitpunkt je Clip. Der Mixamo-Jump enthält vorn ~0,55 s
- * Aushol-Hocke plus ~0,25 s Beinstreckung (Abdruck) — die Beine ziehen
- * erst kurz vor dem Scheitel (~0,9 s) an. Unser Sprung dauert nur ~0,8 s,
- * also direkt in der Anzieh-Phase einsteigen.
+ * Einstiegszeitpunkt je Clip (per Hips-Kurve vermessen). Die 2026-07-10
+ * hochgeladenen Jump-Clips starten direkt im Absprung (keine Aushol-Hocke
+ * mehr); wallclimb hat vorn ~0,3 s Absprung-Hocke.
  */
-const CLIP_START_S: Record<string, number> = { jump: 0.8 };
+const CLIP_START_S: Record<string, number> = {
+  jump: 0.05,
+  'running-jump': 0.05,
+  wallclimb: 0.3,
+};
+
+/** Clips, die einmalig durchlaufen und dann auf dem letzten Frame halten. */
+const ONE_SHOT = new Set(['jump', 'running-jump', 'land', 'wallclimb']);
+/** Ab dieser Horizontalgeschwindigkeit nimmt der Absprung den Anlauf-Clip. */
+const RUNNING_JUMP_MIN_SPEED = 4;
 
 /**
  * Bindet die Mixamo-Clips an die Player-FSM (Task 21). Rein visuell:
@@ -39,39 +47,51 @@ export class PlayerAnimator {
       this.actions.set(name, this.mixer.clipAction(clip));
     }
     bus.on('player:roll', () => this.playOneShot('roll', ROLL_TIMESCALE));
-    bus.on('trick:diveroll', () => this.playOneShot('roll', ROLL_TIMESCALE));
+    bus.on('trick:diveroll', () =>
+      this.playOneShot(this.actions.has('landing-roll') ? 'landing-roll' : 'roll', ROLL_TIMESCALE),
+    );
   }
 
   /** Render-Takt: Ziel-Clip aus FSM-Zustand + Bewegung ableiten. */
-  update(dt: number, state: StateName, hSpeed: number, vy: number): void {
+  update(dt: number, state: StateName, hSpeed: number, vy: number, climbing: boolean): void {
     this.time += dt;
     if (this.time >= this.lockUntil) {
-      this.play(this.pickClip(state, hSpeed, vy));
+      this.play(this.pickClip(state, hSpeed, vy, climbing));
     }
     this.mixer.update(dt);
   }
 
-  private pickClip(state: StateName, hSpeed: number, vy: number): string {
+  private pickClip(state: StateName, hSpeed: number, vy: number, climbing: boolean): string {
     switch (state) {
       case 'RUN':
         if (hSpeed > 7) return 'sprint';
         if (hSpeed > 0.5) return 'run';
         return 'idle';
       case 'AIR':
-        // Aufwärtsphase nach Absprung: Jump-Clip; sonst Falling-Loop
-        if (vy > 1 && this.currentName !== 'fall') return 'jump';
+        // Vertikaler Wandlauf hat Vorrang (Climber wirkt im AIR-Zustand)
+        if (climbing) return 'wallclimb';
+        // Aufwärtsphase nach Absprung: Jump-Clip (mit/ohne Anlauf) halten,
+        // bis der Scheitel überschritten ist; danach Falling-Loop
+        if (vy > 1) {
+          if (this.currentName === 'jump' || this.currentName === 'running-jump') {
+            return this.currentName;
+          }
+          if (this.currentName !== 'fall') {
+            return hSpeed > RUNNING_JUMP_MIN_SPEED ? 'running-jump' : 'jump';
+          }
+        }
         return 'fall';
       case 'WALLRUN':
-        return 'run';
+        return 'wallrun';
       case 'VAULT':
         return 'jump';
       case 'BAIL':
         return 'land';
       case 'BALANCE':
+        return 'idle'; // Platzhalter — Balance-Clip (z. B. Catwalk Walk) fehlt noch
       case 'HANG':
-        return 'idle'; // Platzhalter, bis eigene Clips hochgeladen sind
       case 'SWING':
-        return 'fall';
+        return 'hang';
     }
   }
 
@@ -82,10 +102,7 @@ export class PlayerAnimator {
 
     next.reset();
     next.time = CLIP_START_S[name] ?? 0;
-    next.setLoop(
-      name === 'jump' || name === 'land' ? THREE.LoopOnce : THREE.LoopRepeat,
-      Infinity,
-    );
+    next.setLoop(ONE_SHOT.has(name) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
     next.clampWhenFinished = true;
     next.setEffectiveTimeScale(1);
     next.play();

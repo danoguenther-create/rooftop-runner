@@ -68,11 +68,13 @@ export class AirTricks {
       case 'back':
         mesh.rotation.x = -angle;
         break;
+      // Lokales +z zeigt nach vorn: positive z-Rotation kippt den Kopf zur
+      // RECHTEN Schulter (Spieler-Feedback 2026-07-10, war vertauscht)
       case 'left':
-        mesh.rotation.z = angle;
+        mesh.rotation.z = -angle;
         break;
       case 'right':
-        mesh.rotation.z = -angle;
+        mesh.rotation.z = angle;
         break;
       default:
         mesh.rotation.x = 0;
