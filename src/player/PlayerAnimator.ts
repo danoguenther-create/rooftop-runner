@@ -5,6 +5,12 @@ import type { StateName } from './PlayerStates';
 const FADE_S = 0.15;
 /** Bodenrolle knackiger abspielen als der gemächliche Mixamo-Clip. */
 const ROLL_TIMESCALE = 1.5;
+/**
+ * Einstiegszeitpunkt je Clip. Der Mixamo-Jump enthält vorn ~0,55 s
+ * Aushol-Hocke am Boden — wir triggern aber erst beim Absprung, also
+ * dort einsteigen (gemessen an der Hips-Y-Kurve: Tiefpunkt bei 0,53 s).
+ */
+const CLIP_START_S: Record<string, number> = { jump: 0.55 };
 
 /**
  * Bindet die Mixamo-Clips an die Player-FSM (Task 21). Rein visuell:
@@ -74,6 +80,7 @@ export class PlayerAnimator {
     if (!next || next === this.current) return;
 
     next.reset();
+    next.time = CLIP_START_S[name] ?? 0;
     next.setLoop(
       name === 'jump' || name === 'land' ? THREE.LoopOnce : THREE.LoopRepeat,
       Infinity,
