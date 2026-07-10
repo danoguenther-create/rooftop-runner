@@ -58,8 +58,11 @@ export class Menus {
       return b;
     };
     const switchLevel = (name: string, extra = '') => {
-      const current = new URLSearchParams(location.search).get('level') ?? 'testlevel';
-      if (current === name && !extra) {
+      const params = new URLSearchParams(location.search);
+      const current = params.get('level') ?? 'testlevel';
+      // Nur fortsetzen, wenn Level UND Modus schon passen — ein Solo-Klick
+      // aus einer Splitscreen-Session braucht den Reload (und umgekehrt)
+      if (current === name && !extra && this.game.mode === 'solo') {
         this.game.resume();
       } else {
         location.href = `${location.pathname}?level=${name}${extra}`;
@@ -70,19 +73,26 @@ export class Menus {
       btn('▶ Free Run — Graybox (Physik-Playground)', () => switchLevel('testlevel'));
       btn('▶ Free Run — Rooftops District', () => switchLevel('city01'));
       btn('⏱ Time Trial — Rooftops District', () => switchLevel('city01', '&trial=1'));
+      // Splitscreen-Duell (2 Spieler an einer Tastatur): eigener Modus,
+      // startet direkt (play=1) — reiner Trick-Score-Vergleich
+      btn('👥 Splitscreen — Graybox', () => switchLevel('testlevel', '&mode=split&play=1'));
+      btn('👥 Splitscreen — Rooftops District', () =>
+        switchLevel('city01', '&mode=split&play=1'),
+      );
 
-      // Missionsliste mit Erledigt-Häkchen
-      const list = this.game.missions.missionList;
-      if (list.length) {
+      // Missionsliste mit Erledigt-Häkchen (nur Solo — im Split deaktiviert)
+      const missions = this.game.missions;
+      const list = missions?.missionList ?? [];
+      if (missions && list.length) {
         const head = document.createElement('div');
         head.textContent = 'Missionen';
         head.style.cssText = 'margin:14px 0 4px;color:#9aa;font-size:13px;';
         this.panel.appendChild(head);
-        const done = this.game.missions.getCompleted();
+        const done = missions.getCompleted();
         for (const m of list) {
           btn(`${done.has(m.id) ? '✔' : '○'} ${m.title}`, () => {
             this.game.resume();
-            this.game.missions.start(m.id);
+            missions.start(m.id);
           }, true);
         }
       }

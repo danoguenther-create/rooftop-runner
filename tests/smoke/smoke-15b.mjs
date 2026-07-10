@@ -30,7 +30,10 @@ const teleport = (x, y, z, vx, vy, vz) =>
   );
 const reset = async () => {
   await page.keyboard.press('r');
-  await page.waitForTimeout(600);
+  // Bis zur Landung warten: nach Respawn sind Lufttricks erst nach dem
+  // ersten Bodenkontakt wieder scharf (Spawn-Fall-Schutz)
+  await page.waitForFunction(() => window.game.player.grounded, null, { timeout: 8000 });
+  await page.waitForTimeout(200);
 };
 
 const results = {};
@@ -60,9 +63,9 @@ results.flipBail = await debug();
 await reset();
 await page.waitForTimeout(1500); // BAIL ausstehen lassen
 
-// 4) Spin 180 (D in der Luft)
+// 4) Spin 180 (E in der Luft — seit dem Splitscreen-Umbau wieder Q/E)
 await teleport(0, 5, -20, 0, 2, 0);
-await page.keyboard.press('d');
+await page.keyboard.press('e');
 await page.waitForTimeout(1300);
 results.spin = await debug();
 await reset();

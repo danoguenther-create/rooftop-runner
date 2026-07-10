@@ -89,6 +89,12 @@ export class PlayerController {
 
   // Timing (performance.now()-Basis für Eingabe-Fenster)
   private timeSinceGroundedS = 0;
+  /**
+   * Erst nach dem ersten Bodenkontakt (bzw. nach Respawn) sind Lufttricks
+   * scharf — sonst löst die Lauftaste während des Spawn-Falls einen Flip
+   * aus und der Spieler bailt direkt am Start.
+   */
+  private everGrounded = false;
   private jumpRequestedAt = -Infinity;
   private lastRollPressAt = -Infinity;
   private prevRollHeld = false;
@@ -183,8 +189,8 @@ export class PlayerController {
     if (input.jumpPressed) this.jumpRequestedAt = now;
     if (input.rollHeld && !this.prevRollHeld) this.lastRollPressAt = now;
     this.prevRollHeld = input.rollHeld;
-    // Lufttricks nur im freien Flug queuen
-    if (this.fsm.current === 'AIR') {
+    // Lufttricks nur im freien Flug queuen (und erst nach erstem Bodenkontakt)
+    if (this.fsm.current === 'AIR' && this.everGrounded) {
       if (input.flipPressed) this.airTricks.queueFlip(input.flipPressed);
       if (input.spinPressed !== 0) this.airTricks.queueSpin(input.spinPressed);
       if (input.rollHeld) this.diving = true; // Dive angesetzt (bis zur Landung)
@@ -234,6 +240,7 @@ export class PlayerController {
     if (!this.input) return;
 
     this.timeSinceGroundedS = this.grounded ? 0 : this.timeSinceGroundedS + dt;
+    if (this.grounded) this.everGrounded = true;
     if (this.boostRemaining > 0) this.boostRemaining -= dt;
     if (this.noAccelRemaining > 0) this.noAccelRemaining -= dt;
 
@@ -437,6 +444,7 @@ export class PlayerController {
     this.noAccelRemaining = 0;
     this.airTricks.cancel();
     this.diving = false;
+    this.everGrounded = false; // Spawn-Fall darf keinen Flip triggern
   }
 
   getPosition(out: THREE.Vector3): THREE.Vector3 {

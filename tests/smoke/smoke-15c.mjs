@@ -32,7 +32,10 @@ const teleport = (x, y, z, vx, vy, vz) =>
   );
 const reset = async () => {
   await page.keyboard.press('r');
-  await page.waitForTimeout(800);
+  // Bis zur Landung warten: nach Respawn sind Lufttricks (auch Dive) erst
+  // nach dem ersten Bodenkontakt wieder scharf (Spawn-Fall-Schutz)
+  await page.waitForFunction(() => window.game.player.grounded, null, { timeout: 8000 });
+  await page.waitForTimeout(200);
 };
 
 const results = {};

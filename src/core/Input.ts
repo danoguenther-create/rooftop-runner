@@ -17,18 +17,86 @@ export interface InputState {
   rollHeld: boolean;
   pausePressed: boolean;
   respawnPressed: boolean;
-  /** Flip-Richtung, nur im Frame des Tastendrucks (Pfeiltasten) */
+  /** Flip-Richtung, nur im Frame des Tastendrucks — zählt nur in der Luft */
   flipPressed: 'front' | 'back' | 'left' | 'right' | null;
-  /** Spin-Richtung (-1 = A, +1 = D), nur im Frame des Tastendrucks — zählt nur in der Luft */
+  /** Spin-Richtung, nur im Frame des Tastendrucks — zählt nur in der Luft */
   spinPressed: -1 | 0 | 1;
 }
 
-const FLIP_KEYS: Record<string, 'front' | 'back' | 'left' | 'right'> = {
-  ArrowUp: 'front',
-  ArrowDown: 'back',
-  ArrowLeft: 'left',
-  ArrowRight: 'right',
-};
+/**
+ * Tastenbelegung eines Spielers (Splitscreen-Umbau 2026-07-10). Flips
+ * liegen auf den BEWEGUNGSTASTEN: erneuter Druck in der Luft löst den
+ * Flip aus (Edge-Trigger; der Controller konsumiert nur im AIR-Zustand).
+ */
+export interface KeyMap {
+  fwd: string[];
+  back: string[];
+  left: string[];
+  right: string[];
+  jump: string[];
+  sprint: string[];
+  roll: string[];
+  respawn: string[];
+  pause: string[];
+  spinL: string[];
+  spinR: string[];
+  flipFront: string[];
+  flipBack: string[];
+  flipLeft: string[];
+  flipRight: string[];
+  /** Maus steuert die Kamera (nur Spieler 1) */
+  mouse: boolean;
+}
+
+/**
+ * Spieler 1: WASD + Space/Shift/C, Spins Q/E. Im Solo-Modus lösen die
+ * Pfeiltasten zusätzlich Flips aus (Muskelgedächtnis + Smoke-Tests).
+ */
+export function keymapP1(soloAliases: boolean): KeyMap {
+  return {
+    fwd: ['KeyW'],
+    back: ['KeyS'],
+    left: ['KeyA'],
+    right: ['KeyD'],
+    jump: ['Space'],
+    sprint: ['ShiftLeft'],
+    roll: ['KeyC', 'ControlLeft'],
+    respawn: ['KeyR'],
+    pause: ['Escape'],
+    spinL: ['KeyQ'],
+    spinR: ['KeyE'],
+    flipFront: soloAliases ? ['KeyW', 'ArrowUp'] : ['KeyW'],
+    flipBack: soloAliases ? ['KeyS', 'ArrowDown'] : ['KeyS'],
+    flipLeft: soloAliases ? ['KeyA', 'ArrowLeft'] : ['KeyA'],
+    flipRight: soloAliases ? ['KeyD', 'ArrowRight'] : ['KeyD'],
+    mouse: true,
+  };
+}
+
+/** Spieler 2 (Splitscreen): Pfeiltasten + Enter-Block, Spins Komma/Punkt. */
+export function keymapP2(): KeyMap {
+  return {
+    fwd: ['ArrowUp'],
+    back: ['ArrowDown'],
+    left: ['ArrowLeft'],
+    right: ['ArrowRight'],
+    jump: ['Enter', 'NumpadEnter'],
+    sprint: ['ShiftRight'],
+    roll: ['ControlRight'],
+    respawn: ['Backspace'],
+    pause: [],
+    spinL: ['Comma'],
+    spinR: ['Period'],
+    flipFront: ['ArrowUp'],
+    flipBack: ['ArrowDown'],
+    flipLeft: ['ArrowLeft'],
+    flipRight: ['ArrowRight'],
+    mouse: false,
+  };
+}
+
+/** Pfeiltasten sollen nie scrollen. */
+const PREVENT_DEFAULT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
 
 export class Input {
   private keys = new Set<string>();
@@ -56,36 +124,42 @@ export class Input {
     spinPressed: 0,
   };
 
-  constructor(private canvas: HTMLCanvasElement) {
+  constructor(
+    private readonly map: KeyMap,
+    canvas?: HTMLCanvasElement,
+  ) {
     window.addEventListener('keydown', (e) => {
+      if (PREVENT_DEFAULT.has(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
-      if (e.code === 'Space') this.jumpQueued = true;
-      if (e.code === 'Escape') this.pauseQueued = true;
-      if (e.code === 'KeyR') this.respawnQueued = true;
-      const flip = FLIP_KEYS[e.code];
-      if (flip) {
-        e.preventDefault(); // Pfeiltasten sollen nie scrollen
-        this.flipQueued = flip;
-      }
-      // A/D doppelt belegt: gehalten drehen sie (moveX), der Druckmoment
-      // zählt in der Luft als Spin — den Kontext entscheidet der Controller
-      if (e.code === 'KeyA') this.spinQueued = -1;
-      if (e.code === 'KeyD') this.spinQueued = 1;
+      const m = this.map;
+      if (m.jump.includes(e.code)) this.jumpQueued = true;
+      if (m.pause.includes(e.code)) this.pauseQueued = true;
+      if (m.respawn.includes(e.code)) this.respawnQueued = true;
+      // Flips: erneuter Druck einer Bewegungstaste in der Luft (Edge hier,
+      // Kontext entscheidet der Controller — am Boden verfällt das Flag)
+      if (m.flipFront.includes(e.code)) this.flipQueued = 'front';
+      else if (m.flipBack.includes(e.code)) this.flipQueued = 'back';
+      else if (m.flipLeft.includes(e.code)) this.flipQueued = 'left';
+      else if (m.flipRight.includes(e.code)) this.flipQueued = 'right';
+      if (m.spinL.includes(e.code)) this.spinQueued = -1;
+      if (m.spinR.includes(e.code)) this.spinQueued = 1;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 
-    canvas.addEventListener('click', () => {
-      if (!this.pointerLocked) canvas.requestPointerLock();
-    });
-    document.addEventListener('pointerlockchange', () => {
-      this.pointerLocked = document.pointerLockElement === this.canvas;
-    });
-    window.addEventListener('mousemove', (e) => {
-      if (!this.pointerLocked) return;
-      this.accDX += e.movementX;
-      this.accDY += e.movementY;
-    });
+    if (this.map.mouse && canvas) {
+      canvas.addEventListener('click', () => {
+        if (!this.pointerLocked) canvas.requestPointerLock();
+      });
+      document.addEventListener('pointerlockchange', () => {
+        this.pointerLocked = document.pointerLockElement === canvas;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!this.pointerLocked) return;
+        this.accDX += e.movementX;
+        this.accDY += e.movementY;
+      });
+    }
     // Bei Fokusverlust hängende Tasten lösen
     window.addEventListener('blur', () => this.keys.clear());
   }
@@ -94,11 +168,17 @@ export class Input {
     return this.pointerLocked;
   }
 
+  private held(codes: string[]): boolean {
+    for (const c of codes) if (this.keys.has(c)) return true;
+    return false;
+  }
+
   /** Einmal pro Render-Frame aufrufen; setzt Frame-Flags und Deltas zurück. */
   poll(): InputState {
     const s = this.state;
-    s.moveX = (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
-    s.moveY = (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0);
+    const m = this.map;
+    s.moveX = (this.held(m.right) ? 1 : 0) - (this.held(m.left) ? 1 : 0);
+    s.moveY = (this.held(m.fwd) ? 1 : 0) - (this.held(m.back) ? 1 : 0);
     s.lookDX = this.accDX;
     s.lookDY = this.accDY;
     this.accDX = 0;
@@ -113,9 +193,9 @@ export class Input {
     this.flipQueued = null;
     s.spinPressed = this.spinQueued;
     this.spinQueued = 0;
-    s.jumpHeld = this.keys.has('Space');
-    s.sprintHeld = this.keys.has('ShiftLeft');
-    s.rollHeld = this.keys.has('KeyC') || this.keys.has('ControlLeft');
+    s.jumpHeld = this.held(m.jump);
+    s.sprintHeld = this.held(m.sprint);
+    s.rollHeld = this.held(m.roll);
     return s;
   }
 }

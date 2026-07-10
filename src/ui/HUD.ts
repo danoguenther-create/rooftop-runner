@@ -22,11 +22,18 @@ export class HUD {
   private balanceTickerEntry: HTMLDivElement | null = null;
   private readonly collectEl: HTMLDivElement;
 
-  constructor(bus: EventBus) {
-    const hud = document.getElementById('hud')!;
+  /**
+   * @param root Container fürs HUD — Standard ist #hud (Vollbild); im
+   *             Splitscreen bekommt jeder Spieler seine Bildhälfte.
+   */
+  constructor(bus: EventBus, root?: HTMLElement) {
+    const hud = root ?? document.getElementById('hud')!;
 
-    const style = document.createElement('style');
-    style.textContent = `
+    // Stylesheet nur einmal injizieren (Splitscreen baut zwei HUDs)
+    if (!document.getElementById('hud-style')) {
+      const style = document.createElement('style');
+      style.id = 'hud-style';
+      style.textContent = `
       .hud-panel { position:absolute; color:#fff; pointer-events:none; }
       .hud-score {
         top:8px; right:12px; padding:6px 14px; background:rgba(0,0,0,.55);
@@ -91,7 +98,8 @@ export class HUD {
       }
       .hud-collect b { color:${ACCENT}; }
     `;
-    hud.appendChild(style);
+      document.head.appendChild(style);
+    }
 
     this.scoreEl = this.panel(hud, 'hud-score');
     this.scoreEl.textContent = '0';
