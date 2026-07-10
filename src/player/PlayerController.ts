@@ -39,7 +39,6 @@ import {
 // Wiederverwendbare Temp-Objekte (keine Allokationen im Frame-Loop)
 const _wish = new THREE.Vector3();
 const _forward = new THREE.Vector3();
-const _right = new THREE.Vector3();
 const _move = { x: 0, y: 0, z: 0 };
 
 /** Abstand Kapselzentrum -> Fußsohle */
@@ -129,6 +128,10 @@ export class PlayerController {
     this.cc.enableSnapToGround(0.3);
 
     this.mesh = new THREE.Group();
+    // YXZ: erst Yaw, dann Pitch/Roll um die LOKALEN Achsen — sonst rotieren
+    // Front-/Backflips um die Welt-X-Achse und sehen quer zur X-Richtung
+    // wie Sideflips aus
+    this.mesh.rotation.order = 'YXZ';
     const capsule = new THREE.Mesh(
       new THREE.CapsuleGeometry(CAPSULE_RADIUS, CAPSULE_HALFHEIGHT * 2, 8, 16),
       new THREE.MeshStandardMaterial({ color: 0xff6a00 }),
@@ -252,13 +255,10 @@ export class PlayerController {
   private accelerateHorizontal(dt: number, control: number): void {
     const input = this.input!;
 
-    // Wunschrichtung kamerarelativ
+    // Wunschrichtung entlang der Kamera; A/D drehen die Kamera (FollowCamera)
+    // statt seitlich zu bewegen
     _forward.set(-Math.sin(this.cameraYaw), 0, -Math.cos(this.cameraYaw));
-    _right.set(Math.cos(this.cameraYaw), 0, -Math.sin(this.cameraYaw));
-    _wish
-      .set(0, 0, 0)
-      .addScaledVector(_right, input.moveX)
-      .addScaledVector(_forward, input.moveY);
+    _wish.set(0, 0, 0).addScaledVector(_forward, input.moveY);
     const wishLen = Math.min(_wish.length(), 1);
     if (wishLen > 0) _wish.normalize();
 
@@ -442,8 +442,7 @@ export class PlayerController {
     const input = this.input;
     if (!input) return null;
     _forward.set(-Math.sin(this.cameraYaw), 0, -Math.cos(this.cameraYaw));
-    _right.set(Math.cos(this.cameraYaw), 0, -Math.sin(this.cameraYaw));
-    out.set(0, 0, 0).addScaledVector(_right, input.moveX).addScaledVector(_forward, input.moveY);
+    out.set(0, 0, 0).addScaledVector(_forward, input.moveY);
     if (out.lengthSq() < 0.25) return null;
     return out.normalize();
   }

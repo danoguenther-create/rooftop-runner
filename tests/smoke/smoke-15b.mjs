@@ -60,20 +60,23 @@ results.flipBail = await debug();
 await reset();
 await page.waitForTimeout(1500); // BAIL ausstehen lassen
 
-// 4) Spin 180 (E in der Luft)
+// 4) Spin 180 (D in der Luft)
 await teleport(0, 5, -20, 0, 2, 0);
-await page.keyboard.press('KeyE');
+await page.keyboard.press('d');
 await page.waitForTimeout(1300);
 results.spin = await debug();
 await reset();
 
-// 5) Gainer: Backflip mit Vorwärtsspeed (A hält +x-Richtung)
-await page.keyboard.down('a');
+// 5) Gainer: Backflip mit Vorwärtsspeed (Kamera auf +x, W hält den Speed)
+await page.evaluate(() => {
+  window.game.followCamera.yaw = -Math.PI / 2;
+});
+await page.keyboard.down('w');
 await teleport(0, 6, -20, 6, 1, 0);
 await page.keyboard.press('ArrowDown');
 await page.waitForTimeout(1300);
 results.gainer = await debug();
-await page.keyboard.up('a');
+await page.keyboard.up('w');
 
 for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===\n${v}\n`);
 console.log('Konsolen-Fehler:', errors.length ? errors : 'keine');

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { PlayerController } from '../player/PlayerController';
 import type { InputState } from '../core/Input';
-import { SPRINT_SPEED, WALLRUN_CAMERA_TILT_DEG } from '../player/tuning';
+import { SPRINT_SPEED, TURN_SPEED_DEG, WALLRUN_CAMERA_TILT_DEG } from '../player/tuning';
 
 const SENSITIVITY = 0.0025; // rad pro Pixel
 const DISTANCE = 4.5;
@@ -40,6 +40,12 @@ export class FollowCamera {
   }
 
   update(dt: number, input: InputState): void {
+    // A/D drehen die Kamera (Spielen ohne Maus) — außer dort, wo A/D eine
+    // eigene Bedeutung haben: AIR (Spin), BALANCE (Ausgleichen), HANG (Hangeln)
+    const fsm = this.player.fsm.current;
+    if (fsm !== 'AIR' && fsm !== 'BALANCE' && fsm !== 'HANG') {
+      this.yaw -= input.moveX * ((TURN_SPEED_DEG * Math.PI) / 180) * dt;
+    }
     this.yaw -= input.lookDX * SENSITIVITY;
     this.pitch = THREE.MathUtils.clamp(
       this.pitch + input.lookDY * SENSITIVITY,

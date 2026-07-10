@@ -13,6 +13,8 @@ export const ACCEL = 40;
 export const DECEL = 30;
 /** Anteil der Steuerwirkung in der Luft (0..1) */
 export const AIR_CONTROL = 0.4;
+/** Drehgeschwindigkeit von A/D (°/s) — Spielen ohne Maus */
+export const TURN_SPEED_DEG = 180;
 /** Vertikale Absprunggeschwindigkeit (m/s) */
 export const JUMP_VELOCITY = 8;
 /** Spieler-Gravitation (m/s²) — bewusst > 9.81 für knackiges Gefühl */

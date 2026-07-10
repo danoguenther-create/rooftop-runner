@@ -44,11 +44,25 @@ const results = {};
 results.spawn = await state();
 results.stats = await stats();
 
-// --- Dachlücken-Sprung: B0 (h14) -> B1 (h13), 3.5-m-Lücke (A hält +x-Speed)
-await page.keyboard.down('a');
+// Kamera dauerhaft auf +x drehen — alle Lauf-Abschnitte gehen in +x,
+// W hält dann den Speed (A/D drehen seit dem Steuerungs-Umbau nur noch)
+await page.evaluate(() => {
+  window.game.followCamera.yaw = -Math.PI / 2;
+});
+
+// --- Dachlücken-Sprung: B0 (h14) -> B1 (h13), 3.5-m-Lücke (W hält +x-Speed)
+// Auf die Landung warten statt fester Zeit — die Headless-Zeitdilatation
+// schwankt von Lauf zu Lauf
+await page.keyboard.down('w');
 await teleport(-64, 15, -20, 8, 8, 0);
-await page.waitForTimeout(1700);
-await page.keyboard.up('a');
+await page
+  .waitForFunction(
+    () => window.game.player.fsm.current === 'RUN' && window.game.player.body.translation().y > 13,
+    null,
+    { timeout: 15_000 },
+  )
+  .catch(() => {});
+await page.keyboard.up('w');
 results.gapJump = await state();
 await reset();
 
@@ -65,19 +79,24 @@ results.bar = await state();
 await reset();
 
 // --- Kletterhäuschen auf A2: Anlauf -> Wandlauf -> HANG
-await page.keyboard.down('a');
+// W nur bis zum Grab halten — gehaltenes W würde nach der
+// 250-ms-Schonfrist sofort das Mantle auslösen
+await page.keyboard.down('w');
 await teleport(-43, 9.95, -48, 6, 0, 0);
-await page.waitForTimeout(2400);
-await page.keyboard.up('a');
+await page
+  .waitForFunction(() => window.game.player.fsm.current === 'HANG', null, { timeout: 8000 })
+  .catch(() => {});
+await page.keyboard.up('w');
+await page.waitForTimeout(300);
 results.shed = await state();
 await reset();
 
-// --- Treppe C6 von der Straße hoch (A-Taste = +x)
+// --- Treppe C6 von der Straße hoch (W = +x, Kamera oben gedreht)
 await teleport(28.5, 1.0, -2.7, 0, 0, 0);
 await page.waitForTimeout(300);
-await page.keyboard.down('a');
+await page.keyboard.down('w');
 await page.waitForTimeout(5000);
-await page.keyboard.up('a');
+await page.keyboard.up('w');
 results.stairs = await state();
 
 for (const [k, v] of Object.entries(results))

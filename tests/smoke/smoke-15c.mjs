@@ -38,13 +38,16 @@ const reset = async () => {
 const results = {};
 
 // 1) Diveroll: C in der Luft halten bis zur Landung (Fall ~5 m, vorwärts)
-await page.keyboard.down('a'); // hält +x-Speed
+await page.evaluate(() => {
+  window.game.followCamera.yaw = -Math.PI / 2; // Kamera auf +x
+});
+await page.keyboard.down('w'); // hält +x-Speed
 await teleport(0, 6, -20, 5, 2, 0);
 await page.keyboard.down('c');
 await page.waitForTimeout(1400);
 results.diveroll = await debug();
 await page.keyboard.up('c');
-await page.keyboard.up('a');
+await page.keyboard.up('w');
 await reset();
 
 // 2) Dive angesetzt, aber C vor der Landung losgelassen -> Bail schon ab 3 m

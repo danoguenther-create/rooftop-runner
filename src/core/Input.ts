@@ -19,7 +19,7 @@ export interface InputState {
   respawnPressed: boolean;
   /** Flip-Richtung, nur im Frame des Tastendrucks (Pfeiltasten) */
   flipPressed: 'front' | 'back' | 'left' | 'right' | null;
-  /** Spin-Richtung (-1 = Q, +1 = E), nur im Frame des Tastendrucks */
+  /** Spin-Richtung (-1 = A, +1 = D), nur im Frame des Tastendrucks — zählt nur in der Luft */
   spinPressed: -1 | 0 | 1;
 }
 
@@ -68,8 +68,10 @@ export class Input {
         e.preventDefault(); // Pfeiltasten sollen nie scrollen
         this.flipQueued = flip;
       }
-      if (e.code === 'KeyQ') this.spinQueued = -1;
-      if (e.code === 'KeyE') this.spinQueued = 1;
+      // A/D doppelt belegt: gehalten drehen sie (moveX), der Druckmoment
+      // zählt in der Luft als Spin — den Kontext entscheidet der Controller
+      if (e.code === 'KeyA') this.spinQueued = -1;
+      if (e.code === 'KeyD') this.spinQueued = 1;
     });
     window.addEventListener('keyup', (e) => this.keys.delete(e.code));
 

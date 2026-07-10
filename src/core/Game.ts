@@ -107,8 +107,8 @@ export class Game {
     // Pointer-Lock-Hinweis
     this.hintEl = document.createElement('div');
     this.hintEl.textContent =
-      'Click to play — WASD laufen · Maus Kamera · Space Sprung · Shift Sprint · ' +
-      'C Roll · Pfeile Flips · Q/E Spin · R Respawn';
+      'Click to play — W/S laufen · A/D drehen (in der Luft: Spin) · Space Sprung · ' +
+      'Shift Sprint · C Roll · Pfeile Flips · R Respawn · Maus optional';
     this.hintEl.style.cssText =
       'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
       'padding:14px 22px;background:rgba(0,0,0,.65);color:#fff;font:15px system-ui;' +
