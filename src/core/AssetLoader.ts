@@ -24,9 +24,12 @@ const ANIMATION_FILES: Record<string, string> = {
   jump: 'jump.fbx',
   'running-jump': 'running-jump.fbx',
   'landing-roll': 'landing-roll.fbx',
+  'sprint-roll': 'sprint-roll.fbx',
   hang: 'hang.fbx',
   wallrun: 'wallrun.fbx',
   wallclimb: 'wallclimb.fbx',
+  balance: 'balance.fbx',
+  vault: 'vault.fbx',
 };
 
 /** Mixamo exportiert in cm; unsere Welt rechnet in Metern. */
@@ -91,10 +94,15 @@ export async function loadCharacter(basePath = 'models/mixamo/'): Promise<Charac
     ]);
 
     model.scale.setScalar(MIXAMO_SCALE);
+    let bonePrefix = 'mixamorig';
     model.traverse((obj) => {
       if ((obj as THREE.Mesh).isMesh) {
         obj.castShadow = true;
         obj.frustumCulled = false; // SkinnedMesh-Bounds stimmen sonst nicht
+      }
+      // Skelett-Prefix des Modells ermitteln (z. B. "mixamorig" oder "mixamorig2")
+      if ((obj as THREE.Bone).isBone && obj.name.endsWith('Hips')) {
+        bonePrefix = obj.name.slice(0, -'Hips'.length);
       }
     });
 
@@ -103,6 +111,11 @@ export async function loadCharacter(basePath = 'models/mixamo/'): Promise<Charac
       const clip = animGroups[i].animations[0];
       if (!clip) return;
       clip.name = name;
+      // Mixamo nummeriert das Rig je Export zufällig um (mixamorig9Hips …) —
+      // ohne Angleich an das Modell-Skelett bindet der Mixer nichts (T-Pose)
+      for (const track of clip.tracks) {
+        track.name = track.name.replace(/^mixamorig\d*/, bonePrefix);
+      }
       stripRootMotion(clip, STRIP_Y.has(name));
       clips.set(name, clip);
     });

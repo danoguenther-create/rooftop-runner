@@ -17,7 +17,9 @@ const CLIP_START_S: Record<string, number> = {
 };
 
 /** Clips, die einmalig durchlaufen und dann auf dem letzten Frame halten. */
-const ONE_SHOT = new Set(['jump', 'running-jump', 'land', 'wallclimb']);
+const ONE_SHOT = new Set(['jump', 'running-jump', 'land', 'wallclimb', 'vault']);
+/** Abspieltempo je Clip (Beine ziehen sonst zu träge an, Spieler-Feedback). */
+const CLIP_TIMESCALE: Record<string, number> = { jump: 1.35, 'running-jump': 1.2 };
 /** Ab dieser Horizontalgeschwindigkeit nimmt der Absprung den Anlauf-Clip. */
 const RUNNING_JUMP_MIN_SPEED = 4;
 
@@ -46,7 +48,13 @@ export class PlayerAnimator {
     for (const [name, clip] of clips) {
       this.actions.set(name, this.mixer.clipAction(clip));
     }
-    bus.on('player:roll', () => this.playOneShot('roll', ROLL_TIMESCALE));
+    // Falling To Roll ist laut Daniel eine Landung aus größerer Höhe —
+    // flache Landungen nehmen die knackigere Sprint-Rolle
+    bus.on('player:roll', (e) => {
+      const name =
+        e.fallHeight < 4 && this.actions.has('sprint-roll') ? 'sprint-roll' : 'roll';
+      this.playOneShot(name, ROLL_TIMESCALE);
+    });
     bus.on('trick:diveroll', () =>
       this.playOneShot(this.actions.has('landing-roll') ? 'landing-roll' : 'roll', ROLL_TIMESCALE),
     );
@@ -84,11 +92,12 @@ export class PlayerAnimator {
       case 'WALLRUN':
         return 'wallrun';
       case 'VAULT':
-        return 'jump';
+        return 'vault';
       case 'BAIL':
         return 'land';
       case 'BALANCE':
-        return 'idle'; // Platzhalter — Balance-Clip (z. B. Catwalk Walk) fehlt noch
+        // Catwalk-Gang beim Gehen, im Stand eingefroren wirkt Idle ruhiger
+        return hSpeed > 0.5 ? 'balance' : 'idle';
       case 'HANG':
       case 'SWING':
         return 'hang';
@@ -104,7 +113,7 @@ export class PlayerAnimator {
     next.time = CLIP_START_S[name] ?? 0;
     next.setLoop(ONE_SHOT.has(name) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
     next.clampWhenFinished = true;
-    next.setEffectiveTimeScale(1);
+    next.setEffectiveTimeScale(CLIP_TIMESCALE[name] ?? 1);
     next.play();
     if (this.current) next.crossFadeFrom(this.current, FADE_S, false);
     this.current = next;
