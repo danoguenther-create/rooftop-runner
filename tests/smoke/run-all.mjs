@@ -21,6 +21,7 @@ const TESTS = [
   'smoke-16d',
   'smoke-city',
   'smoke-m4',
+  'smoke-char',
 ];
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';

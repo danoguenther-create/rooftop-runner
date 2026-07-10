@@ -9,7 +9,7 @@ const page = await browser.newPage();
 const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
-await page.goto(`${url}?play=1`, { waitUntil: 'load' });
+await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
 await page.waitForTimeout(4000);
 
 const debug = () =>

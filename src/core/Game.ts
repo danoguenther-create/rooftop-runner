@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { EventBus } from './EventBus';
 import { Input } from './Input';
+import { loadCharacter } from './AssetLoader';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
 import { PlayerController } from '../player/PlayerController';
@@ -96,6 +97,11 @@ export class Game {
         this.debugVisible = !this.debugVisible;
         this.debugEl.style.display = this.debugVisible ? 'block' : 'none';
       }
+      // F4: Physik-Kapsel über dem Charaktermodell einblenden (Task 21)
+      if (e.code === 'F4') {
+        e.preventDefault();
+        this.player?.togglePlaceholder();
+      }
     });
 
     // Pointer-Lock-Hinweis
@@ -139,6 +145,18 @@ export class Game {
     await this.level.load(levelName);
 
     this.player = new PlayerController(this.physics, this.bus, this.scene, this.level);
+
+    // Charaktermodell (Task 21). ?nochar=1 überspringt den ~17-MB-Download —
+    // für die Headless-Smoke-Tests, die nur Physik prüfen. Schlägt das Laden
+    // fehl, bleibt die Platzhalter-Kapsel sichtbar und das Spiel läuft weiter.
+    if (new URLSearchParams(location.search).get('nochar') !== '1') {
+      try {
+        this.player.attachCharacter(await loadCharacter());
+      } catch (err) {
+        console.warn('Charaktermodell konnte nicht geladen werden:', err);
+      }
+    }
+
     this.followCamera = new FollowCamera(this.camera, this.player);
     this.markers = new Markers(this.scene, this.level, this.bus, this.player);
     this.collectibles = new Collectibles(this.scene, this.level, this.bus, this.player);

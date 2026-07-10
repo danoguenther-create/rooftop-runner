@@ -4,6 +4,8 @@ import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import type { EventBus } from '../core/EventBus';
 import type { InputState } from '../core/Input';
 import type { LevelLoader } from '../level/LevelLoader';
+import type { CharacterAssets } from '../core/AssetLoader';
+import { PlayerAnimator } from './PlayerAnimator';
 import { StateMachine } from './PlayerStates';
 import { AirTricks } from './AirTricks';
 import { Climber } from './Climb';
@@ -76,8 +78,11 @@ export class PlayerController {
   /** Vom Zustandswechsel RUN/AIR -> VAULT übergebener Bewegungsplan */
   pendingVault: VaultPlan | null = null;
 
-  /** Sichtbarer Platzhalter (Kapsel); Charaktermodell kommt in Task 21 */
+  /** Wurzel fürs Sichtbare: Platzhalter-Kapsel bzw. Charaktermodell (Task 21) */
   readonly mesh: THREE.Group;
+  /** Platzhalter-Teile (Kapsel + Nase), per F4 wieder einblendbar */
+  private readonly placeholder: THREE.Object3D[] = [];
+  private animator: PlayerAnimator | null = null;
 
   private input: InputState | null = null;
   private readonly spawnPos = new THREE.Vector3();
@@ -136,10 +141,32 @@ export class PlayerController {
     );
     nose.position.set(0, 0.45, -CAPSULE_RADIUS - 0.05);
     this.mesh.add(capsule, nose);
+    this.placeholder.push(capsule, nose);
     scene.add(this.mesh);
 
     this.fsm = new StateMachine(this);
     this.peakY = startY;
+  }
+
+  /**
+   * Charaktermodell einhängen (Task 21): ersetzt die Platzhalter-Kapsel
+   * visuell, Physik bleibt die Kapsel. Mixamo-Modelle schauen +Z — genau
+   * unsere Vorwärtsrichtung bei meshYaw 0, also unrotiert anhängen.
+   */
+  attachCharacter(assets: CharacterAssets): void {
+    assets.model.position.y = -CENTER_TO_FEET;
+    this.mesh.add(assets.model);
+    this.animator = new PlayerAnimator(assets.model, assets.clips, this.bus);
+    this.setPlaceholderVisible(false);
+  }
+
+  /** F4-Debug: Platzhalter-Kapsel über dem Charakter ein-/ausblenden. */
+  togglePlaceholder(): void {
+    this.setPlaceholderVisible(!this.placeholder[0].visible);
+  }
+
+  private setPlaceholderVisible(visible: boolean): void {
+    for (const obj of this.placeholder) obj.visible = visible;
   }
 
   // ---------------------------------------------------------- Frame-Eingang
@@ -179,6 +206,7 @@ export class PlayerController {
     if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
       this.mesh.rotation.x = 0.7;
     }
+    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y);
   }
 
   // ---------------------------------------------------------- Physik-Takt
