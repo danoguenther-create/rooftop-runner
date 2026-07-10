@@ -7,10 +7,11 @@ const FADE_S = 0.15;
 const ROLL_TIMESCALE = 1.5;
 /**
  * Einstiegszeitpunkt je Clip. Der Mixamo-Jump enthält vorn ~0,55 s
- * Aushol-Hocke am Boden — wir triggern aber erst beim Absprung, also
- * dort einsteigen (gemessen an der Hips-Y-Kurve: Tiefpunkt bei 0,53 s).
+ * Aushol-Hocke plus ~0,25 s Beinstreckung (Abdruck) — die Beine ziehen
+ * erst kurz vor dem Scheitel (~0,9 s) an. Unser Sprung dauert nur ~0,8 s,
+ * also direkt in der Anzieh-Phase einsteigen.
  */
-const CLIP_START_S: Record<string, number> = { jump: 0.55 };
+const CLIP_START_S: Record<string, number> = { jump: 0.8 };
 
 /**
  * Bindet die Mixamo-Clips an die Player-FSM (Task 21). Rein visuell:
