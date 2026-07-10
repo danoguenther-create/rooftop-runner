@@ -82,6 +82,7 @@ export class PlayerController {
   /** Platzhalter-Teile (Kapsel + Nase), per F4 wieder einblendbar */
   private readonly placeholder: THREE.Object3D[] = [];
   private animator: PlayerAnimator | null = null;
+  private characterModel: THREE.Group | null = null;
 
   private input: InputState | null = null;
   private readonly spawnPos = new THREE.Vector3();
@@ -159,6 +160,7 @@ export class PlayerController {
   attachCharacter(assets: CharacterAssets): void {
     assets.model.position.y = -CENTER_TO_FEET;
     this.mesh.add(assets.model);
+    this.characterModel = assets.model;
     this.animator = new PlayerAnimator(assets.model, assets.clips, this.bus);
     this.setPlaceholderVisible(false);
   }
@@ -196,7 +198,10 @@ export class PlayerController {
     this.mesh.position.set(t.x, t.y, t.z);
 
     const hs = Math.hypot(this.velocity.x, this.velocity.z);
-    if (hs > 0.5) {
+    // Im SWING die Blickrichtung einfrieren: die Pendelgeschwindigkeit
+    // wechselt jede Halbperiode die Richtung — das Mesh würde sich sonst
+    // ständig umdrehen
+    if (hs > 0.5 && this.fsm.current !== 'SWING') {
       const targetYaw = Math.atan2(this.velocity.x, this.velocity.z);
       let delta = targetYaw - this.meshYaw;
       while (delta > Math.PI) delta -= Math.PI * 2;
@@ -208,6 +213,17 @@ export class PlayerController {
     // Dive-Pose: nach vorn gekippt, solange kein Flip rotiert
     if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
       this.mesh.rotation.x = 0.7;
+    }
+    // Bar-Swing: Körper um die Stange mitneigen, damit die Hände dran bleiben
+    if (this.fsm.current === 'SWING' && this.swinger.visual) {
+      const { phi, u } = this.swinger.visual;
+      const align = u.x * Math.sin(this.meshYaw) + u.z * Math.cos(this.meshYaw);
+      this.mesh.rotation.x = -phi * align;
+    }
+    // Hang-Pose hat die Hände etwas tiefer als den Physik-Anker: anheben
+    if (this.characterModel) {
+      this.characterModel.position.y =
+        -CENTER_TO_FEET + (this.fsm.current === 'SWING' ? 0.15 : 0);
     }
     this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing);
   }

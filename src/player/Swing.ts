@@ -57,6 +57,11 @@ export class Swinger {
     this.chain = 0;
   }
 
+  /** Fürs Mitneigen des Charaktermodells: Pendelwinkel + Schwungrichtung. */
+  get visual(): { phi: number; u: THREE.Vector3 } | null {
+    return this.active;
+  }
+
   /** Hände von unten in Stangen-Reichweite? Dann fangen. */
   trySnap(): boolean {
     const p = this.player;

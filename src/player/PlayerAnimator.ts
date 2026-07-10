@@ -14,12 +14,19 @@ const CLIP_START_S: Record<string, number> = {
   jump: 0.05,
   'running-jump': 0.05,
   wallclimb: 0.3,
+  // Vault-Clip: 0,3 s Anlauf, eigentliche Überwindung 0,3–1,3 s
+  vault: 0.3,
 };
 
 /** Clips, die einmalig durchlaufen und dann auf dem letzten Frame halten. */
 const ONE_SHOT = new Set(['jump', 'running-jump', 'land', 'wallclimb', 'vault']);
 /** Abspieltempo je Clip (Beine ziehen sonst zu träge an, Spieler-Feedback). */
-const CLIP_TIMESCALE: Record<string, number> = { jump: 1.35, 'running-jump': 1.2 };
+const CLIP_TIMESCALE: Record<string, number> = {
+  jump: 1.35,
+  'running-jump': 1.2,
+  // 1 s Vault-Bewegung im Clip auf VAULT_DURATION_S 0,4 s gestaucht
+  vault: 2.5,
+};
 /** Ab dieser Horizontalgeschwindigkeit nimmt der Absprung den Anlauf-Clip. */
 const RUNNING_JUMP_MIN_SPEED = 4;
 
