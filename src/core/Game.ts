@@ -13,6 +13,7 @@ import { TimeTrial } from '../gameplay/TimeTrial';
 import { Missions } from '../gameplay/Missions';
 import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
+import { TrickMatch } from '../gameplay/TrickMatch';
 import { HUD } from '../ui/HUD';
 import { Menus } from '../ui/Menus';
 import { SaveGame } from '../save/SaveGame';
@@ -46,6 +47,8 @@ export class Game {
   collectibles?: Collectibles;
   trial?: TimeTrial;
   missions?: Missions;
+  /** „Game of PARK" — nur im Splitscreen mit ?game=park */
+  trickMatch?: TrickMatch;
   menus!: Menus;
   save!: SaveGame;
 
@@ -245,6 +248,7 @@ export class Game {
 
     // HUDs: Solo direkt in #hud, Splitscreen je Bildhälfte ein Container
     const hudRoot = document.getElementById('hud')!;
+    const hudRoots: HTMLElement[] = [];
     for (let i = 0; i < this.playerCount; i++) {
       let root: HTMLElement = hudRoot;
       if (this.mode === 'split') {
@@ -252,7 +256,13 @@ export class Game {
         root.style.cssText = `position:absolute;top:0;bottom:0;width:50%;left:${i * 50}%;`;
         hudRoot.appendChild(root);
       }
+      hudRoots.push(root);
       this.huds.push(new HUD(this.buses[i], root));
+    }
+
+    // Game of PARK (S.K.A.T.E.-Prinzip): nur im Splitscreen aktivierbar
+    if (this.mode === 'split' && params.get('game') === 'park') {
+      this.trickMatch = new TrickMatch(this.buses, hudRoots);
     }
 
     // Solo-Systeme: Sammelobjekte, Zeitrennen, Missionen, Marker-Zonen.
@@ -388,6 +398,7 @@ export class Game {
       this.trial?.update(dt);
       this.missions?.update(dt);
       this.scores.forEach((s) => s.update(dt));
+      this.trickMatch?.update(dt);
       this.huds.forEach((h, i) =>
         h.update(dt, this.players[i].horizontalSpeed, this.players[i].balancer.sway),
       );

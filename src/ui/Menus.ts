@@ -79,6 +79,10 @@ export class Menus {
       btn('👥 Splitscreen — Rooftops District', () =>
         switchLevel('city01', '&mode=split&play=1'),
       );
+      // Game of PARK: vorlegen & nachmachen (S.K.A.T.E.-Prinzip)
+      btn('🎯 Game of PARK — Rooftops District', () =>
+        switchLevel('city01', '&mode=split&game=park&play=1'),
+      );
 
       // Missionsliste mit Erledigt-Häkchen (nur Solo — im Split deaktiviert)
       const missions = this.game.missions;
