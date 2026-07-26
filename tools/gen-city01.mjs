@@ -232,6 +232,125 @@ for (const [r, i, dx, dz] of [[0, 7, 5, -5], [1, 7, -5, 5], [2, 7, 5, -5], [3, 1
   pushCol([bx(i) + dx, h(r, i) + 1, rz(r) + dz]);
 }
 
+// ============================================================ BETONPARK
+// Straßenniveau-Überarbeitung (2026-07-10, Daniels Wunsch): künstlerische
+// Beton-Spots auf der Ebene — Parkour spielt nicht nur auf den Dächern.
+// Hauptschauplatz ist die B-C-Straße (z -12..-3); die Treppe C6
+// (x 27..41, z≈-2.7) und die Türme (x>63) bleiben frei.
+const CONCRETE = ['#9aa0a3', '#b3b8bc', '#8b9094'];
+const ramps = [];
+
+// Gehwege entlang der Häuserzeilen (1 Instanz-Gruppe, 8 Streifen)
+for (const zc of [-37.2, -27.8, -12.2, -2.8, 12.8, 22.2, -52.8, 37.2]) {
+  boxes.push({ pos: [0, 0.06, zc], size: [150, 0.12, 1.6], color: '#7d8187', instanced: true });
+}
+
+// Spot 1 — Precision-Garten (x -66..-48): Mauer-Slalom + Poller
+const WALL_HEIGHTS = [0.6, 0.9, 1.2, 0.9, 0.6];
+WALL_HEIGHTS.forEach((wh, k) => {
+  boxes.push({
+    pos: [-64 + k * 4, wh / 2, -8],
+    size: [0.5, wh, 3.2],
+    color: CONCRETE[k % 3],
+    instanced: true,
+  });
+});
+for (let k = 0; k < 4; k++) {
+  boxes.push({
+    pos: [-62 + k * 4, 0.45, -4.2],
+    size: [0.45, 0.9, 0.45],
+    color: CONCRETE[2],
+    instanced: true,
+  });
+}
+
+// Spot 2 — Stangen-Dschungel (x -38..-24): Swing-Kette knapp über Kopf
+for (const [k, x] of [-36, -32, -28].entries()) {
+  rails.push({ points: [[x, 2.7 + k * 0.05, -10], [x, 2.7 + k * 0.05, -6]] });
+}
+// Absprungblock davor + Landeblock dahinter
+boxes.push({ pos: [-39.5, 0.5, -8], size: [2, 1, 3], color: CONCRETE[1], instanced: true });
+boxes.push({ pos: [-24.5, 0.5, -8], size: [2, 1, 3], color: CONCRETE[1], instanced: true });
+
+// Spot 3 — Skulpturen-Plaza (x -12..+16): Blocktreppe, Bogen, Bank, Wellen
+const STEP_SIZES = [0.5, 1.0, 1.5, 2.0];
+STEP_SIZES.forEach((sh, k) => {
+  boxes.push({ pos: [-10 + k * 2.2, sh / 2, -10.5], size: [2, sh, 2], color: CONCRETE[k % 3] });
+});
+// Beton-Bogen: 2 Pfeiler + begehbarer Sturz, darunter Schwungstange
+boxes.push({ pos: [2, 1.6, -8], size: [1, 3.2, 1], color: CONCRETE[0], instanced: true });
+boxes.push({ pos: [8, 1.6, -8], size: [1, 3.2, 1], color: CONCRETE[0], instanced: true });
+boxes.push({ pos: [5, 3.45, -8], size: [7, 0.5, 1.2], color: CONCRETE[2] });
+rails.push({ points: [[3.2, 3.0, -8], [6.8, 3.0, -8]] });
+// Schräge Bank zum Hochlaufen (lehnt Richtung C-Zeile)
+ramps.push({ pos: [13, 0.9, -4.8], size: [4, 0.3, 4.4], tiltX: -0.48, color: CONCRETE[1] });
+// „Betonwellen": drei versetzt gestapelte Platten
+for (const [k, y] of [0.25, 1.0, 1.75].entries()) {
+  boxes.push({
+    pos: [12 + k * 1.6, y, -11],
+    size: [4.5, 0.5, 2.4],
+    color: CONCRETE[k % 3],
+    instanced: true,
+  });
+}
+
+// Spot 4 — Wall-Korridor (x 39..49): zwei Parallelmauern für Wall-Jumps,
+// Balance-Rails auf den Kronen
+for (const zc of [-6.5, -10]) {
+  boxes.push({ pos: [44, 1.5, zc], size: [10, 3, 0.4], color: CONCRETE[0], instanced: true });
+  rails.push({ points: [[39.2, 3.4, zc], [48.8, 3.4, zc]] });
+}
+markers.push({
+  type: 'gap',
+  id: 'gap-korridor',
+  pos: [44, 3.8, -8.25],
+  size: [8, 1.6, 2.6],
+});
+
+// Spot 5 — Kanten-Combo (x 55..66): Podest mit Kanten-Rails + Poller-Reihe
+boxes.push({ pos: [59, 0.75, -8.5], size: [9, 1.5, 6], color: CONCRETE[1] });
+rails.push({ points: [[54.7, 1.9, -8.5], [63.3, 1.9, -8.5]] });
+for (let k = 0; k < 3; k++) {
+  boxes.push({
+    pos: [56 + k * 3.5, 0.6, -3.9],
+    size: [0.45, 1.2, 0.45],
+    color: CONCRETE[2],
+    instanced: true,
+  });
+}
+markers.push({ type: 'precision', id: 'prec-podest', pos: [63, 1.5, -10.5] });
+
+// A-B-Straße: Pflanzkübel-Vaults + tiefe Schwungstangen
+for (let k = 0; k < 3; k++) {
+  boxes.push({
+    pos: [-18 + k * 6, 0.4, -31],
+    size: [3, 0.8, 1.2],
+    color: '#6f7a6a',
+    instanced: true,
+  });
+}
+for (const [k, x] of [20, 24].entries()) {
+  rails.push({ points: [[x, 2.7 + k * 0.05, -34.5], [x, 2.7 + k * 0.05, -30.5]] });
+}
+
+// C-D-Straße: Mauer-Slalom (Treppen C4 x -6..6 und D7 x 44..58 bleiben frei)
+for (const [k, wh] of [0.7, 1.1, 0.8, 1.1].entries()) {
+  boxes.push({
+    pos: [14 + k * 4, wh / 2, 17],
+    size: [0.5, wh, 3.2],
+    color: CONCRETE[(k + 1) % 3],
+    instanced: true,
+  });
+}
+
+// Collectibles auf den neuen Boden-Lines (col-21 ...)
+pushCol([-56, 1.8, -8]);          // Precision-Garten, über der Mittelmauer
+pushCol([-32, 3.4, -8]);          // Stangen-Dschungel, über Stange 2
+pushCol([5, 4.4, -8]);            // auf dem Beton-Bogen
+pushCol([44, 4.2, -8.25]);        // Wall-Korridor, zwischen den Kronen
+pushCol([59, 2.6, -8.5]);         // Kanten-Podest
+pushCol([-12, 1.4, -31]);         // Pflanzkübel-Line A-B-Straße
+
 // --- Zeitrennen (Task 19): Start auf B3, über die B-Zeile westwärts,
 //     Rail runter zur A-Zeile, ostwärts über die Dachlücken zum Finish
 markers.push({ type: 'trialStart', id: 'trial-1', pos: [bx(3), h(1, 3) + 1.3, -25] });
@@ -252,7 +371,7 @@ const level = {
   name: 'Rooftops District',
   spawn: [bx(3), h(1, 3) + 0.1, -20], // B3, mittelhohes Dach
   boxes,
-  ramps: [],
+  ramps,
   rails,
   markers,
   trialTimes: { gold: 60000, silver: 80000, bronze: 100000 },
