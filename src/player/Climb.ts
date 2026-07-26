@@ -101,6 +101,32 @@ export class Climber {
     }
   }
 
+  /**
+   * Ist im Fall eine greifbare Kante in Reichweite? Ohne Wish-Richtung
+   * geprüft — dient dem Controller nur dazu, in Kantennähe einen
+   * Richtungsdruck als Grab-Absicht (nicht als Flip) zu werten.
+   */
+  ledgeInReach(p: PlayerController): boolean {
+    if (p.velocity.y > 0.5 || performance.now() < this.regrabAt) return false;
+    p.getPosition(_pos);
+    const feetY = _pos.y - CENTER_TO_FEET;
+    for (const face of p.level.topFaces) {
+      const rel = face.y - feetY;
+      if (rel < LEDGE_GRAB_HAND_MIN || rel > LEDGE_GRAB_HAND_MAX) continue;
+      const cos = Math.cos(face.rotY);
+      const sin = Math.sin(face.rotY);
+      const dx = _pos.x - face.cx;
+      const dz = _pos.z - face.cz;
+      const lx = dx * cos + dz * sin;
+      const lz = -dx * sin + dz * cos;
+      if (Math.abs(lx) <= face.halfX && Math.abs(lz) <= face.halfZ) continue;
+      const clx = THREE.MathUtils.clamp(lx, -face.halfX, face.halfX);
+      const clz = THREE.MathUtils.clamp(lz, -face.halfZ, face.halfZ);
+      if (Math.hypot(lx - clx, lz - clz) <= LEDGE_GRAB_DIST) return true;
+    }
+    return false;
+  }
+
   /** Nach Loslassen/Mantle kurz nicht erneut greifen. */
   releaseGrab(): void {
     this.grab = null;

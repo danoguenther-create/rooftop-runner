@@ -189,9 +189,14 @@ export class PlayerController {
     if (input.jumpPressed) this.jumpRequestedAt = now;
     if (input.rollHeld && !this.prevRollHeld) this.lastRollPressAt = now;
     this.prevRollHeld = input.rollHeld;
-    // Lufttricks nur im freien Flug queuen (und erst nach erstem Bodenkontakt)
+    // Lufttricks nur im freien Flug queuen (und erst nach erstem Bodenkontakt).
+    // Flips liegen auf den Bewegungstasten — in Kantennähe zählt ein
+    // Richtungsdruck als Grab-Absicht, nicht als Flip (sonst bailt man
+    // beim Zugreifen aus einer halben Drehung).
     if (this.fsm.current === 'AIR' && this.everGrounded) {
-      if (input.flipPressed) this.airTricks.queueFlip(input.flipPressed);
+      if (input.flipPressed && !this.climb.ledgeInReach(this)) {
+        this.airTricks.queueFlip(input.flipPressed);
+      }
       if (input.spinPressed !== 0) this.airTricks.queueSpin(input.spinPressed);
       if (input.rollHeld) this.diving = true; // Dive angesetzt (bis zur Landung)
     }
