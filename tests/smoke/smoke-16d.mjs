@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -39,30 +40,30 @@ const results = {};
 
 // --- 1) Auf Rail 1 landen (gerade, z=16) -> BALANCE, kein Auto-Slide mehr
 await teleport(0, 3.6, 16, 3, 0, 0);
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 results.snap = await state();
-await page.waitForTimeout(1200);
+await stepMs(page, 1200);
 results.noSlide = await state();
 
 // --- 2) Mit W auf der Rail gehen (Kamera-Ausrichtung -> +x)
 await page.keyboard.down('w');
-await page.waitForTimeout(1000);
+await stepMs(page, 1000);
 await page.keyboard.up('w');
 results.walk = await state();
 
 // --- 3) Absprung mit Space -> balanceEnd
 await page.keyboard.press('Space');
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.jumpOff = await state();
 await page.keyboard.press('r'); // sauberer Reset (Rail ist auch Swing-Stange)
-await page.waitForTimeout(800);
+await stepMs(page, 800);
 
 // --- 4) Erneut aufschnappen, dann mit D die Balance kippen -> Sturz
 await teleport(0, 3.6, 16, 2, 0, 0);
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 results.resnap = await state();
 await page.keyboard.down('d');
-await page.waitForTimeout(700);
+await stepMs(page, 700);
 await page.keyboard.up('d');
 results.tipped = await state();
 

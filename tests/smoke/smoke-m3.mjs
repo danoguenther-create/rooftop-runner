@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -12,7 +13,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const teleport = (x, y, z, vx, vy, vz) =>
   page.evaluate(
@@ -41,23 +42,26 @@ results.initial = await hudState();
 // --- Combo-Kette: Wall-Run -> Wall-Jump im Korridor, dann landen + banken
 await page.keyboard.down('w');
 await teleport(-8.7, 2.5, -1, 0, 0, 7);
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.duringWallrun = await hudState();
 await page.keyboard.press('Space');
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.afterWalljump = await hudState();
 await page.keyboard.up('w');
-await page.waitForTimeout(2500); // landen + 1.5s Banking-Fenster
+await stepMs(page, 2500); // landen + 1.5s Banking-Fenster
 results.afterBank = await hudState();
 
 // --- Verlust-Test: Combo starten (Gap), dann Bail durch hohen Sturz ohne Roll
 await page.keyboard.press('r');
-await page.waitForTimeout(600);
+await stepMs(page, 600);
 await teleport(7.8, 3.6, 0, 8, 0.5, 0); // Gap-Zone airborne durchfliegen
-await page.waitForTimeout(700);
+await stepMs(page, 700);
 results.gapCombo = await hudState();
 await teleport(0, 12, -20, 0, 0, 0); // 12 m Sturz auf den Boden -> BAIL
-await page.waitForTimeout(2200); // Sturz ~1.1s + Verlust-Animation 0.4s
+await stepMs(page, 1600); // Sturz ~1.1s bis zum Aufschlag
+// Das Ausblenden der Combo hängt an einem window.setTimeout (HUD: Wackeln,
+// dann verstecken) — reine Anzeige, läuft in Echtzeit und nicht im Physiktakt.
+await page.waitForTimeout(600);
 results.afterBail = await hudState();
 
 for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===`, JSON.stringify(v));

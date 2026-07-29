@@ -1,6 +1,7 @@
 // Game of PARK (S.K.A.T.E.-Prinzip im Splitscreen): treibt die
 // Zustandsmaschine über synthetische Trick-Events auf den Spieler-Bussen.
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -14,7 +15,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto(`${url}?play=1&mode=split&game=park&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const tm = () =>
   page.evaluate(() => {
@@ -32,31 +33,31 @@ results.initial = await tm();
 
 // P1 legt Double-Backflip vor -> Phase MATCH
 await emit(0, 'trick:flip', { kind: 'back', count: 2, gainer: false });
-await page.waitForTimeout(200);
+await stepMs(page, 200);
 results.set = await tm();
 
 // P2 macht den FALSCHEN Trick -> bleibt MATCH
 await emit(1, 'trick:spin', { halfTurns: 2 });
-await page.waitForTimeout(200);
+await stepMs(page, 200);
 results.wrong = await tm();
 
 // P2 kontert den richtigen Trick -> zurück zu SET, P1 bleibt Vorleger, kein Buchstabe
 await emit(1, 'trick:flip', { kind: 'back', count: 2, gainer: false });
-await page.waitForTimeout(200);
+await stepMs(page, 200);
 results.matched = await tm();
 
 // P1 legt erneut vor; P2 lässt die Zeit ablaufen -> Buchstabe für P2
 await emit(0, 'trick:vault', { obstacleHeight: 1 });
-await page.waitForTimeout(200);
+await stepMs(page, 200);
 await page.evaluate(() => {
   window.game.trickMatch.timeLeft = 0.01;
 });
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.letter = await tm();
 
 // P1 (Vorleger) verpatzt den nächsten Versuch -> Vorlegerecht wechselt zu P2
 await emit(0, 'player:bail', { fallHeight: 7 });
-await page.waitForTimeout(200);
+await stepMs(page, 200);
 results.switched = await tm();
 
 console.log(JSON.stringify(results, null, 1));

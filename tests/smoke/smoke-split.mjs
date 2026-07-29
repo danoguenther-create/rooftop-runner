@@ -1,6 +1,7 @@
 // Splitscreen-Duell (2026-07-10): zwei Spieler an einer Tastatur.
 // Prüft getrennte Eingaben (P1 WASD, P2 Pfeile/Enter) und getrennte Scores.
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -14,7 +15,7 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 
 await page.goto(`${url}?play=1&mode=split&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -35,20 +36,21 @@ results.initial = await state();
 
 // P1 läuft mit W (Start-Yaw pi -> +z); P2 bleibt stehen
 await page.keyboard.down('w');
-await page.waitForTimeout(1200);
+await stepMs(page, 1200);
 await page.keyboard.up('w');
+await stepMs(page, 500); // P1 austrudeln lassen, sonst misst die Referenz das Ausrollen
 results.p1moved = await state();
 
 // P2 läuft mit Pfeil-hoch; P1 bleibt stehen
 const p1After = results.p1moved.p1.pos;
 await page.keyboard.down('ArrowUp');
-await page.waitForTimeout(1200);
+await stepMs(page, 1200);
 await page.keyboard.up('ArrowUp');
 results.p2moved = await state();
 
 // P2 springt mit Enter
 await page.keyboard.press('Enter');
-await page.waitForTimeout(250);
+await stepMs(page, 250);
 results.p2jump = await state();
 
 for (const [k, v] of Object.entries(results))

@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -29,7 +30,7 @@ const teleport = (x, y, z, vx, vy, vz) =>
   );
 const reset = async () => {
   await page.keyboard.press('r');
-  await page.waitForTimeout(800);
+  await stepMs(page, 800);
 };
 
 const results = {};
@@ -37,38 +38,44 @@ const results = {};
 // --- 1) Wandlauf -> Ledge-Grab -> HANG an der 3.5-m-Wand (Front z=-6)
 await page.keyboard.down('s'); // Kamera-Start: S laeuft Richtung -z
 await teleport(-16, 1.0, -3.5, 0, 0, -6);
-await page.waitForTimeout(450);
+await stepMs(page, 450);
 await page.keyboard.up('s');
-await page.waitForTimeout(500);
+await stepMs(page, 500);
 results.hang = await state();
 
 // --- 2) Mantle: W antippen -> oben auf der Wand (y_center ~ 4.4)
+// Die Schonfrist nach dem Greifen (inputLockUntil, 250 ms) misst mit
+// performance.now() — Echtzeit. Beim Steppen vergeht davon fast nichts, also
+// hier echt abwarten, sonst schluckt der Lock das W je nach Systemlast.
+await page.waitForTimeout(300);
 await page.keyboard.down('w');
-await page.waitForTimeout(150);
+await stepMs(page, 150);
 await page.keyboard.up('w');
-await page.waitForTimeout(950);
+await stepMs(page, 950);
 results.mantled = await state();
 await reset();
 
 // --- 3) Fall-Grab an der Hangelkante (Slab top y=3.15, Suedkante z=1.6):
-//        fallend dicht neben der Kante, S erst im Grab-Fenster druecken
+//        fallend dicht neben der Kante, S erst im Grab-Fenster druecken.
+//        Das Fenster (Hand 1.6-2.1 ueber den Fuessen) liegt bei Kapselmitte
+//        y 1.95-2.45, aus 4.2 m freiem Fall also ab ca. 350 ms.
 await teleport(-16, 4.2, 1.95, 0, 0, 0);
-await page.waitForTimeout(350);
+await stepMs(page, 350);
 await page.keyboard.down('s'); // Input Richtung Slab (-z)
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 await page.keyboard.up('s');
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.fallGrab = await state();
 
 await page.keyboard.down('a');
-await page.waitForTimeout(600);
+await stepMs(page, 600);
 await page.keyboard.up('a');
 results.shimmy = await state();
 
 await page.keyboard.down('s');
-await page.waitForTimeout(250);
+await stepMs(page, 250);
 await page.keyboard.up('s');
-await page.waitForTimeout(800);
+await stepMs(page, 800);
 results.released = await state();
 
 for (const [k, v] of Object.entries(results))

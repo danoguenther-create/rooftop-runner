@@ -434,7 +434,73 @@ Realistisch einplanen: Store-Bürokratie (Konten, Formulare, Screenshots, Testph
    - Rail-Grind-Snapping fühlt sich lange falsch an → großzügiger Snap-Radius + Magnetismus zur Kurve; im Zweifel großzügig zugunsten des Spielers.
    - Framerate-abhängige Physik (gelöst durch festen Timestep, Task 3) und framerate-abhängige Kamera (gelöst durch `damp` statt `lerp` mit festem Faktor).
    - Scope Creep: Balance-Minigame, Multiplayer, Charakter-Editor, offene Riesenstadt — alles auf die „nach Release"-Liste.
-10. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
+10. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat.
+11. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
+
+## 7.1 Smoke-Test-Suite: in Schritten warten, nicht in Millisekunden *(2026-07-29)*
+
+Die Physik-Regressionssuite (`npm run test:smoke`, elf Tests in `tests/smoke/`) fährt
+das echte Spiel headless im Chromium. Dabei gilt eine Regel, gegen die die erste
+Fassung der Tests durchgehend verstoßen hat:
+
+**Ein Test darf niemals in Echtzeit auf Spielgeschehen warten.**
+
+Grund: der Game-Loop holt pro Bild höchstens `MAX_STEPS = 3` Physikschritte nach
+(Schutz vor der Todesspirale, `Game.ts`). Damit vergehen pro Bild maximal 50 ms
+Spielzeit. Solange der Browser ≥ 20 fps schafft, laufen Spielzeit und Wanduhr
+gleich. Headless mit SwiftShader — also ohne GPU, wie auf dem VPS — sind es aber
+eher 12 fps, und die Simulation läuft auf ~37 % der Echtzeit. Ein
+`waitForTimeout(350)` trifft dann ein völlig anderes Spielgeschehen als auf einem
+flüssigen Rechner, und je nach Systemlast bei jedem Lauf ein anderes. Genau das
+war die Ursache für „isoliert grün, in der Suite rot" und für einen `fall-grab`,
+der monatelang als kaputte Physik galt, obwohl er nie kaputt war: der Test ließ
+die Greif-Taste los, bevor der Spieler die Kante überhaupt erreicht hatte.
+
+**Werkzeuge** (`tests/smoke/harness.mjs`):
+
+- `stepMs(page, ms)` / `step(page, n)` — n feste Physikschritte über den Test-Hook
+  `window.game.stepFixed(n)`. Der erste Aufruf schaltet das Spiel auf manuellen
+  Takt; der Bildtakt rendert danach nur noch. Ersetzt jedes `waitForTimeout` im
+  Spielablauf.
+- `stepUntil(page, fn, maxSteps)` — simulieren, bis eine Bedingung im Spiel
+  eintritt. Ersetzt `page.waitForFunction` auf Spielzustände: das pollt in
+  Echtzeit und käme bei manuellem Takt nie ans Ziel.
+- `waitForPlaying(page)` / `waitForGrounded(page)` — nach `page.goto` warten,
+  bis `start()` durch ist, statt Sekunden zu raten. `waitForGrounded` lässt den
+  Spieler zusätzlich vom Spawn landen; nötig für alles, was Lufttricks prüft
+  (Flips werden erst nach dem ersten Bodenkontakt gequeued, sonst verfällt der
+  erste Trick lautlos).
+
+**Echtzeit-Warten bleibt genau dort richtig, wo etwas außerhalb der Simulation
+läuft** — und gehört dann kommentiert:
+
+- Seitenaufbau, RAPIER-Init, Laden der Charakter-Assets.
+- Reine Anzeige-Logik im HUD, die an der Uhr hängt statt am Physiktakt: das
+  Ausblenden der Combo nach einem Bail (`window.setTimeout`) und das Verfallen
+  der Ticker-Einträge (`performance.now()`).
+- Das Stats-Overlay (fps/Draw-Calls) schreibt sich einmal pro echter Sekunde.
+- **Auch ein Stück Spiellogik hängt noch an der Uhr:** die Schonfrist nach dem
+  Greifen (`inputLockUntil`, 250 ms in `PlayerStates.ts`) und weitere Fenster
+  und Cooldowns messen mit `performance.now()` statt in Simulationszeit. Wer
+  eines davon im Test trifft, muss echt warten — siehe `smoke-16b`, Mantle.
+  **Offener Punkt:** diese Timer bei Gelegenheit auf Simulationszeit umstellen
+  (akkumulierte `FIXED_DT` statt `performance.now()`), dann ist auch das
+  Spielverhalten selbst bildratenunabhängig. Betrifft `Climb.ts`, `Swing.ts`,
+  `Vault.ts`, `RailBalance.ts`, `PlayerStates.ts`, `PlayerController.ts` —
+  Feinjustage der Werte einplanen, das kann sich im Spielgefühl bemerkbar machen.
+
+**Zwei Fallen beim Schreiben neuer Tests:**
+
+- Nach einem Teleport ist die FSM noch im alten Zustand. Wer sofort eine
+  Trick-Taste drückt, verliert den Trick — erst ein paar Schritte simulieren,
+  damit `AIR` anliegt. Ausnahme: wenn gleichzeitig eine Richtungstaste gehalten
+  wird, dreht der Vorlauf die Flip-Achse mit (aus dem Backflip wird ein
+  Frontflip) — dann lieber mit `vy > 0` teleportieren und sofort drücken.
+- Referenzpositionen erst nehmen, wenn der Spieler ausgerollt ist; sonst misst
+  man den Bremsweg und hält ihn für einen Fehler.
+
+Eine Suite dauert so rund 80 Sekunden und liefert über Läufe hinweg identische
+Zahlen. Weicht ein Wert ab, ist es echt.
 
 ---
 
@@ -1071,6 +1137,7 @@ gedrückt rettet in den HANG.
 ```
 
 - **Verifikation:** Debug-Panel zeigt HANG; Mantle endet sauber oben in RUN; Hangeln funktioniert in beide Richtungen und stoppt an Flächenenden.
+- **Nachtrag 2026-07-29:** Der `fall-grab` in `smoke-16b` galt seit dem 12.07. als kaputt und hat die Session damals blockiert. Die Physik war nie fehlerhaft — der Test hat in Echtzeit gewartet und die Greif-Taste losgelassen, bevor der Spieler das Grab-Fenster erreicht hatte (Kapitel 7.1). Seit der Umstellung auf `stepFixed` grün und über Läufe hinweg identisch: `HANG @ (-16.00, 2.45, 2.05)`.
 
 ### Task 16c — Bar-Swing + Gainer-Abgänge **[OPUS]**
 - **Ziel:** An Stangen (Rails von unten) schwingen, Stangenketten, Trick-Abgänge.

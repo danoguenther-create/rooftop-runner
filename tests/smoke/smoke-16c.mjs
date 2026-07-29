@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -37,20 +38,20 @@ const results = {};
 
 // --- 1) Von unten an Stange 1 (y=3.2, z=8.6) anfliegen -> SWING
 await teleport(-16, 2.4, 8.2, 0, 0, 3);
-await page.waitForTimeout(250);
+await stepMs(page, 250);
 results.snap = await state();
 
 // --- 2) Pendeln + Pumpen (W), Position muss unter der Stange schwingen
 await page.keyboard.down('w');
-await page.waitForTimeout(600);
+await stepMs(page, 600);
 await page.keyboard.up('w');
 results.pumping = await state();
 
 // --- 3) Loslassen mit Space -> AIR mit Momentum, Event trick:swing
 await page.keyboard.press('Space');
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 results.released = await state();
-await page.waitForTimeout(1500);
+await stepMs(page, 1500);
 results.landed = await state();
 
 for (const [k, v] of Object.entries(results))

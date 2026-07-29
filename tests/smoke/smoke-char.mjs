@@ -1,6 +1,7 @@
 // Task 21: Charaktermodell + Animator. Lädt bewusst OHNE ?nochar=1 —
 // der einzige Test, der den FBX-Ladepfad und das Clip-Mapping prüft.
 import { chromium } from 'playwright-core';
+import { stepMs } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -39,12 +40,12 @@ results.loaded = await state();
 
 // Loslaufen → run-Clip
 await page.keyboard.down('w');
-await page.waitForTimeout(1500);
+await stepMs(page, 1500);
 results.running = await state();
 await page.keyboard.up('w');
 
 // Stehenbleiben → idle-Clip
-await page.waitForTimeout(1500);
+await stepMs(page, 1500);
 results.idle = await state();
 
 await browser.close();

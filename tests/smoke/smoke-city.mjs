@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, stepUntil, waitForPlaying } from './harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const url = `${base}?level=city01&play=1&nochar=1`;
@@ -11,7 +12,7 @@ const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(url, { waitUntil: 'load' });
-await page.waitForTimeout(5000);
+await waitForPlaying(page);
 
 const state = () =>
   page.evaluate(() => ({
@@ -37,11 +38,21 @@ const teleport = (x, y, z, vx, vy, vz) =>
   );
 const reset = async () => {
   await page.keyboard.press('r');
-  await page.waitForTimeout(700);
+  await stepMs(page, 700);
 };
 
 const results = {};
+// Der Spieler fällt beim Spawn kurz auf das Dach — erst landen lassen
+await stepUntil(page, () => window.game.player.fsm.current === 'RUN', 300);
 results.spawn = await state();
+// Das Stats-Overlay (fps + draw calls) schreibt sich einmal pro echter Sekunde
+// im Bildtakt — kurz darauf warten, statt eine Sekunde zu raten.
+await page.waitForFunction(
+  () =>
+    [...document.querySelectorAll('#hud div')].some((el) => el.textContent?.includes('calls')),
+  null,
+  { timeout: 15_000 },
+);
 results.stats = await stats();
 
 // Kamera dauerhaft auf +x drehen — alle Lauf-Abschnitte gehen in +x,
@@ -51,30 +62,26 @@ await page.evaluate(() => {
 });
 
 // --- Dachlücken-Sprung: B0 (h14) -> B1 (h13), 3.5-m-Lücke (W hält +x-Speed)
-// Auf die Landung warten statt fester Zeit — die Headless-Zeitdilatation
-// schwankt von Lauf zu Lauf
+// Auf die Landung warten statt auf eine feste Dauer
 await page.keyboard.down('w');
 await teleport(-64, 15, -20, 8, 8, 0);
-await page
-  .waitForFunction(
-    () => window.game.player.fsm.current === 'RUN' && window.game.player.body.translation().y > 13,
-    null,
-    { timeout: 15_000 },
-  )
-  .catch(() => {});
+await stepUntil(
+  page,
+  () => window.game.player.fsm.current === 'RUN' && window.game.player.body.translation().y > 13,
+);
 await page.keyboard.up('w');
 results.gapJump = await state();
 await reset();
 
 // --- Geneigte Balance-Rail über die Straße: B1 (13) -> A1 (11)
 await teleport(-52.5, 14.3, -27.5, 0, 0, -3);
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.rail = await state();
 await reset();
 
 // --- Schwungstange: von B3-Dach (12) fallend an Stange (y=13, z=-28.5)
 await teleport(-17.5, 12.1, -28.2, 0, 0, -3);
-await page.waitForTimeout(400);
+await stepMs(page, 400);
 results.bar = await state();
 await reset();
 
@@ -83,19 +90,19 @@ await reset();
 // 250-ms-Schonfrist sofort das Mantle auslösen
 await page.keyboard.down('w');
 await teleport(-43, 9.95, -48, 6, 0, 0);
-await page
-  .waitForFunction(() => window.game.player.fsm.current === 'HANG', null, { timeout: 8000 })
-  .catch(() => {});
+await stepUntil(page, () => window.game.player.fsm.current === 'HANG', 480);
 await page.keyboard.up('w');
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 results.shed = await state();
 await reset();
 
 // --- Treppe C6 von der Straße hoch (W = +x, Kamera oben gedreht)
 await teleport(28.5, 1.0, -2.7, 0, 0, 0);
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 await page.keyboard.down('w');
-await page.waitForTimeout(5000);
+// Hochlaufen, bis die Treppe genommen ist — nicht auf eine feste Dauer warten,
+// sonst läuft er oben weiter und die Messung hängt von der Laufweite ab
+await stepUntil(page, () => window.game.player.body.translation().y > 4, 300);
 await page.keyboard.up('w');
 results.stairs = await state();
 

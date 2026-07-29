@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -10,7 +11,7 @@ const errors = [];
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 page.on('pageerror', (e) => errors.push(String(e)));
 await page.goto(`${url}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4000);
+await waitForGrounded(page);
 
 const debug = () =>
   page.evaluate(() => {
@@ -35,7 +36,7 @@ const reset = async () => {
   // Bis zur Landung warten: nach Respawn sind Lufttricks (auch Dive) erst
   // nach dem ersten Bodenkontakt wieder scharf (Spawn-Fall-Schutz)
   await page.waitForFunction(() => window.game.player.grounded, null, { timeout: 8000 });
-  await page.waitForTimeout(200);
+  await stepMs(page, 200);
 };
 
 const results = {};
@@ -47,7 +48,7 @@ await page.evaluate(() => {
 await page.keyboard.down('w'); // hält +x-Speed
 await teleport(0, 6, -20, 5, 2, 0);
 await page.keyboard.down('c');
-await page.waitForTimeout(1400);
+await stepMs(page, 1400);
 results.diveroll = await debug();
 await page.keyboard.up('c');
 await page.keyboard.up('w');
@@ -56,26 +57,31 @@ await reset();
 // 2) Dive angesetzt, aber C vor der Landung losgelassen -> Bail schon ab 3 m
 //    (Fall ~4.6 m: ohne Dive wäre das nur eine harte Landung, kein Bail)
 await teleport(0, 5.5, -20, 0, 0, 0);
-await page.waitForTimeout(150);
+await stepMs(page, 150);
 await page.keyboard.down('c');
-await page.waitForTimeout(150);
+await stepMs(page, 150);
 await page.keyboard.up('c');
-await page.waitForTimeout(800);
+await stepMs(page, 800);
 results.diveBail = await debug();
 await reset();
-await page.waitForTimeout(1500);
+await stepMs(page, 1500);
 
 // 3) Kanten-Precision: Landung 0.3 m neben der Plattformkante (Fall ~2.5 m)
 await teleport(7.7, 5.5, 0, 0, 0, 0);
-await page.waitForTimeout(1200);
+await stepMs(page, 1200);
 results.edgePrecision = await debug();
 results.edgeTicker = await ticker();
 await reset();
-await page.waitForTimeout(2000);
+await stepMs(page, 500);
+// Ticker-Einträge verfallen nach TICKER_LIFETIME_MS gemessen an performance.now()
+// — Echtzeit, nicht Physiktakt. Vor dem Gegentest echt abwarten, sonst steht der
+// PRECISION-Eintrag von oben noch da und sieht aus wie ein False Positive.
+await page.waitForTimeout(1800);
+await stepMs(page, 100); // ausgelaufene Einträge entfernt HUD.update
 
 // 4) Landung mitten auf derselben Plattform -> KEINE Precision
 await teleport(6, 5.5, 0, 0, 0, 0);
-await page.waitForTimeout(1200);
+await stepMs(page, 1200);
 results.centerTicker = await ticker();
 results.center = await debug();
 

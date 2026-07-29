@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { EventBus } from './EventBus';
-import { Input, keymapP1, keymapP2 } from './Input';
+import { Input, keymapP1, keymapP2, type InputState } from './Input';
 import { loadCharacter } from './AssetLoader';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
@@ -59,6 +59,8 @@ export class Game {
 
   private clock = new THREE.Clock();
   private accumulator = 0;
+  /** Simulation wird von außen getaktet (stepFixed) statt vom Bildtakt. */
+  private manualStep = false;
 
   // Overlays
   private statsEl: HTMLDivElement;
@@ -350,60 +352,100 @@ export class Game {
     this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
   }
 
-  private loop = (): void => {
-    const dt = Math.min(this.clock.getDelta(), 0.25);
-    const frameInputs = this.inputs.map((i) => i.poll());
-
-    // Esc: Pause an/aus (Task 23) — liegt nur auf Spieler 1
-    if (frameInputs[0].pausePressed) {
-      if (this.state === 'PLAYING') this.pause();
-      else if (this.state === 'PAUSED') this.resume();
-    }
-
-    this.hintEl.style.display =
-      this.mode === 'solo' && this.state === 'PLAYING' && !this.input.isPointerLocked
-        ? 'block'
-        : 'none';
-
-    if (this.state === 'PLAYING') {
-      this.players.forEach((p, i) => {
-        p.handleFrameInput(frameInputs[i]);
-        p.cameraYaw = this.followCameras[i].getYaw();
-      });
-      // R während des Rennens: Neustart am trialStart (überschreibt den Respawn)
-      if (frameInputs[0].respawnPressed) this.trial?.onRespawn();
-
-      // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
-      this.accumulator += dt;
-      let steps = 0;
-      while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
-        for (const p of this.players) p.fixedUpdate(FIXED_DT);
-        this.physics.step();
-        this.markers?.fixedUpdate();
-        this.collectibles?.fixedUpdate();
-        this.trial?.fixedUpdate();
-        for (const e of this.edges) e.fixedUpdate(FIXED_DT);
-        this.accumulator -= FIXED_DT;
-        steps++;
-      }
-      if (steps === MAX_STEPS) this.accumulator = 0; // Spiral of death vermeiden
-
-      // Render-Takt
-      this.players.forEach((p, i) => {
-        p.update(dt);
-        this.followCameras[i].update(dt, frameInputs[i]);
-      });
-      this.markers?.update(dt);
-      this.collectibles?.update(dt);
-      this.trial?.update(dt);
-      this.missions?.update(dt);
-      this.scores.forEach((s) => s.update(dt));
-      this.trickMatch?.update(dt);
-      this.huds.forEach((h, i) =>
-        h.update(dt, this.players[i].horizontalSpeed, this.players[i].balancer.sway),
+  /**
+   * Test-Hook: führt exakt n feste Physikschritte aus (je FIXED_DT), ohne auf
+   * den Bildtakt zu warten.
+   *
+   * Hintergrund: der Akkumulator unten holt pro Bild höchstens MAX_STEPS
+   * Schritte nach. Unter ~20 fps — headless mit Software-GL der Normalfall —
+   * läuft die Simulation dadurch langsamer als die Wanduhr. Tests, die in
+   * Millisekunden warten, treffen dann ein anderes Spielgeschehen als auf
+   * einer flüssig laufenden Maschine. Über diesen Hook takten sie die
+   * Simulation selbst und werden damit bildratenunabhängig.
+   *
+   * Der erste Aufruf schaltet die Simulation dauerhaft auf manuellen Takt um:
+   * der Bildtakt rendert dann nur noch, er simuliert nicht mehr mit.
+   */
+  stepFixed(n = 1): void {
+    // Erst umschalten, wenn wirklich gespielt wird — sonst bliebe die
+    // Simulation stehen, falls ein Test steppt, bevor start() durch ist.
+    if (this.state !== 'PLAYING') return;
+    this.manualStep = true;
+    for (let i = 0; i < n; i++) {
+      this.accumulator = 0; // genau ein Schritt pro Aufruf, kein Nachholen
+      this.simulate(
+        FIXED_DT,
+        this.inputs.map((inp) => inp.poll()),
       );
     }
+  }
 
+  private loop = (): void => {
+    const dt = Math.min(this.clock.getDelta(), 0.25);
+
+    if (!this.manualStep) {
+      const frameInputs = this.inputs.map((i) => i.poll());
+
+      // Esc: Pause an/aus (Task 23) — liegt nur auf Spieler 1
+      if (frameInputs[0].pausePressed) {
+        if (this.state === 'PLAYING') this.pause();
+        else if (this.state === 'PAUSED') this.resume();
+      }
+
+      this.hintEl.style.display =
+        this.mode === 'solo' && this.state === 'PLAYING' && !this.input.isPointerLocked
+          ? 'block'
+          : 'none';
+
+      if (this.state === 'PLAYING') this.simulate(dt, frameInputs);
+    }
+
+    this.renderFrame(dt);
+    requestAnimationFrame(this.loop);
+  };
+
+  /** Ein Simulationsschritt-Paket: Input, feste Physiktakte, Render-Takt-Updates. */
+  private simulate(dt: number, frameInputs: InputState[]): void {
+    this.players.forEach((p, i) => {
+      p.handleFrameInput(frameInputs[i]);
+      p.cameraYaw = this.followCameras[i].getYaw();
+    });
+    // R während des Rennens: Neustart am trialStart (überschreibt den Respawn)
+    if (frameInputs[0].respawnPressed) this.trial?.onRespawn();
+
+    // Fester Physik-Takt über Akkumulator (framerate-unabhängige Physik)
+    this.accumulator += dt;
+    let steps = 0;
+    while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
+      for (const p of this.players) p.fixedUpdate(FIXED_DT);
+      this.physics.step();
+      this.markers?.fixedUpdate();
+      this.collectibles?.fixedUpdate();
+      this.trial?.fixedUpdate();
+      for (const e of this.edges) e.fixedUpdate(FIXED_DT);
+      this.accumulator -= FIXED_DT;
+      steps++;
+    }
+    if (steps === MAX_STEPS) this.accumulator = 0; // Spiral of death vermeiden
+
+    // Render-Takt
+    this.players.forEach((p, i) => {
+      p.update(dt);
+      this.followCameras[i].update(dt, frameInputs[i]);
+    });
+    this.markers?.update(dt);
+    this.collectibles?.update(dt);
+    this.trial?.update(dt);
+    this.missions?.update(dt);
+    this.scores.forEach((s) => s.update(dt));
+    this.trickMatch?.update(dt);
+    this.huds.forEach((h, i) =>
+      h.update(dt, this.players[i].horizontalSpeed, this.players[i].balancer.sway),
+    );
+  }
+
+  /** Zeichnen + Overlays — läuft immer im Bildtakt, auch bei manuellem Takt. */
+  private renderFrame(dt: number): void {
     if (this.mode === 'split') {
       const w = window.innerWidth;
       const h = window.innerHeight;
@@ -438,7 +480,5 @@ export class Game {
         `wall: ${wall}\n` +
         `trick: ${this.lastTrick}`;
     }
-
-    requestAnimationFrame(this.loop);
-  };
+  }
 }

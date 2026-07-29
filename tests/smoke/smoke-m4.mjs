@@ -1,4 +1,5 @@
 import { chromium } from 'playwright-core';
+import { stepMs, waitForGrounded } from './harness.mjs';
 
 const base = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 const browser = await chromium.launch({
@@ -26,25 +27,25 @@ const results = {};
 
 // ========== City: Mission (Combo) + Zeitrennen ==========
 await page.goto(`${base}?level=city01&play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(5000);
+await waitForGrounded(page);
 
 // --- Mission 3 (Combo ×6): Tricks über den Bus simulieren, dann banken
 await page.keyboard.press('Digit3');
-await page.waitForTimeout(300);
+await stepMs(page, 300);
 results.missionPanel = await page.evaluate(
   () => [...document.querySelectorAll('#hud div')].some((d) => d.textContent?.includes('Combo-König')),
 );
 await page.evaluate(() => {
   for (let i = 0; i < 6; i++) window.game.bus.emit('trick:wallrun', { side: 'left' });
 });
-await page.waitForTimeout(2500); // Banking nach 1.5 s in RUN
+await stepMs(page, 2500); // Banking nach 1.5 s in RUN
 results.missionDone = await page.evaluate(
   () => [...document.querySelectorAll('#hud div')].some((d) => d.textContent?.includes('Mission erfüllt')),
 );
 
 // --- Zeitrennen: Start berühren, Tore in Reihenfolge, Finish
 await teleport(-17.5, 13.3, -25); // trialStart
-await page.waitForTimeout(500);
+await stepMs(page, 500);
 results.timerVisible = await page.evaluate(() =>
   [...document.querySelectorAll('#hud div')].some(
     (d) => d.style.display !== 'none' && /^\d\d:\d\d\.\d\d$/.test(d.textContent ?? ''),
@@ -56,9 +57,9 @@ const gates = [
 ];
 for (const [x, y, z] of gates) {
   await teleport(x, y, z);
-  await page.waitForTimeout(300);
+  await stepMs(page, 300);
 }
-await page.waitForTimeout(500);
+await stepMs(page, 500);
 results.trialOverlay = await page.evaluate(() => {
   const el = [...document.querySelectorAll('#hud div')].find((d) =>
     d.textContent?.includes('GOLD') || d.textContent?.includes('Medaille'),
@@ -68,9 +69,9 @@ results.trialOverlay = await page.evaluate(() => {
 
 // ========== Testlevel: Collectible einsammeln ==========
 await page.goto(`${base}?play=1&nochar=1`, { waitUntil: 'load' });
-await page.waitForTimeout(4500);
+await waitForGrounded(page);
 await teleport(6, 3.0, 0); // col-t1
-await page.waitForTimeout(600);
+await stepMs(page, 600);
 results.collectCounter = await hudText('.hud-collect');
 
 for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===`, JSON.stringify(v));
