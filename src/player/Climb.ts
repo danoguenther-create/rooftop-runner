@@ -15,6 +15,7 @@ import {
   WALLCLIMB_PUSH,
   WALLCLIMB_VY,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 const CENTER_TO_FEET = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
@@ -50,12 +51,12 @@ export class Climber {
 
   /** Für Animations-Blending (Task 21) und Debug. */
   get isWallClimbing(): boolean {
-    return performance.now() < this.climbingUntil;
+    return simNow() < this.climbingUntil;
   }
 
   /** Frontal gegen eine Wand mit Tempo -> einmaliger Aufwärts-Boost. */
   tryWallClimb(p: PlayerController): void {
-    const now = performance.now();
+    const now = simNow();
     if (now < this.climbCooldownUntil) return;
     const hSpeed = p.horizontalSpeed;
     if (hSpeed < WALLCLIMB_MIN_SPEED) return;
@@ -107,7 +108,7 @@ export class Climber {
    * Richtungsdruck als Grab-Absicht (nicht als Flip) zu werten.
    */
   ledgeInReach(p: PlayerController): boolean {
-    if (p.velocity.y > 0.5 || performance.now() < this.regrabAt) return false;
+    if (p.velocity.y > 0.5 || simNow() < this.regrabAt) return false;
     p.getPosition(_pos);
     const feetY = _pos.y - CENTER_TO_FEET;
     for (const face of p.level.topFaces) {
@@ -130,7 +131,7 @@ export class Climber {
   /** Nach Loslassen/Mantle kurz nicht erneut greifen. */
   releaseGrab(): void {
     this.grab = null;
-    this.regrabAt = performance.now() + LEDGE_REGRAB_MS;
+    this.regrabAt = simNow() + LEDGE_REGRAB_MS;
   }
 
   /**
@@ -138,7 +139,7 @@ export class Climber {
    * automatisch, im Fall nur mit Input Richtung Wand.
    */
   tryGrab(p: PlayerController): boolean {
-    const now = performance.now();
+    const now = simNow();
     if (now < this.regrabAt) return false;
 
     const rising = p.velocity.y > 0.5;

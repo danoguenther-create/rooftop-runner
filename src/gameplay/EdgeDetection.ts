@@ -8,6 +8,7 @@ import {
   EDGE_PRECISION_SETTLE_S,
   EDGE_PRECISION_SETTLE_SPEED,
 } from '../player/tuning';
+import { simNow } from '../core/SimClock';
 
 /** Begehbare Deckfläche einer Level-Box (achsenparallel oder um Y gedreht). */
 export interface TopFace {
@@ -50,7 +51,7 @@ export class EdgePrecision {
     if (!watch) return;
 
     if (this.player.horizontalSpeed < EDGE_PRECISION_SETTLE_SPEED) {
-      watch.face.cooldownUntil = performance.now() + EDGE_PRECISION_COOLDOWN_MS;
+      watch.face.cooldownUntil = simNow() + EDGE_PRECISION_COOLDOWN_MS;
       this.watch = null;
       this.bus.emit('trick:precision', { id: 'edge' });
       return;
@@ -65,7 +66,7 @@ export class EdgePrecision {
     this.player.getPosition(_pos);
     const hit = this.nearestEdge(_pos);
     if (!hit || hit.dist > EDGE_PRECISION_DIST) return;
-    if (performance.now() < hit.face.cooldownUntil) return;
+    if (simNow() < hit.face.cooldownUntil) return;
 
     this.watch = { face: hit.face, remaining: EDGE_PRECISION_SETTLE_S };
   }

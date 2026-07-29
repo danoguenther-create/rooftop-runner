@@ -9,6 +9,7 @@ import {
   VAULT_MIN_HEIGHT,
   VAULT_MIN_SPEED,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 const CENTER_TO_FEET = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
@@ -36,11 +37,11 @@ export class VaultDetector {
   private lastVaultAt = -Infinity;
 
   markVaulted(): void {
-    this.lastVaultAt = performance.now();
+    this.lastVaultAt = simNow();
   }
 
   tryPlan(player: PlayerController): VaultPlan | null {
-    if (performance.now() - this.lastVaultAt < VAULT_COOLDOWN_MS) return null;
+    if (simNow() - this.lastVaultAt < VAULT_COOLDOWN_MS) return null;
 
     const hSpeed = player.horizontalSpeed;
     if (hSpeed < VAULT_MIN_SPEED) return null;

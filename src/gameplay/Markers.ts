@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EventBus } from '../core/EventBus';
 import type { LevelLoader } from '../level/LevelLoader';
 import type { PlayerController } from '../player/PlayerController';
+import { simNow } from '../core/SimClock';
 
 /** Cooldown pro Marker, damit nichts im Loop feuert (ms) */
 const PRECISION_COOLDOWN_MS = 5000;
@@ -86,7 +87,7 @@ export class Markers {
     const p = this.player;
     p.getPosition(_pos);
     const airborne = !p.grounded;
-    const now = performance.now();
+    const now = simNow();
 
     for (const gap of this.gaps) {
       const contains = gap.box.containsPoint(_pos);
@@ -124,7 +125,7 @@ export class Markers {
     const p = this.player;
     if (p.lastFallHeight < PRECISION_MIN_FALL) return;
     p.getPosition(_pos);
-    const now = performance.now();
+    const now = simNow();
 
     for (const pad of this.pads) {
       if (now < pad.cooldownUntil) continue;

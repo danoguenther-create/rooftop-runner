@@ -18,6 +18,7 @@ import {
   WALLRUN_MAX_MS,
   WALLRUN_MIN_SPEED,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 export type StateName =
   | 'RUN'
@@ -382,7 +383,7 @@ class HangState extends PlayerState {
     this.mantleT = -1;
     // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
     // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
-    this.inputLockUntil = performance.now() + 250;
+    this.inputLockUntil = simNow() + 250;
     p.velocity.set(0, 0, 0);
     p.grounded = false;
     this.applyHangPosition();
@@ -405,7 +406,7 @@ class HangState extends PlayerState {
     }
 
     const input = p.currentInput;
-    const locked = performance.now() < this.inputLockUntil;
+    const locked = simNow() < this.inputLockUntil;
     const moveY = locked ? 0 : (input?.moveY ?? 0);
     const moveX = input?.moveX ?? 0;
 

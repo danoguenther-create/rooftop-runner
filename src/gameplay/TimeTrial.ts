@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import type { EventBus } from '../core/EventBus';
 import type { LevelLoader } from '../level/LevelLoader';
 import type { PlayerController } from '../player/PlayerController';
+import { simNow } from '../core/SimClock';
 
 export type Medal = 'gold' | 'silver' | 'bronze' | 'none';
 
@@ -141,13 +142,13 @@ export class TimeTrial {
     }
 
     if (this.running) {
-      this.timerEl.textContent = formatMs(performance.now() - this.startedAt);
+      this.timerEl.textContent = formatMs(simNow() - this.startedAt);
     }
   }
 
   private beginRun(): void {
     this.running = true;
-    this.startedAt = performance.now();
+    this.startedAt = simNow();
     this.nextIdx = 0;
     this.timerEl.style.display = 'block';
     this.overlayEl.style.display = 'none';
@@ -155,7 +156,7 @@ export class TimeTrial {
   }
 
   private finish(): void {
-    const timeMs = Math.round(performance.now() - this.startedAt);
+    const timeMs = Math.round(simNow() - this.startedAt);
     this.running = false;
     this.timerEl.textContent = formatMs(timeMs);
 

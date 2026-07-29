@@ -1,4 +1,5 @@
 import type { EventBus } from '../core/EventBus';
+import { simNow } from '../core/SimClock';
 
 const LETTERS = ['P', 'A', 'R', 'K'];
 const SET_TIME_S = 25;
@@ -82,7 +83,7 @@ export class TrickMatch {
         }
       }
     }
-    if (performance.now() > this.flashUntil) this.flash = ['', ''];
+    if (simNow() > this.flashUntil) this.flash = ['', ''];
     this.refresh();
   }
 
@@ -122,7 +123,7 @@ export class TrickMatch {
 
   private flashFor(playerIdx: number, text: string): void {
     this.flash[playerIdx] = text;
-    this.flashUntil = performance.now() + 2500;
+    this.flashUntil = simNow() + 2500;
   }
 
   private lettersLine(playerIdx: number): string {

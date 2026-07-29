@@ -12,6 +12,7 @@ import {
   GRIND_RESNAP_MS,
   GRIND_SNAP_RADIUS,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 const CENTER_TO_FEET = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
@@ -69,7 +70,7 @@ export class RailBalancer {
     const c = p.body.translation();
     _feet.set(c.x, c.y - CENTER_TO_FEET, c.z);
 
-    const now = performance.now();
+    const now = simNow();
     let bestRail = -1;
     let bestSample = -1;
     let bestDistSq = GRIND_SNAP_RADIUS * GRIND_SNAP_RADIUS;
@@ -216,7 +217,7 @@ export class RailBalancer {
     const b = this.active;
     if (!b) return;
     this.cooldownRail = b.railIndex;
-    this.cooldownUntil = performance.now() + GRIND_RESNAP_MS;
+    this.cooldownUntil = simNow() + GRIND_RESNAP_MS;
     this.player.bus.emit('trick:balanceEnd', {
       durationMs: Math.round(b.elapsed * 1000),
       full: b.maxT - b.minT >= BALANCE_FULL_MIN,

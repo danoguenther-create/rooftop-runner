@@ -434,7 +434,7 @@ Realistisch einplanen: Store-Bürokratie (Konten, Formulare, Screenshots, Testph
    - Rail-Grind-Snapping fühlt sich lange falsch an → großzügiger Snap-Radius + Magnetismus zur Kurve; im Zweifel großzügig zugunsten des Spielers.
    - Framerate-abhängige Physik (gelöst durch festen Timestep, Task 3) und framerate-abhängige Kamera (gelöst durch `damp` statt `lerp` mit festem Faktor).
    - Scope Creep: Balance-Minigame, Multiplayer, Charakter-Editor, offene Riesenstadt — alles auf die „nach Release"-Liste.
-10. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat.
+10. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat. Und Kapitel 7.2: Spiel-Timer gehören an die Simulationsuhr (`simNow()`), nicht an `performance.now()`; nur Darstellendes läuft im Bildtakt.
 11. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
 
 ## 7.1 Smoke-Test-Suite: in Schritten warten, nicht in Millisekunden *(2026-07-29)*
@@ -479,15 +479,37 @@ läuft** — und gehört dann kommentiert:
   Ausblenden der Combo nach einem Bail (`window.setTimeout`) und das Verfallen
   der Ticker-Einträge (`performance.now()`).
 - Das Stats-Overlay (fps/Draw-Calls) schreibt sich einmal pro echter Sekunde.
-- **Auch ein Stück Spiellogik hängt noch an der Uhr:** die Schonfrist nach dem
-  Greifen (`inputLockUntil`, 250 ms in `PlayerStates.ts`) und weitere Fenster
-  und Cooldowns messen mit `performance.now()` statt in Simulationszeit. Wer
-  eines davon im Test trifft, muss echt warten — siehe `smoke-16b`, Mantle.
-  **Offener Punkt:** diese Timer bei Gelegenheit auf Simulationszeit umstellen
-  (akkumulierte `FIXED_DT` statt `performance.now()`), dann ist auch das
-  Spielverhalten selbst bildratenunabhängig. Betrifft `Climb.ts`, `Swing.ts`,
-  `Vault.ts`, `RailBalance.ts`, `PlayerStates.ts`, `PlayerController.ts` —
-  Feinjustage der Werte einplanen, das kann sich im Spielgefühl bemerkbar machen.
+## 7.2 Simulationsuhr: Spiel-Timer laufen in Spielzeit *(2026-07-29)*
+
+Alle Timer, die das **Spielverhalten** steuern, messen seit dem 29.07. in
+Simulationszeit statt in Echtzeit: `simNow()` aus `src/core/SimClock.ts`. Die Uhr
+zählt ausschließlich tatsächlich simulierte Zeit — pro festem Physikschritt
+kommt `FIXED_DT` dazu, hochgezählt an genau einer Stelle im Physiktakt des
+Game-Loops. Einheit bleibt die Millisekunde, die Werte in `tuning.ts` sind
+unverändert.
+
+Vorher liefen diese Fenster auf `performance.now()`. Solange das Spiel flüssig
+läuft, ist das dasselbe — bricht die Bildrate aber ein, läuft die Simulation in
+Zeitlupe (Kapitel 7.1), und ein in Echtzeit gemessenes Fenster ist in Spielzeit
+kürzer als gedacht: ein Sprungpuffer von 120 ms wäre bei 12 fps effektiv nur
+noch ~45 ms. Das Spiel wurde also bei Rucklern nicht nur langsamer, sondern
+verhielt sich auch anders — Coyote-Zeit, Sprungpuffer, Greif- und
+Vault-Cooldowns, die Schonfrist im HANG.
+
+Umgestellt: `PlayerController.ts`, `PlayerStates.ts`, `Climb.ts`, `Swing.ts`,
+`Vault.ts`, `RailBalance.ts`, `EdgeDetection.ts`, `Markers.ts`, `TrickMatch.ts`
+und `TimeTrial.ts`.
+
+**Bewusst in Echtzeit geblieben** ist alles rein Darstellende: die Einblendungen
+im HUD (`setTimeout` fürs Combo-Ausblenden, `performance.now()` für die
+Ticker-Lebensdauer), das Auf-und-Ab-Schweben der Sammelobjekte und das
+Stats-Overlay. Das gehört an den Bildtakt, nicht an die Physik.
+
+**Eine inhaltliche Folge:** die Zeitrennen (`TimeTrial`) messen jetzt Spielzeit.
+Auf einer ruckelnden Maschine zählt die Uhr damit langsamer — das ist die
+fairere Variante, weil auch der Spieler entsprechend langsamer vorankommt, aber
+es ist eine andere Definition als vorher. Bei der Leaderboard-Anbindung
+(Task 26) daran denken: alte und neue Zeiten sind nicht exakt vergleichbar.
 
 **Zwei Fallen beim Schreiben neuer Tests:**
 

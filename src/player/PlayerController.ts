@@ -35,6 +35,7 @@ import {
   RUN_SPEED,
   SPRINT_SPEED,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 // Wiederverwendbare Temp-Objekte (keine Allokationen im Frame-Loop)
 const _wish = new THREE.Vector3();
@@ -87,7 +88,7 @@ export class PlayerController {
   private input: InputState | null = null;
   private readonly spawnPos = new THREE.Vector3();
 
-  // Timing (performance.now()-Basis für Eingabe-Fenster)
+  // Timing (simNow()-Basis für Eingabe-Fenster)
   private timeSinceGroundedS = 0;
   /**
    * Erst nach dem ersten Bodenkontakt (bzw. nach Respawn) sind Lufttricks
@@ -185,7 +186,7 @@ export class PlayerController {
   /** Einmal pro Render-Frame: Edge-Trigger latchen. */
   handleFrameInput(input: InputState): void {
     this.input = input;
-    const now = performance.now();
+    const now = simNow();
     if (input.jumpPressed) this.jumpRequestedAt = now;
     if (input.rollHeld && !this.prevRollHeld) this.lastRollPressAt = now;
     this.prevRollHeld = input.rollHeld;
@@ -306,7 +307,7 @@ export class PlayerController {
 
   /** Sprung, wenn gepuffert + (grounded oder Coyote-Fenster). */
   tryJump(): boolean {
-    const now = performance.now();
+    const now = simNow();
     const buffered = now - this.jumpRequestedAt <= JUMP_BUFFER_MS;
     const canJump = this.grounded || this.timeSinceGroundedS * 1000 <= COYOTE_MS;
     if (!buffered || !canJump || this.velocity.y > 1) return false;
@@ -322,7 +323,7 @@ export class PlayerController {
    * kontextabhängige Sprünge (Wall-Jump, Rail-Absprung).
    */
   consumeJumpRequest(): boolean {
-    if (performance.now() - this.jumpRequestedAt > JUMP_BUFFER_MS) return false;
+    if (simNow() - this.jumpRequestedAt > JUMP_BUFFER_MS) return false;
     this.jumpRequestedAt = -Infinity;
     return true;
   }
@@ -384,7 +385,7 @@ export class PlayerController {
 
     if (fallHeight <= LANDING_SOFT_M) return false;
 
-    const now = performance.now();
+    const now = simNow();
     if (now - this.lastRollPressAt <= ROLL_BEFORE_MS) {
       this.doRoll(fallHeight);
     } else {

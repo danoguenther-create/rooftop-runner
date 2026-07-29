@@ -13,6 +13,7 @@ import {
   SWING_RESNAP_MS,
   SWING_SNAP,
 } from './tuning';
+import { simNow } from '../core/SimClock';
 
 const PUMP_PHI = (SWING_PUMP_PHI_DEG * Math.PI) / 180;
 
@@ -71,7 +72,7 @@ export class Swinger {
     _hands.copy(_pos);
     _hands.y += SWING_HAND_OFFSET;
 
-    const now = performance.now();
+    const now = simNow();
     for (const rail of p.level.rails) {
       if (rail === this.cooldownRail && now < this.cooldownUntil) continue;
 
@@ -164,7 +165,7 @@ export class Swinger {
     const a = this.active!;
     this.player.velocity.y += SWING_RELEASE_UP;
     this.cooldownRail = a.rail;
-    this.cooldownUntil = performance.now() + SWING_RESNAP_MS;
+    this.cooldownUntil = simNow() + SWING_RESNAP_MS;
     this.active = null;
     return this.chain;
   }

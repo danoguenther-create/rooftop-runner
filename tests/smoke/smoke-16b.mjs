@@ -44,10 +44,9 @@ await stepMs(page, 500);
 results.hang = await state();
 
 // --- 2) Mantle: W antippen -> oben auf der Wand (y_center ~ 4.4)
-// Die Schonfrist nach dem Greifen (inputLockUntil, 250 ms) misst mit
-// performance.now() — Echtzeit. Beim Steppen vergeht davon fast nichts, also
-// hier echt abwarten, sonst schluckt der Lock das W je nach Systemlast.
-await page.waitForTimeout(300);
+// Schonfrist nach dem Greifen abwarten (inputLockUntil, 250 ms) — sonst
+// schluckt der Lock das W
+await stepMs(page, 300);
 await page.keyboard.down('w');
 await stepMs(page, 150);
 await page.keyboard.up('w');

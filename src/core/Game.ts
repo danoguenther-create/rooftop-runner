@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { EventBus } from './EventBus';
 import { Input, keymapP1, keymapP2, type InputState } from './Input';
+import { advanceSim, resetSim } from './SimClock';
 import { loadCharacter } from './AssetLoader';
 import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
@@ -331,6 +332,7 @@ export class Game {
     }
 
     this.clock.start();
+    resetSim();
     requestAnimationFrame(this.loop);
   }
 
@@ -417,6 +419,7 @@ export class Game {
     this.accumulator += dt;
     let steps = 0;
     while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
+      advanceSim(FIXED_DT); // Simulationsuhr: Zeitbasis aller Spiel-Timer
       for (const p of this.players) p.fixedUpdate(FIXED_DT);
       this.physics.step();
       this.markers?.fixedUpdate();
