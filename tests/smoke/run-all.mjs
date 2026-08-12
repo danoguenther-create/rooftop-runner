@@ -3,7 +3,7 @@
  *
  * Die Tests smoke-m3 … smoke-16d laufen gegen das Graybox-Testlevel
  * (?level=testlevel) — die dauerhafte Physik-Testumgebung. smoke-city
- * prüft das City-Level. Nach jeder Physik-Änderung zuerst diese Suite
+ * prüft das City-Level, smoke-modes alle Modi darin. Nach jeder Physik-Änderung zuerst diese Suite
  * fahren, erst danach im City-Level testen.
  *
  * Aufruf:  npm run test:smoke                 (baut nicht — vorher npm run build!)
@@ -24,6 +24,7 @@ const TESTS = [
   'smoke-char',
   'smoke-split',
   'smoke-park',
+  'smoke-modes',
 ];
 
 const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
