@@ -202,6 +202,13 @@ Reines Event-Konsumenten-System, keine Physik:
 - **Game of PARK (2026-07-10):** `?mode=split&game=park` bzw. Menü-Button „🎯 Game of PARK". S.K.A.T.E.-Prinzip (`src/gameplay/TrickMatch.ts`): Vorleger landet in 25 s einen Trick, Gegner muss denselben Trick nachmachen — misslingt es (Zeit ab), gibt's einen Buchstaben P→A→R→K; wer voll ist, verliert. Trick-Identität = Event + prägende Parameter (Flip-Art×Anzahl×Gainer, Spin-Grad; Wallrun-Seite egal). Bail des Vorlegers = Vorlegerecht wechselt ohne Buchstabe. Banner je Bildhälfte. Hört auf die beiden Spieler-EventBusse.
 - **Betonpark (2026-07-10, Straßenniveau-Überarbeitung von city01):** Parkour spielt nicht mehr nur auf den Dächern. Der Generator `tools/gen-city01.mjs` legt auf der B-C-Straße 5 künstlerische Beton-Spots an — Precision-Garten (Mauer-Slalom + Poller), Stangen-Dschungel (Swing-Kette knapp über Kopf), Skulpturen-Plaza (Blocktreppe + begehbarer Beton-Bogen mit Schwungstange darunter + schräge Bank + Betonwellen), Wall-Korridor (2 Parallelmauern für Wall-Jumps, Balance-Rails auf den Kronen) und Kanten-Combo-Podest — plus Pflanzkübel-Vaults/tiefe Stangen auf der A-B-Straße und einen Mauer-Slalom auf der C-D-Straße; dazu Gehweg-Streifen. Straßen-Parkour (SWING/BALANCE/WALLRUN auf Ebene) headless verifiziert. city01: 164 Boxen / 29 Rails / 56 Marker (79→~110 Draw-Calls).
 
+- **Stadtbild-Pass (2026-08-12, Task 17b — city01 sieht aus wie ein Viertel, nicht wie eine Sandbox):** Das Straßenraster (4 Zeilen A–D, Spaltenabstand 17.5 m, Zeilenabstand 25 m, Dachhöhen) bleibt unverändert — daran hängen Zeitrennen-Route und Tests. Alles andere ist neu:
+  - **Grundstücke statt Würfelraster:** Breite und Tiefe variieren pro Haus. Die Fuge zwischen zwei Häusern ist bewusst gesetzt — `jump` (3.2–4.8 m Sprunglücke), `alley` (~2.5 m Gasse mit Feuerleiter-Podesten als Kletterroute) oder `infill` (Lückenbau, 1.4 m unter dem niedrigeren Nachbarn: Schritt runter, Sprung rauf). Aus der Zeile wird ein Block mit Gassen.
+  - **Aufbau in der Höhe:** Sockelzone, Staffelgeschoss auf allen Häusern ab 11 m (bündig zur Südfassade, damit die Dachmitte als Lauflinie frei bleibt), Attika mit 6-m-Öffnung in der Mitte, Dachtechnik (Lüfter, Wassertanks auf Stelzen, Oberlichter, Schornsteine, Antennen), Reklametafeln über den Lücken.
+  - **Straßenraum:** Fahrbahnmarkierung, Zebrastreifen, Bordstein und Gehweg, Laternen mit Straßenschild als Schwungstange, parkende Autos (Vault-Linien), Bushaltestelle, Kiosk, Bäume, Müllcontainer, Baugerüst über drei Ebenen, Containerlager, Stadtpark, Fußgängerbrücke, Ladehof mit Rampe. **Regel: nichts nur zur Zierde** — jedes Möbel ist Vault, Absatz, Kletterroute oder Balanceziel.
+  - **Skyline-Kulisse** hinter dem Viertel (`solid: false` — kein Collider, keine Kante).
+  - Ergebnis: 1057 Boxen / 58 Rails / 76 Marker / 33 Sammelobjekte bei **30 Draw-Calls** (vorher 164 Boxen bei ~97). Siehe 7.3.
+
 ## 2.4 City-Map: Beschaffung & Aufbau
 
 **Entscheidung: modular handgebaut, nicht prozedural.** Prozedurale Städte sehen generisch aus und sind für Parkour-Design (bewusst platzierte Lücken, Rails, Wände) ungeeignet. Ein gutes Parkour-Level ist designtes Spielfeld, keine Kulisse.
@@ -434,8 +441,9 @@ Realistisch einplanen: Store-Bürokratie (Konten, Formulare, Screenshots, Testph
    - Rail-Grind-Snapping fühlt sich lange falsch an → großzügiger Snap-Radius + Magnetismus zur Kurve; im Zweifel großzügig zugunsten des Spielers.
    - Framerate-abhängige Physik (gelöst durch festen Timestep, Task 3) und framerate-abhängige Kamera (gelöst durch `damp` statt `lerp` mit festem Faktor).
    - Scope Creep: Balance-Minigame, Multiplayer, Charakter-Editor, offene Riesenstadt — alles auf die „nach Release"-Liste.
-10. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat. Und Kapitel 7.2: Spiel-Timer gehören an die Simulationsuhr (`simNow()`), nicht an `performance.now()`; nur Darstellendes läuft im Bildtakt.
-11. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
+10. **Stadtbau kostet Draw-Calls nur bei schlechter Bündelung:** siehe Kapitel 7.3 — dazu drei Fallen, die beim Stadtbild-Pass Zeit gekostet haben (Geländer auf Hüfthöhe werden als Schwungstange gegriffen; ein Deck über einer Treppe blockiert den Autostep; Tests mit abgeschriebenen Level-Koordinaten altern schlecht).
+11. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat. Und Kapitel 7.2: Spiel-Timer gehören an die Simulationsuhr (`simNow()`), nicht an `performance.now()`; nur Darstellendes läuft im Bildtakt.
+12. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
 
 ## 7.1 Smoke-Test-Suite: in Schritten warten, nicht in Millisekunden *(2026-07-29)*
 
@@ -523,6 +531,48 @@ es ist eine andere Definition als vorher. Bei der Leaderboard-Anbindung
 
 Eine Suite dauert so rund 80 Sekunden und liefert über Läufe hinweg identische
 Zahlen. Weicht ein Wert ab, ist es echt.
+
+## 7.3 Stadtbau: vier Regeln, die im Stadtbild-Pass Geld gekostet haben *(2026-08-12)*
+
+Beim Umbau von city01 (Task 17b) sind vier Dinge aufgefallen, die man beim
+nächsten Level von Anfang an wissen will.
+
+**1. Draw-Calls hängen an der Bündelung, nicht an der Objektzahl.** Das alte
+Instancing gruppierte nach `size + color` — jede neue Größe war ein eigener
+Draw-Call, also war jedes Stück Detail teuer. Der Stadt-Batch
+(`src/level/CityFacade.ts`) bündelt stattdessen nach *Stil*: die Geometrie ist
+ein Einheitswürfel, die Maße stecken in der Instanz-Matrix, die Farbe in der
+Instanz-Farbe. Ein Vertex-Shader-Eingriff rechnet die Fenster-Kachelung aus
+`instanceSize` in Meter um, ein Fragment-Eingriff blendet die Textur auf Dach
+und Boden aus. Ergebnis: 1057 Boxen in 4 Draw-Calls. Die Stadt wurde um den
+Faktor 6 detaillierter und gleichzeitig dreimal billiger (97 → 30 Calls).
+Nebenbei: alle Rail-Rohre werden im `LevelLoader` zu einem Mesh
+zusammengefasst — sonst wären allein die Geländer 58 Draw-Calls.
+
+**2. Rails gehören 0.4 m über eine begehbare Fläche oder ab 2.5 m frei in die
+Luft — nichts dazwischen.** Ein Geländer auf Hüfthöhe neben einer Treppe wird
+beim Hochlaufen als Schwungstange gegriffen (die Hände liegen 1.5 m über den
+Füßen, `SWING_SNAP` ist 0.7 m). Der Spieler hängt dann mitten im Lauf an der
+Treppe. Handläufe, Brücken- und Parkgeländer sind deshalb Deko-Boxen ohne
+Collider-Funktion; echte Balance- und Schwungziele sitzen bewusst außerhalb
+dieses Bandes.
+
+**3. Über einer begehbaren Treppe darf nichts in Kopfhöhe + 0.4 m liegen.**
+Der Autostep hebt den Spieler erst an und schiebt ihn dann vor. Ein Deck über
+der Treppe blockt das Anheben, und er bleibt auf halber Höhe stehen — ohne
+jede Fehlermeldung, er läuft einfach gegen eine Stufe. Die Fußgängerbrücke lag
+zuerst über der Treppe C4 und musste weichen. Verwandt: Stufen steigen jetzt
+0.30 m statt 0.38 m bei 0.4 m Autostep-Limit. Die Reserve ist die Versicherung.
+
+**4. Tests, die Level-Koordinaten abschreiben, altern schlecht.**
+`smoke-city.mjs` liest seine Ankerpunkte (Dachkanten, unterste Treppenstufe,
+Rail-Anfang, Auto, Brücke) zur Laufzeit aus `level.topFaces` und
+`level.rails`, statt Zahlen aus dem Generator zu kopieren. Sonst ist der Test
+nach jeder Änderung am Stadtplan rot, ohne dass an der Physik etwas kaputt
+wäre — und man gewöhnt sich an rote Tests. Beim Umschreiben fiel außerdem auf,
+dass die alte Dachlücken-Prüfung („RUN und y > 13") schon im Moment des
+Absprungs erfüllt war und einen misslungenen Sprung durchgewunken hätte; sie
+prüft jetzt die Landung auf dem Nachbardach.
 
 ---
 
@@ -1271,7 +1321,7 @@ und eine Route über mind. 8 Dächer mit 2 Rails und 1 Wall-Run ist spielbar.
 
 - **Verifikation:** Route selbst abfahren; Stellen, die nicht springbar sind, notieren und als Korrektur-Prompt zurückgeben („Lücke zwischen Gebäude bei x,z … ist zu weit — rücke näher"). Rechne mit 2–3 Iterationen.
 
-### Task 17b — Fassaden-Detail-Pass **[S5]** *(ergänzt 2026-07-09, nach Spielspaß-Check umsetzen)*
+### Task 17b — Fassaden-Detail-Pass **[S5]** ✅ *(ergänzt 2026-07-09, umgesetzt 2026-08-12 zusammen mit dem Stadtbild-Pass)*
 - **Ziel:** Stadtgefühl ohne Stilbruch — der Flat-Look bleibt, bekommt aber Maßstab.
 - **Abhängigkeiten:** Task 17. **Dateien:** `src/level/LevelLoader.ts`, `tools/gen-city01.mjs`.
 - **Build-Prompt:**
@@ -1294,6 +1344,7 @@ Lesbarkeit von Kanten/Rails leidet nicht (Spielspaß-Check!).
 ```
 
 - **Verifikation:** Vorher/Nachher-Screenshot; Draw-Calls im Stats-Overlay vergleichen.
+- **Umsetzung 2026-08-12:** Punkt 1 und 2 wie beschrieben (prozedurale CanvasTexture in `src/level/CityFacade.ts`, drei Varianten: Raster, Band, Altbau; Farbstreuung ±5 % Helligkeit / ±3° Farbton deterministisch aus der Position). Punkt 3 bewusst **ohne GLB-Assets**: Klimaanlagen, Wassertanks, Antennen und Oberlichter sind Boxen aus dem Generator — das hält den Flat-Look konsistent, spart die Lizenzverwaltung und macht die Dachtechnik nebenbei bespielbar (Vaults und Mantle-Ziele statt reiner Deko). Die Fassaden-Bündelung nach Stil statt nach Größe ist die Voraussetzung dafür, dass gleichzeitig der Stadtbild-Pass möglich war — Details siehe 7.3. Draw-Calls: 97 → 30 bei sechsfacher Objektzahl.
 
 ### Task 18 — Sammelobjekte **[S5]**
 - **Ziel:** Collectibles mit Persistenz-Anschluss.

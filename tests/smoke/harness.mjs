@@ -46,15 +46,17 @@ export const stepMs = (page, ms) => step(page, Math.max(1, Math.round(ms / STEP_
  * Simulieren, bis die Bedingung im Spiel erfüllt ist — höchstens maxSteps.
  * Ersatz für page.waitForFunction: das wartet in Echtzeit und käme bei
  * manuellem Takt nie ans Ziel, weil ohne stepFixed nichts weiterläuft.
+ * `arg` wird an das Prädikat durchgereicht (die Funktion läuft im Browser und
+ * sieht die Variablen des Tests nicht).
  * Gibt zurück, ob die Bedingung eingetreten ist.
  */
-export const stepUntil = async (page, predicate, maxSteps = 900) => {
+export const stepUntil = async (page, predicate, maxSteps = 900, arg = null) => {
   const batch = 6;
   for (let done = 0; done < maxSteps; done += batch) {
-    if (await page.evaluate(predicate)) return true;
+    if (await page.evaluate(predicate, arg)) return true;
     await step(page, batch);
   }
-  return page.evaluate(predicate);
+  return page.evaluate(predicate, arg);
 };
 
 /** Taste für die Dauer von n Schritten halten. */

@@ -1,5 +1,7 @@
 import * as THREE from 'three';
-import type { LevelData, MarkerData } from './levelTypes';
+import type { BoxData, BoxStyle, LevelData, MarkerData } from './levelTypes';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { createStyleMaterial, jitterColor } from './CityFacade';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
 import type { TopFace } from '../gameplay/EdgeDetection';
 
@@ -31,6 +33,8 @@ export class LevelLoader {
   trialTimes: { gold: number; silver: number; bronze: number } | null = null;
 
   private materials = new Map<string, THREE.MeshLambertMaterial>();
+  /** Rail-Rohre bis zum Zusammenfassen in ein einziges Mesh (siehe unten). */
+  private railGeometries: THREE.BufferGeometry[] = [];
 
   constructor(
     private scene: THREE.Scene,
@@ -49,11 +53,20 @@ export class LevelLoader {
     this.spawn.fromArray(data.spawn);
     this.trialTimes = data.trialTimes ?? null;
 
+    // Stadt-Batch (17b): pro Stil ein InstancedMesh, Größe und Farbe stecken
+    // in der Instanz — unabhängig von den Maßen der einzelnen Box
+    const styleGroups = new Map<BoxStyle, BoxData[]>();
     // Instanzierbare Boxen nach size+color bündeln (1 Draw-Call pro Gruppe)
     const instanceGroups = new Map<string, { size: [number, number, number]; color: string; items: typeof data.boxes }>();
     for (const box of data.boxes) {
+      if (box.style) {
+        const list = styleGroups.get(box.style);
+        if (list) list.push(box);
+        else styleGroups.set(box.style, [box]);
+        continue;
+      }
       if (!box.instanced) {
-        this.addBox(box.pos, box.size, box.rotY ?? 0, 0, box.color ?? '#9aa0a6');
+        this.addBox(box.pos, box.size, box.rotY ?? 0, 0, box.color ?? '#9aa0a6', box.solid !== false);
         continue;
       }
       const color = box.color ?? '#9aa0a6';
@@ -66,12 +79,14 @@ export class LevelLoader {
       group.items.push(box);
     }
     for (const group of instanceGroups.values()) this.addInstancedBoxes(group);
+    for (const [style, items] of styleGroups) this.addStyledBatch(style, items);
     for (const ramp of data.ramps ?? []) {
       this.addBox(ramp.pos, ramp.size, ramp.rotY ?? 0, ramp.tiltX ?? 0, ramp.color ?? '#8d939c');
     }
     for (const rail of data.rails ?? []) {
       this.addRail(rail.points.map((p) => new THREE.Vector3().fromArray(p)));
     }
+    this.mergeRailMeshes();
     if (data.markers) this.markers.push(...data.markers);
 
     this.scene.add(this.group);
@@ -92,6 +107,7 @@ export class LevelLoader {
     rotY: number,
     tiltX: number,
     color: string,
+    solid = true,
   ): void {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), this.material(color));
     mesh.position.fromArray(pos);
@@ -99,7 +115,7 @@ export class LevelLoader {
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     this.group.add(mesh);
-    this.registerBoxPhysics(pos, size, rotY, tiltX);
+    if (solid) this.registerBoxPhysics(pos, size, rotY, tiltX);
   }
 
   /** Gebündelte Boxen: 1 InstancedMesh, Collider + Deckflächen einzeln. */
@@ -125,6 +141,49 @@ export class LevelLoader {
       m.compose(p.fromArray(item.pos), q, s);
       mesh.setMatrixAt(i, m);
       this.registerBoxPhysics(item.pos, group.size, item.rotY ?? 0, 0);
+    }
+    this.group.add(mesh);
+  }
+
+  /**
+   * Stadt-Batch (17b): ein InstancedMesh für alle Boxen eines Stils. Die Maße
+   * stecken in der Instanz-Skalierung (Geometrie ist ein Einheitswürfel) und
+   * zusätzlich in `instanceSize`, damit der Shader das Fensterraster in Metern
+   * kachelt. Die Farbe kommt per Instanz-Farbe — bei Fassaden mit leichter
+   * ortsabhängiger Streuung, damit nicht alle Nachbarhäuser identisch wirken.
+   */
+  private addStyledBatch(style: BoxStyle, items: BoxData[]): void {
+    const mesh = new THREE.InstancedMesh(
+      new THREE.BoxGeometry(1, 1, 1),
+      createStyleMaterial(style),
+      items.length,
+    );
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+
+    const sizes = new Float32Array(items.length * 3);
+    const m = new THREE.Matrix4();
+    const q = new THREE.Quaternion();
+    const e = new THREE.Euler();
+    const p = new THREE.Vector3();
+    const s = new THREE.Vector3();
+    const base = new THREE.Color();
+    const tinted = new THREE.Color();
+
+    for (let i = 0; i < items.length; i++) {
+      const box = items[i];
+      q.setFromEuler(e.set(0, box.rotY ?? 0, 0, 'YXZ'));
+      m.compose(p.fromArray(box.pos), q, s.fromArray(box.size));
+      mesh.setMatrixAt(i, m);
+      sizes.set(box.size, i * 3);
+
+      base.set(box.color ?? '#9aa0a6');
+      mesh.setColorAt(i, style === 'plain' ? base : jitterColor(base, box.pos, tinted));
+
+      if (box.solid !== false) this.registerBoxPhysics(box.pos, box.size, box.rotY ?? 0, 0);
+    }
+    if (style !== 'plain') {
+      mesh.geometry.setAttribute('instanceSize', new THREE.InstancedBufferAttribute(sizes, 3));
     }
     this.group.add(mesh);
   }
@@ -159,17 +218,29 @@ export class LevelLoader {
 
   private addRail(points: THREE.Vector3[]): void {
     const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.5);
-    const tube = new THREE.Mesh(
-      new THREE.TubeGeometry(curve, 32, 0.05, 8, false),
-      this.material('#3a3d42'),
-    );
-    tube.castShadow = true;
-    this.group.add(tube);
+    this.railGeometries.push(new THREE.TubeGeometry(curve, 32, 0.05, 8, false));
 
     this.rails.push({
       curve,
       length: curve.getLength(),
       samples: curve.getSpacedPoints(RAIL_SAMPLES - 1),
     });
+  }
+
+  /**
+   * Alle Rohre zu einem Mesh zusammenfassen. Jede Rail einzeln wäre ein
+   * eigener Draw-Call — in der Stadt sind es über siebzig (Geländer,
+   * Gerüststangen, Handläufe), und das ist reine Darstellung: die Kurven für
+   * Balance und Swing bleiben in `this.rails` getrennt.
+   */
+  private mergeRailMeshes(): void {
+    if (this.railGeometries.length === 0) return;
+    const merged = mergeGeometries(this.railGeometries, false);
+    for (const g of this.railGeometries) g.dispose();
+    this.railGeometries.length = 0;
+    if (!merged) return;
+    const mesh = new THREE.Mesh(merged, this.material('#3a3d42'));
+    mesh.castShadow = true;
+    this.group.add(mesh);
   }
 }

@@ -2,6 +2,17 @@
 
 export type Vec3 = [number, number, number];
 
+/**
+ * Darstellungs-Stil einer Box (Task 17b). Boxen mit `style` landen unabhängig
+ * von ihrer Größe im Stadt-Batch: ein InstancedMesh pro Stil, Größe und Farbe
+ * stecken in der Instanz. Das hält die Draw-Calls konstant, egal wie viel
+ * Stadtmöblierung dazukommt.
+ *
+ * - `plain`: keine Textur, nur Farbe (Bordsteine, Autos, Mobiliar, Sockel)
+ * - `windows-*`: Fensterraster auf den Seitenflächen, Dach/Boden bleiben glatt
+ */
+export type BoxStyle = 'plain' | 'windows-grid' | 'windows-strip' | 'windows-mixed';
+
 export interface BoxData {
   pos: Vec3;
   size: Vec3;
@@ -9,6 +20,10 @@ export interface BoxData {
   color?: string;
   /** Gleiche size+color werden zu einem InstancedMesh gebündelt (Task 17) */
   instanced?: boolean;
+  /** Stadt-Batch mit Instanz-Größe und -Farbe statt Größen-Gruppierung (17b) */
+  style?: BoxStyle;
+  /** false = nur Deko: kein Collider, keine Deckfläche (Skyline-Kulisse) */
+  solid?: boolean;
 }
 
 export interface RampData {
