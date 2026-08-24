@@ -1,49 +1,55 @@
 #!/usr/bin/env node
 /**
  * Generator für public/levels/city01.json — „Rooftops District"
- * (Task 17, Stadtbild-Pass Task 17b).
+ * (Task 17, Stadtbild-Pass 17b, Aufweitung 2026-08-24).
  *
- * STRASSENRASTER (unverändert seit Task 17, weil Zeitrennen-Route und
- * Smoke-Tests daran hängen): 4 Häuserzeilen A–D mit je 8 Gebäuden,
- * Spaltenabstand 17.5 m in x, Zeilenabstand 25 m in z. Die Gebäudezentren
- * und die Dachhöhen sind fix.
+ * STADTRASTER: 4 Häuserzeilen A–D mit je 8 Gebäuden. Alle Maße hängen an den
+ * drei Konstanten PITCH (Spaltenabstand), ROW_GAP (Zeilenabstand) und den
+ * Dachhöhen — im Level steht keine Straßenkoordinate mehr absolut, sondern
+ * alles relativ zu `bx(i)`, `rz(r)` und `streetZ(r)`. Damit lässt sich das
+ * Viertel an einer Stelle weiten, ohne dass die Spots verrutschen.
  *
- * Neu im Stadtbild-Pass ist alles andere. Aus dem Raster gleich großer
- * Würfel wird ein Viertel:
- *   - Grundflächen variieren, benachbarte Häuser wachsen zu Blöcken zusammen
- *     (Lückenbauten) oder lassen enge Gassen frei
- *   - hohe Häuser bekommen ein zurückgesetztes Staffelgeschoss
- *   - Sockelzone, Attika, Dachtechnik, Wassertanks, Antennen, Reklametafeln
- *   - Straßenraum mit Fahrbahnmarkierung, Bordstein, Gehweg, Zebrastreifen
- *   - Möblierung: Laternen, Ampeln, parkende Autos, Bushaltestelle, Kiosk,
- *     Container, Bänke, Bäume, Müllcontainer, Baugerüst, Feuerleitern
- *   - Skyline-Kulisse ohne Collider hinter dem Viertel
+ * Aufweitung 2026-08-24: PITCH 17.5 → 20.5, ROW_GAP 25 → 30. Die Häuser
+ * wachsen mit (Dächer ~17 × 16 m statt 14 × 14), die Straßen werden von 11 auf
+ * ~14 m breit, die Sprunglücken bleiben bei 3.2–4.8 m. Gleichzeitig ist die
+ * Dachtechnik ausgedünnt: vorher stand auf jedem Dach ein Aufbau, jetzt auf
+ * gut der Hälfte. Ziel war nicht „mehr Stadt", sondern Luft zwischen den
+ * Dingen — vorher lag alles so dicht, dass man die Routen nicht mehr gelesen
+ * hat.
  *
- * Jedes dieser Objekte ist zugleich ein Parkour-Element: Autos und Bänke sind
- * Vaults, Bushaltestellen und Container Absätze, Feuerleitern und Gerüste
- * Kletterrouten, Geländer und Gerüststangen Balance- und Schwungziele. Die
- * Regel für den ganzen Pass: nichts wird nur zur Zierde gebaut.
+ * Jedes Objekt ist zugleich Parkour-Element: Autos und Bänke sind Vaults,
+ * Bushaltestellen und Container Absätze, Feuerleitern und Gerüste
+ * Kletterrouten, Geländer und Gerüststangen Balance- und Schwungziele.
+ * Nichts wird nur zur Zierde gebaut.
  *
- * Draw-Calls bleiben trotz der Detailmenge niedrig, weil fast alles über
- * `style` in den Stadt-Batch geht (siehe src/level/CityFacade.ts): ein
- * InstancedMesh pro Stil, egal wie viele Boxen unterschiedlicher Größe.
+ * Draw-Calls bleiben niedrig, weil fast alles über `style` in den Stadt-Batch
+ * geht (siehe src/level/CityFacade.ts): ein InstancedMesh pro Stil, egal wie
+ * viele Boxen unterschiedlicher Größe.
  *
  * Aufruf: node tools/gen-city01.mjs   (schreibt die JSON-Datei direkt)
  */
 import { writeFileSync } from 'node:fs';
 
-// ============================================================ Raster (fix)
-const PITCH = 17.5; // Abstand der Gebäudezentren in x
+// ============================================================ Raster
+const PITCH = 20.5; // Abstand der Gebäudezentren in x
+const ROW_GAP = 30; // Abstand der Zeilenmitten in z
 const X0 = -70;
-const rows = [
-  { name: 'A', z: -45, heights: [10, 11, 9, 8, 9, 7, 8, 6] },
-  { name: 'B', z: -20, heights: [14, 13, 14, 12, 11, 12, 10, 9] },
-  { name: 'C', z: 5, heights: [8, 9, 7, 8, 6, 7, 5, 6] },
-  { name: 'D', z: 30, heights: [12, 11, 12, 10, 9, 8, 9, 6] },
+const Z0 = -54;
+const HEIGHTS = [
+  { name: 'A', heights: [10, 11, 9, 8, 9, 7, 8, 6] },
+  { name: 'B', heights: [14, 13, 14, 12, 11, 12, 10, 9] },
+  { name: 'C', heights: [8, 9, 7, 8, 6, 7, 5, 6] },
+  { name: 'D', heights: [12, 11, 12, 10, 9, 8, 9, 6] },
 ];
+const rows = HEIGHTS.map((r, k) => ({ ...r, z: Z0 + ROW_GAP * k }));
 const bx = (i) => X0 + PITCH * i;
 const h = (r, i) => rows[r].heights[i];
 const rz = (r) => rows[r].z;
+/** Mitte der Straße zwischen Zeile r und r+1. */
+const streetZ = (r) => rz(r) + ROW_GAP / 2;
+/** Maßstab gegenüber dem alten 17.5er-Raster — für handgesetzte x-Positionen. */
+const SCALE = PITCH / 17.5;
+const sx = (x) => +(x * SCALE).toFixed(2);
 
 const boxes = [];
 const ramps = [];
@@ -87,8 +93,6 @@ const GREEN = '#5f7a4a';
 //   jump   — Sprunglücke (3.2–4.8 m), die klassische Dachlinie
 //   alley  — enge Gasse (~2.5 m): Wandsprung-Kamin mit Feuerleiter
 //   infill — Lückenbau: ein niedrigerer Riegel schließt den Block
-// Die Fugen sind so gelegt, dass alle Routen aus Task 17 erhalten bleiben
-// (Reklamewände, Zeitrennen, Straßenquerungen).
 const JOINTS = {
   A: ['jump', 'jump', 'alley', 'jump', 'jump', 'infill', 'jump'],
   B: ['jump', 'jump', 'alley', 'infill', 'jump', 'jump', 'jump'],
@@ -96,7 +100,7 @@ const JOINTS = {
   D: ['jump', 'infill', 'jump', 'jump', 'alley', 'jump', 'jump'],
 };
 const GAP_TARGET = { alley: 2.5, infill: 4.4 };
-const START_WIDTH = { A: 13.4, B: 14.6, C: 13.0, D: 14.2 };
+const START_WIDTH = { A: 15.7, B: 17.1, C: 15.2, D: 16.6 };
 
 /** Grundflächen der Zeile aus den Fugen ableiten (Zentren bleiben im Raster). */
 const layoutRow = (r) => {
@@ -105,10 +109,11 @@ const layoutRow = (r) => {
   for (let i = 0; i < joints.length; i++) {
     const target =
       joints[i] === 'jump' ? 3.2 + hash(r * 3 + 1, i) * 1.6 : GAP_TARGET[joints[i]];
-    const next = Math.min(16.2, Math.max(11.5, 2 * (PITCH - target) - w[i]));
+    const next = Math.min(19, Math.max(13.5, 2 * (PITCH - target) - w[i]));
     w.push(next);
   }
-  const d = w.map((_, i) => 12.5 + hash(i * 5 + 2, r * 7) * 3.5);
+  // Tiefe so gewählt, dass zwischen zwei Zeilen ~14 m Straße bleiben
+  const d = w.map((_, i) => 14 + hash(i * 5 + 2, r * 7) * 3.5);
   const gap = joints.map((_, i) => PITCH - (w[i] + w[i + 1]) / 2);
   return { w, d, gap, joints };
 };
@@ -134,10 +139,8 @@ for (let r = 0; r < rows.length; r++) {
     // Maßstab und nebenbei einen 1.4-m-Absatz zum Aufsteigen
     box([bx(i), 0.7, rz(r)], [W(r, i) + 0.5, 1.4, D(r, i) + 0.5], PLINTH);
 
-    // Staffelgeschoss auf den hohen Häusern — immer auf die Südhälfte, damit
-    // die Dachmitte (Lauflinie und Zeitrennen-Tore) frei bleibt. B3 bleibt
-    // frei: dort steht der Spawn, und ein Aufbau direkt davor verstellt den
-    // ersten Blick über das Viertel.
+    // Staffelgeschoss auf den hohen Häusern. B3 bleibt frei: dort steht der
+    // Spawn, und ein Aufbau direkt davor verstellt den ersten Blick.
     if (height >= 11 && !(r === 1 && i === 3)) {
       const th = 2.4 + hash(r, i * 3) * 1.6;
       boxes.push({
@@ -168,20 +171,30 @@ for (let r = 0; r < rows.length; r++) {
       style: 'windows-strip',
     });
     // Attika-Rand des Lückenbaus: schmale Balance-Kante zur Straße
-    rail([(xL + xR) / 2 - (xR - xL) / 2 + 0.3, top + 0.4, rz(r) - depth / 2 + 0.3], [
-      (xL + xR) / 2 + (xR - xL) / 2 - 0.3,
-      top + 0.4,
-      rz(r) - depth / 2 + 0.3,
-    ]);
+    rail(
+      [xL + 0.3, top + 0.4, rz(r) - depth / 2 + 0.3],
+      [xR - 0.3, top + 0.4, rz(r) - depth / 2 + 0.3],
+    );
   });
 }
 
-// Landmarken-Türme östlich (Spalte x=70)
-boxes.push({ pos: [70, 10, -20], size: [14, 20, 13], color: TERRA, style: 'windows-mixed' });
-boxes.push({ pos: [70, 9, 30], size: [13, 18, 14], color: '#93a3a8', style: 'windows-strip' });
-boxes.push({ pos: [70, 3.5, -45], size: [14, 7, 14], color: '#a8adb4', style: 'windows-grid' });
-boxes.push({ pos: [70, 3, 5], size: [14, 6, 13], color: '#c08a63', style: 'windows-mixed' });
-for (const z of [-20, 30, -45, 5]) box([70, 0.7, z], [14.5, 1.4, 14.5], PLINTH);
+// Landmarken-Türme östlich (eine Spalte hinter dem Raster)
+const TOWER_X = bx(8);
+const towers = [
+  { r: 1, height: 20, color: TERRA, style: 'windows-mixed' },
+  { r: 3, height: 18, color: '#93a3a8', style: 'windows-strip' },
+  { r: 0, height: 7, color: '#a8adb4', style: 'windows-grid' },
+  { r: 2, height: 6, color: '#c08a63', style: 'windows-mixed' },
+];
+for (const t of towers) {
+  boxes.push({
+    pos: [TOWER_X, t.height / 2, rz(t.r)],
+    size: [15, t.height, 14],
+    color: t.color,
+    style: t.style,
+  });
+  box([TOWER_X, 0.7, rz(t.r)], [15.5, 1.4, 14.5], PLINTH);
+}
 
 // ============================================================ Dachlandschaft
 // Attika (Brüstung) an den Straßenseiten, mit 6 m breiter Öffnung in der
@@ -208,10 +221,13 @@ for (let r = 0; r < rows.length; r++) {
   }
 }
 
-// Dachtechnik: Lüfter (vaultbar), Lüftungsrohre, Antennen, Oberlichter.
-// Alles auf die Nordhälfte, damit Lauflinie und Staffelgeschoss frei bleiben.
+// Dachtechnik: Lüfter (vaultbar), Wassertanks, Oberlichter. Auf der Nordhälfte,
+// damit Lauflinie und Staffelgeschoss frei bleiben — und bewusst nur auf gut
+// der Hälfte der Dächer: vorher war jedes Dach zugestellt und die Routen
+// darüber schlecht zu lesen.
 for (let r = 0; r < rows.length; r++) {
   for (let i = 0; i < 8; i++) {
+    if (hash(r * 7 + 2, i * 5) > 0.58) continue;
     const y = h(r, i);
     const zTech = rz(r) - D(r, i) * 0.28;
     const pick = hash(r * 23 + 5, i * 29);
@@ -234,11 +250,11 @@ for (let r = 0; r < rows.length; r++) {
         box([bx(i) - 3 + k * 3, y + 0.3, zTech], [2.2, 0.6, 1.6], '#7f8a92');
       }
     }
-    // Schornstein und Antennenmast als Silhouette
-    if (hash(i * 31, r * 37) > 0.55) {
+    // Schornstein und Antennenmast als Silhouette — sparsam gesetzt
+    if (hash(i * 31, r * 37) > 0.7) {
       box([bx(i) + W(r, i) / 2 - 1.6, y + 1.1, zTech + 1.8], [0.9, 2.2, 0.9], '#8a6a5a');
     }
-    if (hash(i * 41, r * 43) > 0.7) {
+    if (hash(i * 41, r * 43) > 0.8) {
       deco([bx(i) - W(r, i) / 2 + 1.4, y + 2.8, zTech], [0.14, 5.6, 0.14], METAL);
       deco([bx(i) - W(r, i) / 2 + 1.4, y + 4.4, zTech], [1.2, 0.1, 0.1], METAL);
     }
@@ -246,8 +262,9 @@ for (let r = 0; r < rows.length; r++) {
 }
 
 // Dachaufbauten mit Funktion: Treppenhäuschen (3 m — nur per Wandlauf und
-// Mantle erreichbar). Aus Task 17 übernommen, jetzt mit Tür und Geländer.
-for (const [r, i] of [[0, 2], [1, 0], [1, 6], [2, 4], [3, 0]]) {
+// Mantle erreichbar)
+const SHEDS = [[0, 2], [1, 0], [1, 6], [2, 4], [3, 0]];
+for (const [r, i] of SHEDS) {
   const x = bx(i) - 3;
   const z = rz(r) - 3;
   box([x, h(r, i) + 1.5, z], [3, 3, 3], '#5d646e');
@@ -255,7 +272,7 @@ for (const [r, i] of [[0, 2], [1, 0], [1, 6], [2, 4], [3, 0]]) {
   rail([x - 1.3, h(r, i) + 3.4, z - 1.3], [x + 1.3, h(r, i) + 3.4, z - 1.3]);
 }
 
-// Reklametafeln über den Sprunglücken: Wandlauf-Ziele (aus Task 17)
+// Reklametafeln über den Sprunglücken: Wandlauf-Ziele
 const wallGaps = [[0, 1], [0, 4], [1, 5], [2, 2], [3, 3], [3, 6]];
 for (const [r, i] of wallGaps) {
   const top = Math.max(h(r, i), h(r, i + 1));
@@ -265,7 +282,7 @@ for (const [r, i] of wallGaps) {
   for (const dx of [-2.2, 2.2]) deco([xm + dx, top - 0.4, rz(r)], [0.2, 0.9, 0.2], METAL);
 }
 
-// Vault-Kästen (Lüftung) auf den Lauflinien — Höhe 0.9 m, aus Task 17
+// Vault-Kästen (Lüftung) auf den Lauflinien — Höhe 0.9 m
 for (const [r, i] of [[0, 1], [0, 4], [1, 2], [1, 3], [1, 5], [2, 1], [2, 3], [3, 2], [3, 4], [3, 6]]) {
   box([bx(i), h(r, i) + 0.45, rz(r) + 2], [2.4, 0.9, 0.6], YELLOW);
 }
@@ -279,55 +296,87 @@ const slopedRails = [
   { i: 6, hi: 3, lo: 2 }, // D6(9)  -> C6(5)
 ];
 for (const s of slopedRails) {
-  const zHi = rz(s.hi) < rz(s.lo) ? zS(s.hi, s.i) : zN(s.hi, s.i);
-  const zLo = rz(s.hi) < rz(s.lo) ? zN(s.lo, s.i) : zS(s.lo, s.i);
-  s.zHi = zHi;
-  s.zLo = zLo;
+  const down = rz(s.hi) < rz(s.lo); // Richtung der Querung in z
+  s.zHi = down ? zS(s.hi, s.i) : zN(s.hi, s.i);
+  s.zLo = down ? zN(s.lo, s.i) : zS(s.lo, s.i);
   s.yHi = h(s.hi, s.i) + 0.4;
   s.yLo = h(s.lo, s.i) + 0.4;
-  rail([bx(s.i), s.yHi, zHi], [bx(s.i), s.yLo, zLo]);
+  rail([bx(s.i), s.yHi, s.zHi], [bx(s.i), s.yLo, s.zLo]);
 }
-// Balance-Rails entlang von Dachkanten
-rail([bx(2) + 7, h(0, 2) + 0.4, -52], [bx(2) + 7, h(0, 2) + 0.4, -38]);
-rail([bx(4) - 7, h(1, 4) + 0.4, -27], [bx(4) + 7, h(1, 4) + 0.4, -27]);
-rail([bx(1) - 7, h(2, 1) + 0.4, -2], [bx(1) + 7, h(2, 1) + 0.4, -2]);
-rail([bx(4) + 7, h(3, 4) + 0.4, 23], [bx(4) + 7, h(3, 4) + 0.4, 37]);
 
-// Schwungstangen-Reihen (Freiraum darunter, von hoch nach tief)
+// Balance-Rails entlang von Dachkanten (immer 1 m innerhalb der Kante)
+const edgeRail = (r, i, along) => {
+  const y = h(r, i) + 0.4;
+  if (along === 'z') {
+    const x = bx(i) + W(r, i) / 2 - 1.5;
+    rail([x, y, zN(r, i) + 1], [x, y, zS(r, i) - 1]);
+  } else {
+    const z = zN(r, i) + 0.6;
+    rail([bx(i) - W(r, i) / 2 + 1, y, z], [bx(i) + W(r, i) / 2 - 1, y, z]);
+  }
+};
+edgeRail(0, 2, 'z');
+edgeRail(1, 4, 'x');
+edgeRail(2, 1, 'x');
+edgeRail(3, 4, 'z');
+
+// Schwungstangen-Reihen über die Straßen. Anzahl aus der Straßenbreite: die
+// Kette muss tatsächlich hinüberreichen, sonst hängt man über der Fahrbahn.
 const barRows = [
-  { x: bx(3), y: h(1, 3) + 1, zs: [-28.5, -32, -35.5] }, // B3(12) -> A3(8)
-  { x: bx(5), y: h(1, 5) + 1, zs: [-11.5, -8, -4.5] }, // B5(12) -> C5(7)
-  { x: bx(0), y: h(3, 0) + 1, zs: [21.5, 18, 14.5] }, // D0(12) -> C0(8)
-  { x: bx(5), y: h(3, 5) + 1, zs: [21.5, 18, 14.5] }, // D5(8) -> C5(7)
+  { i: 3, hi: 1, lo: 0 }, // B3(12) -> A3(8)
+  { i: 5, hi: 1, lo: 2 }, // B5(12) -> C5(7)
+  { i: 0, hi: 3, lo: 2 }, // D0(12) -> C0(8)
+  { i: 5, hi: 3, lo: 2 }, // D5(8)  -> C5(7)
 ];
-for (const row of barRows) {
-  for (const z of row.zs) rail([row.x - 2, row.y, z], [row.x + 2, row.y, z]);
+for (const b of barRows) {
+  const down = rz(b.hi) < rz(b.lo);
+  const from = down ? zS(b.hi, b.i) : zN(b.hi, b.i);
+  const to = down ? zN(b.lo, b.i) : zS(b.lo, b.i);
+  const dir = Math.sign(to - from);
+  const span = Math.abs(to - from);
+  const n = Math.max(3, Math.round(span / 3.5) - 1);
+  const step = span / (n + 1);
+  b.x = bx(b.i);
+  b.y = h(b.hi, b.i) + 1;
+  b.zs = [];
+  for (let k = 1; k <= n; k++) {
+    const z = from + dir * step * k;
+    b.zs.push(z);
+    rail([b.x - 2, b.y, z], [b.x + 2, b.y, z]);
+  }
 }
 
 // Hangel-Slabs über die Straßen (per Sprung greifen, rüberhangeln)
 const slabs = [
-  { x: bx(3), zc: 17.5, top: h(2, 3) + 3.1 }, // C3(8) -> D3(10)
-  { x: bx(6), zc: -32.5, top: h(0, 6) + 3.1 }, // A6(8) -> B6(10)
-  { x: bx(1), zc: 17.5, top: h(2, 1) + 3.1 }, // C1(9) -> D1(11)
+  { i: 3, a: 2, b: 3 }, // C3(8) -> D3(10)
+  { i: 6, a: 0, b: 1 }, // A6(8) -> B6(10)
+  { i: 1, a: 2, b: 3 }, // C1(9) -> D1(11)
 ];
-for (const s of slabs) box([s.x, s.top - 0.15, s.zc], [1.2, 0.3, 12], '#4a4f57');
+for (const s of slabs) {
+  s.x = bx(s.i);
+  s.zc = streetZ(s.a);
+  s.top = h(s.a, s.i) + 3.1;
+  const len = zN(s.b, s.i) - zS(s.a, s.i) + 5;
+  box([s.x, s.top - 0.15, s.zc], [1.2, 0.3, len], '#4a4f57');
+}
 
-// Fußgängerbrücke über die C–D-Straße: echte Stadtinfrastruktur und
-// zugleich eine Route auf halber Höhe, mit Geländer als Balance-Rail
+// Fußgängerbrücke über die C–D-Straße: Stadtinfrastruktur und Route auf
+// halber Höhe. Nicht über bx(4) — dort führt die Treppe C4 hoch, und ein Deck
+// in Kopfhöhe blockiert den Autostep (siehe Kommentar bei den Treppen). Sie
+// liegt deshalb in der Fuge zwischen C4 und C5 und verbindet beide Dächer.
+const bridge = { x: bx(4) + PITCH / 2, y: 6.4, z: streetZ(2) };
 {
-  const y = 6.4;
-  // Nicht über bx(4): dort führt die Treppe C4 hoch, und ein Deck 1.3 m über
-  // dem Kopf blockiert den Autostep — der Spieler bliebe auf halber Treppe
-  // stehen. Die Brücke liegt deshalb in der Fuge zwischen C4 und C5 und
-  // verbindet dort gleich beide Dächer.
-  const x = bx(4) + 8.75;
-  box([x, y, 17.5], [2.6, 0.3, 13], CONCRETE[2]);
+  const { x, y, z } = bridge;
+  const len = zN(3, 4) - zS(2, 4) + 6;
+  box([x, y, z], [2.6, 0.3, len], CONCRETE[2]);
   for (const dx of [-1.35, 1.35]) {
-    deco([x + dx, y + 1.1, 17.5], [0.1, 0.1, 13], METAL);
-    deco([x + dx, y + 0.72, 17.5], [0.08, 0.06, 13], METAL);
-    for (const z of [12.5, 17.5, 22.5]) deco([x + dx, y + 0.65, z], [0.12, 0.9, 0.12], METAL);
+    deco([x + dx, y + 1.1, z], [0.1, 0.1, len], METAL);
+    deco([x + dx, y + 0.72, z], [0.08, 0.06, len], METAL);
+    for (const dz of [-len / 3, 0, len / 3]) {
+      deco([x + dx, y + 0.65, z + dz], [0.12, 0.9, 0.12], METAL);
+    }
   }
-  for (const z of [12.2, 22.8]) box([x, y / 2, z], [1.2, y, 1.2], CONCRETE[0]);
+  for (const dz of [-len / 2 + 1, len / 2 - 1]) box([x, y / 2, z + dz], [1.2, y, 1.2], CONCRETE[0]);
 }
 
 // ============================================================ Gassen
@@ -348,50 +397,49 @@ for (let r = 0; r < rows.length; r++) {
       const x = side > 0 ? xL + 0.7 : xR - 0.7;
       box([x, y, rz(r)], [1.4, 0.2, 3.2], METAL);
       // Geländer bewusst als Deko: eine Rail auf Hüfthöhe würde beim
-      // Vorbeilaufen als Schwungstange gegriffen (siehe Kommentar bei den
-      // Treppen weiter unten)
+      // Vorbeilaufen als Schwungstange gegriffen
       deco([x, y + 0.6, rz(r) - 1.5], [1.4, 1.0, 0.08], METAL);
       deco([x, y + 0.6, rz(r) + 1.5], [1.4, 1.0, 0.08], METAL);
       side = -side;
     }
     // Müllcontainer als Einstieg (Vault-Höhe 1.1 m)
-    box([xm, 0.55, rz(r) - D(r, i) / 2 - 2.2], [1.9, 1.1, 1.2], '#4f6b52');
+    box([xm, 0.55, zN(r, i) - 2.2], [1.9, 1.1, 1.2], '#4f6b52');
   });
 }
 
 // ============================================================ Straßenraum
 // Fahrbahn: eine große Fläche (bewusst kein Precision-/Ledge-Ziel)
-boxes.push({ pos: [5, -0.5, -7.5], size: [220, 1, 135], color: ASPHALT });
+boxes.push({ pos: [10, -0.5, -5], size: [250, 1, 170], color: ASPHALT });
 
 // Gehwege mit Bordstein an allen Zeilenkanten
 for (let r = 0; r < rows.length; r++) {
   for (const side of [-1, 1]) {
-    const zEdge = rz(r) + side * (Math.max(...plots[r].d) / 2 + 1.6);
-    box([5, 0.075, zEdge], [150, 0.15, 3.2], CURB);
+    const zEdge = rz(r) + side * (Math.max(...plots[r].d) / 2 + 1.8);
+    box([10, 0.075, zEdge], [200, 0.15, 3.4], CURB);
   }
 }
 // Mittelstreifen (gestrichelt) und Zebrastreifen an den Querungen
-for (const zc of [-32.5, -7.5, 17.5]) {
-  for (let x = -76; x <= 66; x += 6) deco([x, 0.02, zc], [3.2, 0.04, 0.22], '#d8d2be');
-}
-for (const zc of [-32.5, -7.5, 17.5]) {
+for (let r = 0; r < 3; r++) {
+  const zc = streetZ(r);
+  for (let x = -88; x <= 100; x += 6) deco([x, 0.02, zc], [3.2, 0.04, 0.22], '#d8d2be');
   for (const xc of [bx(2) + PITCH / 2, bx(5) + PITCH / 2]) {
-    for (let k = -3; k <= 3; k++) deco([xc + k * 0.9, 0.02, zc], [0.5, 0.04, 8], '#e2ded0');
+    for (let k = -3; k <= 3; k++) deco([xc + k * 0.9, 0.02, zc], [0.5, 0.04, 9], '#e2ded0');
   }
 }
 
 // Laternen: Mast, Ausleger, Leuchte. Paarweise gegenüber — dazwischen hängt
 // jeweils ein Straßenschild als Schwungstange auf 3 m.
-for (const zc of [-32.5, -7.5, 17.5]) {
-  for (let k = 0; k < 5; k++) {
-    const x = -62 + k * 28;
+for (let r = 0; r < 3; r++) {
+  const zc = streetZ(r);
+  for (let k = 0; k < 6; k++) {
+    const x = bx(0) + 4 + k * PITCH * 1.4;
     for (const side of [-1, 1]) {
-      const z = zc + side * 4.2;
+      const z = zc + side * 4.6;
       deco([x, 2.6, z], [0.18, 5.2, 0.18], '#454b52');
       deco([x, 5.1, z - side * 0.9], [0.14, 0.12, 1.8], '#454b52');
       deco([x, 5.0, z - side * 1.7], [0.5, 0.2, 0.9], '#d9d2a8');
     }
-    rail([x, 3.0, zc - 4.2], [x, 3.0, zc + 4.2]);
+    rail([x, 3.0, zc - 4.6], [x, 3.0, zc + 4.6]);
     deco([x, 3.35, zc], [1.6, 0.55, 0.08], YELLOW);
   }
 }
@@ -399,26 +447,26 @@ for (const zc of [-32.5, -7.5, 17.5]) {
 // Parkende Autos am Bordstein: Vault-Linien (Kofferraum 1.1 m) und
 // Trittsteine Richtung Feuerleiter
 const CAR_COLORS = ['#7b3f3f', '#3f5b7b', '#c9c9c4', '#4a6b4a', '#8a7a3f', '#2f3438'];
-const parkCar = (x, z, n, dir) => {
+const parkCar = (x, z, n) => {
   for (let k = 0; k < n; k++) {
-    const cx = x + k * dir * 5.4;
+    const cx = x + k * 5.4;
     const c = CAR_COLORS[Math.floor(hash(cx, z) * CAR_COLORS.length)];
     box([cx, 0.72, z], [4.4, 0.76, 1.9], c); // Karosserie
     box([cx - 0.2, 1.32, z], [2.3, 0.62, 1.75], c); // Aufbau
     deco([cx, 0.34, z], [4.0, 0.5, 2.0], '#25282c'); // Schweller/Räder
   }
 };
-parkCar(-58, -29.6, 4, 1);
-parkCar(-4, -35.4, 3, 1);
-parkCar(38, -29.6, 3, 1);
-parkCar(-40, 11.4, 3, 1);
-parkCar(20, 23.6, 4, 1);
-parkCar(-62, 23.6, 3, 1);
+parkCar(sx(-58), streetZ(0) + 3.4, 4);
+parkCar(sx(-4), streetZ(0) - 3.4, 3);
+parkCar(sx(38), streetZ(0) + 3.4, 3);
+parkCar(sx(-40), streetZ(2) - 3.4, 3);
+parkCar(sx(20), streetZ(2) + 3.4, 4);
+parkCar(sx(-62), streetZ(2) + 3.4, 3);
 
 // Bushaltestelle: Dach auf 2.6 m als Absatz, Bank als Vault davor
+const busStop = { x: sx(-30), z: streetZ(0) - 4.6 };
 {
-  const x = -30;
-  const z = -35.6;
+  const { x, z } = busStop;
   for (const dx of [-2.4, 2.4]) {
     for (const dz of [-1.1, 1.1]) deco([x + dx, 1.3, z + dz], [0.14, 2.6, 0.14], METAL);
   }
@@ -431,8 +479,8 @@ parkCar(-62, 23.6, 3, 1);
 
 // Kiosk mit Vordach an der C–D-Straße
 {
-  const x = 4;
-  const z = 14.2;
+  const x = sx(4);
+  const z = streetZ(2) - 3.3;
   box([x, 1.4, z], [4.2, 2.8, 3.0], '#b5643f');
   box([x, 2.95, z + 2.0], [4.8, 0.2, 1.6], TERRA); // Vordach — Absatz auf 3 m
   deco([x - 1.6, 1.5, z + 1.55], [1.4, 1.0, 0.08], '#3f454d'); // Verkaufsklappe
@@ -448,16 +496,20 @@ const tree = (x, z, s = 1) => {
   deco([x, 3.2 * s + 0.9, z], [2.4 * s, 1.6 * s, 2.4 * s], GREEN);
   deco([x + 0.3 * s, 4.2 * s + 0.9, z - 0.2 * s], [1.7 * s, 1.3 * s, 1.7 * s], '#6d8a52');
 };
-for (const [x, z] of [[-46, 12.6], [-38, 12.6], [12, 12.6], [-20, -34.6], [30, -34.6], [56, 12.6]]) {
-  tree(x, z, 0.9 + hash(x, z) * 0.3);
+for (const [x, dz, r] of [
+  [-46, -4.9, 2], [-38, -4.9, 2], [12, -4.9, 2], [56, -4.9, 2],
+  [-20, -2.1, 0], [30, -2.1, 0],
+]) {
+  tree(sx(x), streetZ(r) + dz, 0.9 + hash(x, dz) * 0.3);
 }
 
 // ============================================================ Baustelle
-// Nordrand des Viertels: Gerüst über drei Ebenen an A2, plus Containerlager.
+// Nordrand des Viertels: Gerüst über drei Ebenen, plus Containerlager.
 // Ein Spot, der Klettern, Balancieren, Schwingen und Präzision verbindet.
+const scaffold = { x: bx(2) - 6, z: zN(0, 2) - 8 };
 {
-  const x0 = bx(2) - 6;
-  const z = -54.5;
+  const x0 = scaffold.x;
+  const z = scaffold.z;
   for (let lvl = 0; lvl < 3; lvl++) {
     const y = 2.8 + lvl * 2.8;
     box([x0 + 6, y, z], [13, 0.2, 2.0], '#a08a5e'); // Bohle
@@ -470,112 +522,120 @@ for (const [x, z] of [[-46, 12.6], [-38, 12.6], [12, 12.6], [-20, -34.6], [30, -
     for (const dz of [-0.9, 0.9]) deco([x0 + dx, 4.2, z + dz], [0.14, 8.4, 0.14], '#8d9298');
   }
   // Bauzaun und Materialstapel als Vault-Linie
-  for (let k = 0; k < 6; k++) box([x0 - 4 + k * 3.4, 0.9, z + 4.5], [3.2, 1.8, 0.12], '#c9a227');
-  for (let k = 0; k < 3; k++) box([x0 + 14 + k * 2.4, 0.55, z + 2], [2.2, 1.1, 1.4], '#8a7a5c');
+  for (let k = 0; k < 6; k++) box([x0 - 4 + k * 3.4, 0.9, z + 5.5], [3.2, 1.8, 0.12], '#c9a227');
+  for (let k = 0; k < 3; k++) box([x0 + 14 + k * 2.4, 0.55, z + 2.5], [2.2, 1.1, 1.4], '#8a7a5c');
 }
 // Containerlager: gestapelt und versetzt — Sprung-, Precision- und Vault-Ziele
+const yard = { x: bx(4) - 8, z: zN(0, 4) - 9 };
 {
-  const cx = 24;
-  const cz = -56;
+  const { x: cx, z: cz } = yard;
   const CONT = ['#8a4a3c', '#3f6b7a', '#6b7a3f', '#7a6a3f'];
-  const cont = (x, y, z, k) => box([x, y + 1.3, z], [6.1, 2.6, 2.44], CONT[k % 4]);
-  cont(cx, 0, cz, 0);
-  cont(cx + 6.6, 0, cz, 1);
-  cont(cx + 13.2, 0, cz, 2);
-  cont(cx + 3.3, 2.6, cz, 3);
-  cont(cx + 9.9, 2.6, cz, 0);
-  cont(cx + 6.6, 5.2, cz, 1);
-  cont(cx - 1, 0, cz + 4.2, 2);
-  cont(cx + 8, 0, cz + 4.2, 3);
+  const cont = (dx, y, dz, k) => box([cx + dx, y + 1.3, cz + dz], [6.1, 2.6, 2.44], CONT[k % 4]);
+  cont(0, 0, 0, 0);
+  cont(6.6, 0, 0, 1);
+  cont(13.2, 0, 0, 2);
+  cont(3.3, 2.6, 0, 3);
+  cont(9.9, 2.6, 0, 0);
+  cont(6.6, 5.2, 0, 1);
+  cont(-1, 0, 4.6, 2);
+  cont(8, 0, 4.6, 3);
   rail([cx + 4.0, 8.2, cz], [cx + 9.2, 8.2, cz]); // Balance auf dem obersten Container
 }
 
 // ============================================================ Stadtpark
 // Südrand: Rasenfläche, Brunnen, Hecken, Sitzstufen — ruhiger Gegenpol mit
 // niedriger Vault- und Precision-Linie.
+const park = { z: zS(3, 4) + 13 };
 {
-  const pz = 45;
-  deco([0, 0.03, pz], [90, 0.06, 20], '#5c7a48'); // Rasen
+  const pz = park.z;
+  deco([0, 0.03, pz], [105, 0.06, 24], '#5c7a48'); // Rasen
   box([-4, 0.4, pz], [9, 0.8, 9], CONCRETE[1]); // Brunnenpodest
   box([-4, 1.1, pz], [5.5, 0.6, 5.5], '#7fa3b5'); // Wasserbecken
   box([-4, 2.0, pz], [1.2, 2.2, 1.2], CONCRETE[0]); // Fontänenstock
-  for (let k = 0; k < 5; k++) box([12 + k * 3.6, 0.3, pz - 4], [3.2, 0.6, 1.2], '#8a7a5c'); // Sitzstufen
-  for (let k = 0; k < 6; k++) box([-40 + k * 5, 0.5, pz + 6], [4.2, 1.0, 1.0], '#4d6b3f'); // Hecken
-  for (const x of [-26, -14, 16, 28]) tree(x, pz + 2, 1.1);
-  deco([-20, 1.0, pz - 6], [28, 0.1, 0.1], METAL); // Parkgeländer (Deko)
-  for (const x of [-34, -20, -6]) deco([x, 0.5, pz - 6], [0.1, 1.0, 0.1], METAL);
+  for (let k = 0; k < 5; k++) box([14 + k * 3.6, 0.3, pz - 5], [3.2, 0.6, 1.2], '#8a7a5c');
+  for (let k = 0; k < 6; k++) box([-46 + k * 5.5, 0.5, pz + 7], [4.2, 1.0, 1.0], '#4d6b3f');
+  for (const x of [-30, -16, 18, 32]) tree(x, pz + 2, 1.1);
+  deco([-22, 1.0, pz - 7], [30, 0.1, 0.1], METAL); // Parkgeländer (Deko)
+  for (const x of [-37, -22, -7]) deco([x, 0.5, pz - 7], [0.1, 1.0, 0.1], METAL);
 }
 
 // ============================================================ Betonpark
-// Straßenniveau-Überarbeitung von 2026-07-10: künstlerische Beton-Spots auf
-// der B–C-Straße. Bleibt unverändert erhalten und ist jetzt der Platz in der
-// Mitte des Viertels; die Treppe C6 (x 27..41) und die Türme (x>63) sind frei.
-deco([0, 0.04, -7.5], [120, 0.08, 11], '#8f8b82'); // Plattenbelag
+// Straßenniveau-Spots auf der B–C-Straße (2026-07-10). Der Platz in der Mitte
+// des Viertels; die Treppe C6 und die Türme bleiben frei. Die x-Positionen
+// sind mit dem Raster mitgewachsen (sx), die z-Werte hängen an streetZ(1).
+const PZ = streetZ(1);
+deco([sx(0), 0.04, PZ], [sx(120), 0.08, 14], '#8f8b82'); // Plattenbelag
 
-// Spot 1 — Precision-Garten (x -66..-48): Mauer-Slalom + Poller
+// Spot 1 — Precision-Garten: Mauer-Slalom + Poller
 [0.6, 0.9, 1.2, 0.9, 0.6].forEach((wh, k) => {
-  box([-64 + k * 4, wh / 2, -8], [0.5, wh, 3.2], CONCRETE[k % 3]);
+  box([sx(-64) + k * 4.4, wh / 2, PZ - 0.5], [0.5, wh, 3.2], CONCRETE[k % 3]);
 });
-for (let k = 0; k < 4; k++) box([-62 + k * 4, 0.45, -4.2], [0.45, 0.9, 0.45], CONCRETE[2]);
+for (let k = 0; k < 4; k++) box([sx(-62) + k * 4.4, 0.45, PZ + 3.3], [0.45, 0.9, 0.45], CONCRETE[2]);
 
-// Spot 2 — Stangen-Dschungel (x -38..-24): Swing-Kette knapp über Kopf
+// Spot 2 — Stangen-Dschungel: Swing-Kette knapp über Kopf
 for (const [k, x] of [-36, -32, -28].entries()) {
-  rail([x, 2.7 + k * 0.05, -10], [x, 2.7 + k * 0.05, -6]);
+  rail([sx(x), 2.7 + k * 0.05, PZ - 2.5], [sx(x), 2.7 + k * 0.05, PZ + 1.5]);
 }
-box([-39.5, 0.5, -8], [2, 1, 3], CONCRETE[1]);
-box([-24.5, 0.5, -8], [2, 1, 3], CONCRETE[1]);
+box([sx(-39.5), 0.5, PZ - 0.5], [2, 1, 3], CONCRETE[1]);
+box([sx(-24.5), 0.5, PZ - 0.5], [2, 1, 3], CONCRETE[1]);
 
-// Spot 3 — Skulpturen-Plaza (x -12..+16): Blocktreppe, Bogen, Bank, Wellen
+// Spot 3 — Skulpturen-Plaza: Blocktreppe, Bogen, Bank, Wellen
 [0.5, 1.0, 1.5, 2.0].forEach((sh, k) => {
-  box([-10 + k * 2.2, sh / 2, -10.5], [2, sh, 2], CONCRETE[k % 3]);
+  box([sx(-10) + k * 2.4, sh / 2, PZ - 3], [2, sh, 2], CONCRETE[k % 3]);
 });
-box([2, 1.6, -8], [1, 3.2, 1], CONCRETE[0]);
-box([8, 1.6, -8], [1, 3.2, 1], CONCRETE[0]);
-box([5, 3.45, -8], [7, 0.5, 1.2], CONCRETE[2]);
-rail([3.2, 3.0, -8], [6.8, 3.0, -8]);
-ramps.push({ pos: [13, 0.9, -4.8], size: [4, 0.3, 4.4], tiltX: -0.48, color: CONCRETE[1] });
+box([sx(2), 1.6, PZ - 0.5], [1, 3.2, 1], CONCRETE[0]);
+box([sx(8), 1.6, PZ - 0.5], [1, 3.2, 1], CONCRETE[0]);
+box([sx(5), 3.45, PZ - 0.5], [8, 0.5, 1.2], CONCRETE[2]);
+rail([sx(3.2), 3.0, PZ - 0.5], [sx(6.8), 3.0, PZ - 0.5]);
+ramps.push({ pos: [sx(13), 0.9, PZ + 2.7], size: [4, 0.3, 4.4], tiltX: -0.48, color: CONCRETE[1] });
 for (const [k, y] of [0.25, 1.0, 1.75].entries()) {
-  box([12 + k * 1.6, y, -11], [4.5, 0.5, 2.4], CONCRETE[k % 3]);
+  box([sx(12) + k * 1.8, y, PZ - 3.5], [4.5, 0.5, 2.4], CONCRETE[k % 3]);
 }
 
-// Spot 4 — Wall-Korridor (x 39..49): Parallelmauern für Wall-Jumps
-for (const zc of [-6.5, -10]) {
-  box([44, 1.5, zc], [10, 3, 0.4], CONCRETE[0]);
-  rail([39.2, 3.4, zc], [48.8, 3.4, zc]);
+// Spot 4 — Wall-Korridor: Parallelmauern für Wall-Jumps
+for (const dz of [1, -2.5]) {
+  box([sx(44), 1.5, PZ + dz], [10, 3, 0.4], CONCRETE[0]);
+  rail([sx(44) - 4.8, 3.4, PZ + dz], [sx(44) + 4.8, 3.4, PZ + dz]);
 }
-markers.push({ type: 'gap', id: 'gap-korridor', pos: [44, 3.8, -8.25], size: [8, 1.6, 2.6] });
+markers.push({ type: 'gap', id: 'gap-korridor', pos: [sx(44), 3.8, PZ - 0.75], size: [8, 1.6, 2.6] });
 
-// Spot 5 — Kanten-Combo (x 55..66): Podest mit Kanten-Rails + Poller-Reihe
-box([59, 0.75, -8.5], [9, 1.5, 6], CONCRETE[1]);
-rail([54.7, 1.9, -8.5], [63.3, 1.9, -8.5]);
-for (let k = 0; k < 3; k++) box([56 + k * 3.5, 0.6, -3.9], [0.45, 1.2, 0.45], CONCRETE[2]);
-markers.push({ type: 'precision', id: 'prec-podest', pos: [63, 1.5, -10.5] });
+// Spot 5 — Kanten-Combo: Podest mit Kanten-Rails + Poller-Reihe
+box([sx(59), 0.75, PZ - 1], [9, 1.5, 6], CONCRETE[1]);
+rail([sx(59) - 4.3, 1.9, PZ - 1], [sx(59) + 4.3, 1.9, PZ - 1]);
+for (let k = 0; k < 3; k++) box([sx(56) + k * 3.8, 0.6, PZ + 3.6], [0.45, 1.2, 0.45], CONCRETE[2]);
+markers.push({ type: 'precision', id: 'prec-podest', pos: [sx(63), 1.5, PZ - 3] });
 
 // A–B-Straße: Pflanzkübel-Vaults + tiefe Schwungstangen
-for (let k = 0; k < 3; k++) box([-18 + k * 6, 0.4, -31], [3, 0.8, 1.2], '#6f7a6a');
+for (let k = 0; k < 3; k++) box([sx(-18) + k * 6.5, 0.4, streetZ(0) + 1.5], [3, 0.8, 1.2], '#6f7a6a');
 for (const [k, x] of [20, 24].entries()) {
-  rail([x, 2.7 + k * 0.05, -34.5], [x, 2.7 + k * 0.05, -30.5]);
+  rail([sx(x), 2.7 + k * 0.05, streetZ(0) - 2], [sx(x), 2.7 + k * 0.05, streetZ(0) + 2]);
 }
 
-// C–D-Straße: Mauer-Slalom (Treppen C4 x -6..6 und D7 x 44..58 bleiben frei)
+// C–D-Straße: Mauer-Slalom (die Treppen C4 und D7 bleiben frei)
 for (const [k, wh] of [0.7, 1.1, 0.8, 1.1].entries()) {
-  box([14 + k * 4, wh / 2, 17], [0.5, wh, 3.2], CONCRETE[(k + 1) % 3]);
+  box([sx(14) + k * 4.4, wh / 2, streetZ(2) - 0.5], [0.5, wh, 3.2], CONCRETE[(k + 1) % 3]);
 }
 
 // Ladehof mit Rampe an der C-Zeile: Absatz auf 1.2 m, schräg befahrbar
 {
-  const x = -56;
-  box([x, 0.6, -1.4], [10, 1.2, 5], CONCRETE[2]);
-  ramps.push({ pos: [x + 7.4, 0.62, -1.4], size: [5, 0.3, 4.6], rotY: Math.PI / 2, tiltX: -0.24, color: CONCRETE[1] });
-  rail([x - 4.6, 1.6, -3.6], [x + 4.6, 1.6, -3.6]);
-  box([x - 3, 1.75, 0.6], [2.2, 1.1, 1.4], '#8a7a5c');
+  const x = sx(-56);
+  const z = zN(2, 1) - 4;
+  box([x, 0.6, z], [10, 1.2, 5], CONCRETE[2]);
+  ramps.push({
+    pos: [x + 7.4, 0.62, z],
+    size: [5, 0.3, 4.6],
+    rotY: Math.PI / 2,
+    tiltX: -0.24,
+    color: CONCRETE[1],
+  });
+  rail([x - 4.6, 1.6, z - 2.2], [x + 4.6, 1.6, z - 2.2]);
+  box([x - 3, 1.75, z + 2], [2.2, 1.1, 1.4], '#8a7a5c');
 }
 
 // ============================================================ Treppen
-// Zurück nach oben an 4 Stellen. Steigung 0.30 bei 0.75 Auftritt statt der
-// früheren 0.38/0.90: der Autostep steht auf 0.4 m, aber mit 0.38 blieb der
-// Spieler in der umgebauten Stadt auf halber Treppe stehen. Mit 0.30 läuft er
-// durch — die Reserve zum Autostep-Limit ist die Sicherheit gegen genau das.
+// Zurück nach oben an 4 Stellen. Steigung 0.30 bei 0.75 Auftritt: der Autostep
+// steht auf 0.4 m, aber mit 0.38 blieb der Spieler auf halber Treppe stehen.
+// Die Reserve zum Autostep-Limit ist die Sicherheit gegen genau das.
 //
 // Wichtiger Nachbar-Befund (an der Treppe C4 nachgestellt): der Autostep hebt
 // den Spieler erst an und schiebt ihn dann vor. Ein Deck über der Treppe
@@ -597,6 +657,8 @@ const stairs = [
 for (const st of stairs) {
   const n = Math.ceil(h(st.r, st.i) / RISE);
   const zEdge = rz(st.r) + st.side * (D(st.r, st.i) / 2 + 0.7);
+  st.zEdge = zEdge;
+  st.xFoot = bx(st.i) + 6 - TREAD * (n - 1);
   for (let k = 0; k < n; k++) {
     const x = bx(st.i) + 6 - TREAD * (n - 1 - k);
     box([x, 0.2 + RISE * k, zEdge], [3, 0.4, TREAD + 0.15], '#787d84');
@@ -618,15 +680,14 @@ for (let r = 0; r < rows.length; r++) {
     });
   });
 }
-const streetGaps = [
-  { x: bx(1), y: 13, z: -32.5 },
-  { x: bx(3), y: 12.5, z: -32 },
-  { x: bx(4), y: 11.5, z: -7.5 },
-  { x: bx(0), y: 12.5, z: 17.5 },
-];
-streetGaps.forEach((g, n) => {
-  markers.push({ type: 'gap', id: `gap-street-${n}`, pos: [g.x, g.y, g.z], size: [4, 2.5, 10.5] });
-});
+for (const [n, s] of slopedRails.entries()) {
+  markers.push({
+    type: 'gap',
+    id: `gap-street-${n}`,
+    pos: [bx(s.i), (s.yHi + s.yLo) / 2 + 0.6, (s.zHi + s.zLo) / 2],
+    size: [4, 2.5, Math.abs(s.zLo - s.zHi) - 2],
+  });
+}
 for (const a of alleys) {
   markers.push({
     type: 'gap',
@@ -640,8 +701,8 @@ for (const a of alleys) {
 for (const [r, i] of [[0, 6], [1, 4], [2, 0], [2, 5], [3, 5], [3, 6]]) {
   markers.push({ type: 'precision', id: `prec-${rows[r].name}${i}`, pos: [bx(i) + 4, h(r, i), rz(r) + 4] });
 }
-markers.push({ type: 'precision', id: 'prec-container', pos: [30.6, 7.8, -56] });
-markers.push({ type: 'precision', id: 'prec-bruecke', pos: [bx(4), 6.55, 17.5] });
+markers.push({ type: 'precision', id: 'prec-container', pos: [yard.x + 6.6, 7.8, yard.z] });
+markers.push({ type: 'precision', id: 'prec-bruecke', pos: [bridge.x, bridge.y + 0.15, bridge.z] });
 
 // Sammelobjekte (Task 18). Reihenfolge ist verbindlich: col-01..04 liegen
 // über den geneigten Rails und werden von der Mission „Sammler" gefordert.
@@ -651,7 +712,7 @@ const pushCol = (pos) => {
   markers.push({ type: 'collectible', id: `col-${String(colN).padStart(2, '0')}`, pos });
 };
 for (const s of slopedRails) pushCol([bx(s.i), (s.yHi + s.yLo) / 2 + 0.8, (s.zHi + s.zLo) / 2]);
-for (const row of barRows) pushCol([row.x, row.y, (row.zs[0] + row.zs[1]) / 2]);
+for (const b of barRows) pushCol([b.x, b.y, (b.zs[0] + b.zs[1]) / 2]);
 for (const [r, i] of wallGaps.slice(0, 5)) {
   pushCol([bx(i) + PITCH / 2, Math.max(h(r, i), h(r, i + 1)) + 1, rz(r)]);
 }
@@ -660,73 +721,63 @@ for (const [r, i, dx, dz] of [[0, 7, 5, -5], [1, 7, -5, 5], [2, 7, 5, -5], [3, 1
   pushCol([bx(i) + dx, h(r, i) + 1, rz(r) + dz]);
 }
 // Betonpark
-pushCol([-56, 1.8, -8]);
-pushCol([-32, 3.4, -8]);
-pushCol([5, 4.4, -8]);
-pushCol([44, 4.2, -8.25]);
-pushCol([59, 2.6, -8.5]);
-pushCol([-12, 1.4, -31]);
-// Neue Stadt-Spots
-for (const a of alleys.slice(0, 2)) pushCol([a.xm, 6.2, rz(a.r)]); // in den Gassen
-pushCol([bx(2), 9.0, -54.5]); // oberste Gerüstbohle
-pushCol([30.6, 8.6, -56]); // Container-Stapel
-pushCol([bx(4), 8.0, 17.5]); // über der Fußgängerbrücke
-pushCol([-30, 3.6, -35.6]); // Dach der Bushaltestelle
-pushCol([-4, 2.6, 45]); // Brunnen im Park
+pushCol([sx(-56), 1.8, PZ - 0.5]);
+pushCol([sx(-32), 3.4, PZ - 0.5]);
+pushCol([sx(5), 4.4, PZ - 0.5]);
+pushCol([sx(44), 4.2, PZ - 0.75]);
+pushCol([sx(59), 2.6, PZ - 1]);
+pushCol([sx(-12), 1.4, streetZ(0) + 1.5]);
+// Stadt-Spots
+for (const a of alleys.slice(0, 2)) pushCol([a.xm, 6.2, rz(a.r)]);
+pushCol([scaffold.x + 6, 9.0, scaffold.z]); // oberste Gerüstbohle
+pushCol([yard.x + 6.6, 8.6, yard.z]); // Container-Stapel
+pushCol([bridge.x, bridge.y + 1.6, bridge.z]); // über der Fußgängerbrücke
+pushCol([busStop.x, 3.6, busStop.z]); // Dach der Bushaltestelle
+pushCol([-4, 2.6, park.z]); // Brunnen im Park
 
 // Zeitrennen (Task 19): Start auf B3, über die B-Zeile westwärts, Rail runter
 // zur A-Zeile, ostwärts über die Dachlücken zum Finish
-markers.push({ type: 'trialStart', id: 'trial-1', pos: [bx(3), h(1, 3) + 1.3, -25] });
+markers.push({ type: 'trialStart', id: 'trial-1', pos: [bx(3), h(1, 3) + 1.3, rz(1) - 5] });
 const railB1 = slopedRails[0];
 const cps = [
-  [bx(2), h(1, 2) + 1.4, -20],
-  [bx(1), h(1, 1) + 1.4, -20],
+  [bx(2), h(1, 2) + 1.4, rz(1)],
+  [bx(1), h(1, 1) + 1.4, rz(1)],
   [bx(1), (railB1.yHi + railB1.yLo) / 2, (railB1.zHi + railB1.zLo) / 2],
-  [bx(1), h(0, 1) + 1.4, -45],
-  [bx(2), h(0, 2) + 1.4, -45],
-  [bx(3), h(0, 3) + 1.4, -45],
-  [bx(4), h(0, 4) + 1.4, -45],
-  [bx(5), h(0, 5) + 1.4, -45],
+  [bx(1), h(0, 1) + 1.4, rz(0)],
+  [bx(2), h(0, 2) + 1.4, rz(0)],
+  [bx(3), h(0, 3) + 1.4, rz(0)],
+  [bx(4), h(0, 4) + 1.4, rz(0)],
+  [bx(5), h(0, 5) + 1.4, rz(0)],
 ];
 cps.forEach((pos, i) => markers.push({ type: 'checkpoint', id: `cp${i + 1}`, pos }));
-markers.push({ type: 'finish', id: 'finish-1', pos: [bx(6), h(0, 6) + 1.4, -45] });
+markers.push({ type: 'finish', id: 'finish-1', pos: [bx(6), h(0, 6) + 1.4, rz(0)] });
 
 // ============================================================ Kulisse
 // Skyline ohne Collider hinter dem Viertel — im Dunst (Fog ab 40 m) wird
 // daraus eine Stadt, die weitergeht. Kostet einen Bruchteil eines Draw-Calls,
 // weil alles im selben Stadt-Batch steckt.
-for (const [zc, depth] of [[-95, 22], [72, 22]]) {
-  for (let k = 0; k < 26; k++) {
-    const x = -150 + k * 12 + hash(k, zc) * 4;
+const skyline = (pos, size, seed) => {
+  const f = FACADES[Math.floor(hash(seed * 7, seed * 13 + 2) * FACADES.length)];
+  boxes.push({ pos, size, color: f.color, style: f.style, solid: false });
+};
+for (const [zc, sign] of [[zN(0, 0) - 42, -1], [zS(3, 0) + 42, 1]]) {
+  for (let k = 0; k < 30; k++) {
+    const x = -175 + k * 13 + hash(k, zc) * 4;
     const height = 16 + hash(k * 3, zc + 1) * 34;
-    const f = FACADES[Math.floor(hash(k * 7, zc + 2) * FACADES.length)];
-    boxes.push({
-      pos: [x, height / 2, zc + (hash(k, zc + 3) - 0.5) * depth],
-      size: [9 + hash(k * 5, zc) * 6, height, 10],
-      color: f.color,
-      style: f.style,
-      solid: false,
-    });
+    skyline([x, height / 2, zc + sign * hash(k, zc + 3) * 22], [9 + hash(k * 5, zc) * 6, height, 10], k + zc);
   }
 }
-for (const xc of [-135, 128]) {
-  for (let k = 0; k < 14; k++) {
-    const z = -80 + k * 12;
+for (const xc of [bx(0) - 85, TOWER_X + 75]) {
+  for (let k = 0; k < 16; k++) {
+    const z = Z0 - 40 + k * 13;
     const height = 14 + hash(k * 11, xc) * 30;
-    const f = FACADES[Math.floor(hash(k * 13, xc + 5) * FACADES.length)];
-    boxes.push({
-      pos: [xc + (hash(k, xc) - 0.5) * 16, height / 2, z],
-      size: [10, height, 9 + hash(k * 3, xc) * 6],
-      color: f.color,
-      style: f.style,
-      solid: false,
-    });
+    skyline([xc + (hash(k, xc) - 0.5) * 18, height / 2, z], [10, height, 9 + hash(k * 3, xc) * 6], k + xc);
   }
 }
 
 const level = {
   name: 'Rooftops District',
-  spawn: [bx(3), h(1, 3) + 0.1, -20],
+  spawn: [bx(3), h(1, 3) + 0.1, rz(1)],
   boxes,
   ramps,
   rails,
@@ -739,14 +790,24 @@ writeFileSync(
   JSON.stringify(level, null, 1) + '\n',
 );
 
-const styles = new Set(boxes.map((b) => b.style ?? '-'));
 console.log(
-  `city01.json: ${boxes.length} Boxen (${styles.size} Batches), ` +
-    `${rails.length} Rails, ${markers.length} Marker, ${colN} Sammelobjekte`,
+  `city01.json: ${boxes.length} Boxen, ${rails.length} Rails, ${markers.length} Marker, ` +
+    `${colN} Sammelobjekte`,
+);
+console.log(
+  `  Raster: Pitch ${PITCH} m, Zeilenabstand ${ROW_GAP} m, ` +
+    `Viertel ${(PITCH * 8).toFixed(0)} x ${(ROW_GAP * 3 + 30).toFixed(0)} m`,
 );
 for (let r = 0; r < rows.length; r++) {
+  const d = plots[r].d;
   console.log(
-    `  Zeile ${rows[r].name}: Fugen ${plots[r].gap.map((g) => g.toFixed(1)).join(' ')} ` +
-      `(${plots[r].joints.join(',')})`,
+    `  Zeile ${rows[r].name} (z=${rz(r)}): Fugen ${plots[r].gap.map((g) => g.toFixed(1)).join(' ')} · ` +
+      `Breiten ${plots[r].w.map((w) => w.toFixed(0)).join(' ')} · Tiefe ~${(d.reduce((a, b) => a + b) / d.length).toFixed(1)}`,
+  );
+}
+for (let r = 0; r < 3; r++) {
+  console.log(
+    `  Straße ${rows[r].name}–${rows[r + 1].name} (z=${streetZ(r)}): ` +
+      `${(ROW_GAP - (Math.max(...plots[r].d) + Math.max(...plots[r + 1].d)) / 2).toFixed(1)} m breit`,
   );
 }

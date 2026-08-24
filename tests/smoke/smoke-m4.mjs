@@ -43,21 +43,37 @@ results.missionDone = await page.evaluate(
   () => [...document.querySelectorAll('#hud div')].some((d) => d.textContent?.includes('Mission erfüllt')),
 );
 
-// --- Zeitrennen: Start berühren, Tore in Reihenfolge, Finish
-await teleport(-17.5, 13.3, -25); // trialStart
+// --- Zeitrennen: Start berühren, Tore in Reihenfolge, Finish.
+// Die Strecke kommt aus dem Level, nicht aus abgeschriebenen Zahlen — sonst
+// ist der Test nach jeder Änderung am Stadtplan rot (siehe Kapitel 7.3).
+const route = await page.evaluate(() => {
+  const m = window.game.level.markers;
+  return {
+    start: m.find((x) => x.type === 'trialStart').pos,
+    gates: m
+      .filter((x) => x.type === 'checkpoint')
+      .sort((a, b) => Number(a.id.replace(/\D/g, '')) - Number(b.id.replace(/\D/g, '')))
+      .map((x) => x.pos)
+      .concat([m.find((x) => x.type === 'finish').pos]),
+  };
+});
+await teleport(...route.start);
 await stepMs(page, 500);
 results.timerVisible = await page.evaluate(() =>
   [...document.querySelectorAll('#hud div')].some(
     (d) => d.style.display !== 'none' && /^\d\d:\d\d\.\d\d$/.test(d.textContent ?? ''),
   ),
 );
-const gates = [
-  [-35, 15.4, -20], [-52.5, 14.4, -20], [-51.3, 13.2, -32.5], [-52.5, 12.4, -45],
-  [-35, 10.4, -45], [-17.5, 9.4, -45], [0, 10.4, -45], [17.5, 8.4, -45], [35, 9.4, -45],
-];
-for (const [x, y, z] of gates) {
-  await teleport(x, y, z);
-  await stepMs(page, 300);
+for (const [x, y, z] of route.gates) {
+  // Ein Tor liegt über einer Balance-Rail. Landet der Spieler darauf, führt
+  // der Balancer die Kapsel und überschreibt jeden weiteren Teleport — die
+  // restlichen Tore würden nie erreicht. Deshalb vor dem Teleport von der
+  // Rail lösen und knapp über dem Tor absetzen (Torradius ist 1.6 m).
+  await page.evaluate(() => {
+    window.game.player.balancer.active = null;
+  });
+  await teleport(x, y + 0.8, z);
+  await stepMs(page, 120);
 }
 await stepMs(page, 500);
 results.trialOverlay = await page.evaluate(() => {

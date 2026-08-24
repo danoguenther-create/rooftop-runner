@@ -209,6 +209,8 @@ Reines Event-Konsumenten-System, keine Physik:
   - **Skyline-Kulisse** hinter dem Viertel (`solid: false` — kein Collider, keine Kante).
   - Ergebnis: 1057 Boxen / 58 Rails / 76 Marker / 33 Sammelobjekte bei **30 Draw-Calls** (vorher 164 Boxen bei ~97). Siehe 7.3.
 
+- **Aufweitung (2026-08-24):** Nach dem Stadtbild-Pass lag alles zu dicht beieinander. Das Raster hängt jetzt an drei Konstanten im Generator (`PITCH`, `ROW_GAP`, Dachhöhen) und wurde geweitet: Spaltenabstand 17.5 → 20.5 m, Zeilenabstand 25 → 30 m. Die Häuser wachsen mit (Dächer ~17 × 15.5 m statt 14 × 14), die Straßen von 11 auf ~13.5 m, die Sprunglücken bleiben bei 3.2–4.8 m. Zusätzlich ausgedünnt: Dachtechnik steht nur noch auf gut der Hälfte der Dächer, Schornsteine und Antennen sind seltener. Im Level steht keine Straßenkoordinate mehr absolut — alles hängt an `bx(i)`, `rz(r)` und `streetZ(r)`, damit sich das Viertel an einer Stelle weiten lässt, ohne dass Spots verrutschen. Viertel jetzt 164 × 120 m (plus Baustelle und Park an den Rändern), 1068 Boxen, weiterhin 30 Draw-Calls.
+
 ## 2.4 City-Map: Beschaffung & Aufbau
 
 **Entscheidung: modular handgebaut, nicht prozedural.** Prozedurale Städte sehen generisch aus und sind für Parkour-Design (bewusst platzierte Lücken, Rails, Wände) ungeeignet. Ein gutes Parkour-Level ist designtes Spielfeld, keine Kulisse.
@@ -441,7 +443,7 @@ Realistisch einplanen: Store-Bürokratie (Konten, Formulare, Screenshots, Testph
    - Rail-Grind-Snapping fühlt sich lange falsch an → großzügiger Snap-Radius + Magnetismus zur Kurve; im Zweifel großzügig zugunsten des Spielers.
    - Framerate-abhängige Physik (gelöst durch festen Timestep, Task 3) und framerate-abhängige Kamera (gelöst durch `damp` statt `lerp` mit festem Faktor).
    - Scope Creep: Balance-Minigame, Multiplayer, Charakter-Editor, offene Riesenstadt — alles auf die „nach Release"-Liste.
-10. **Stadtbau kostet Draw-Calls nur bei schlechter Bündelung:** siehe Kapitel 7.3 — dazu drei Fallen, die beim Stadtbild-Pass Zeit gekostet haben (Geländer auf Hüfthöhe werden als Schwungstange gegriffen; ein Deck über einer Treppe blockiert den Autostep; Tests mit abgeschriebenen Level-Koordinaten altern schlecht).
+10. **Stadtbau kostet Draw-Calls nur bei schlechter Bündelung:** siehe Kapitel 7.3 — dazu vier Fallen, die beim Stadtbild-Pass Zeit gekostet haben (Geländer auf Hüfthöhe werden als Schwungstange gegriffen; ein Deck über einer Treppe blockiert den Autostep; Tests mit abgeschriebenen Level-Koordinaten altern schlecht; Treppen brauchen einen eigenen Test, weil ihr Versagen sonst niemandem auffällt).
 11. **Zeit im Test ≠ Zeit auf der Uhr:** siehe Kapitel 7.1 — die Falle, die die Smoke-Suite eineinhalb Tage lang falsch rot gefärbt hat. Und Kapitel 7.2: Spiel-Timer gehören an die Simulationsuhr (`simNow()`), nicht an `performance.now()`; nur Darstellendes läuft im Bildtakt.
 12. **Grenzen des günstigen Coding-Modells — und wie du Tasks dann kleiner schneidest:** Wenn ein Task scheitert, teile ihn nach dem Muster „erst Erkennung, dann Bewegung, dann Übergänge": z. B. Wall-Run → (a) nur Raycast-Erkennung + Debug-Anzeige „Wand links/rechts erkannt", (b) nur die Bewegungsänderung im Wall-Run, (c) nur Ein-/Austritts-Übergänge der FSM. Kleine Tasks mit sichtbarem Zwischenergebnis sind die zuverlässigste Strategie. Außerdem: dem Modell im Prompt immer die relevanten bestehenden Dateien mitgeben (Inhalt einfügen!), nie „schau ins Repo" sagen — es hat keinen Repo-Zugriff, wenn du es im Chat benutzt.
 
@@ -573,6 +575,22 @@ wäre — und man gewöhnt sich an rote Tests. Beim Umschreiben fiel außerdem a
 dass die alte Dachlücken-Prüfung („RUN und y > 13") schon im Moment des
 Absprungs erfüllt war und einen misslungenen Sprung durchgewunken hätte; sie
 prüft jetzt die Landung auf dem Nachbardach.
+
+Bei der Aufweitung am 2026-08-24 hat sich das ausgezahlt: `smoke-city` und
+`smoke-m4` liefen nach der Rasteränderung ohne eine einzige angepasste
+Koordinate durch. `smoke-m4` liest die Zeitrennen-Strecke seither ebenfalls aus
+`level.markers` statt aus einer abgeschriebenen Torliste. Eine Falle dabei: ein
+Tor liegt über einer Balance-Rail, und sobald der Spieler dort landet, führt der
+Balancer die Kapsel und überschreibt jeden weiteren Teleport — der Test kam nie
+bei den restlichen Toren an. Vor dem Teleport `player.balancer.active = null`
+setzen.
+
+**5. Treppen brauchen einen eigenen Test.** Sie sind der einzige Weg zurück aufs
+Dach, der keine Technik verlangt — und wenn der Spieler auf halber Höhe hängen
+bleibt, wird kein anderer Test rot. `smoke-stairs.mjs` läuft deshalb jede Treppe
+im Level einzeln ab, hoch (gehend und sprintend) und wieder runter, und
+akzeptiert unten kein BAIL. Die Treppen werden dabei aus den Stufen-Deckflächen
+rekonstruiert, nicht abgeschrieben.
 
 ---
 

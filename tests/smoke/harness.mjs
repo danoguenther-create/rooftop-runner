@@ -50,8 +50,7 @@ export const stepMs = (page, ms) => step(page, Math.max(1, Math.round(ms / STEP_
  * sieht die Variablen des Tests nicht).
  * Gibt zurück, ob die Bedingung eingetreten ist.
  */
-export const stepUntil = async (page, predicate, maxSteps = 900, arg = null) => {
-  const batch = 6;
+export const stepUntil = async (page, predicate, maxSteps = 900, arg = null, batch = 6) => {
   for (let done = 0; done < maxSteps; done += batch) {
     if (await page.evaluate(predicate, arg)) return true;
     await step(page, batch);

@@ -54,42 +54,70 @@ const reset = async () => {
 const anchors = await page.evaluate(() => {
   const level = window.game.level;
   const faces = level.topFaces;
-  const roof = (cx, cz, y) =>
-    faces.find(
-      (f) => Math.abs(f.cx - cx) < 0.5 && Math.abs(f.cz - cz) < 0.5 && Math.abs(f.y - y) < 0.3,
-    );
   const flat = (f) => (f ? { x: f.cx, z: f.cz, y: f.y, halfX: f.halfX, halfZ: f.halfZ } : null);
 
-  // Unterste Stufe der Treppe C6 (Stufen sind 3 x 0.4 x 0.9)
-  const step = faces
-    .filter((f) => Math.abs(f.halfX - 1.5) < 0.01 && Math.abs(f.halfZ - 0.45) < 0.01)
-    .filter((f) => f.cx > 25 && f.cx < 42)
-    .sort((a, b) => a.y - b.y)[0];
+  // Zwei benachbarte Dächer mit einer springbaren Fuge dazwischen. Welche
+  // Häuser das sind, entscheidet der Stadtplan — der Test sucht sie sich.
+  const roofs = faces
+    .filter((f) => f.halfX > 5 && f.halfZ > 5 && f.y > 8)
+    .sort((a, b) => a.cz - b.cz || a.cx - b.cx);
+  let pair = null;
+  for (let k = 0; k + 1 < roofs.length && !pair; k++) {
+    const a = roofs[k];
+    const b = roofs[k + 1];
+    const gap = b.cx - b.halfX - (a.cx + a.halfX);
+    if (Math.abs(a.cz - b.cz) < 0.5 && gap > 3 && gap < 5.5 && Math.abs(a.y - b.y) <= 1.5) {
+      pair = [a, b];
+    }
+  }
 
-  // Geneigte Balance-Rail B1 -> A1: fällt von Zeile B nach Zeile A ab
+  // Unterste Stufe einer Treppe (Stufen sind 3 x 0.4 x 0.9)
+  const steps = faces
+    .filter((f) => Math.abs(f.halfX - 1.5) < 0.01 && Math.abs(f.halfZ - 0.45) < 0.01)
+    .sort((a, b) => a.y - b.y);
+
+  // Geneigte Balance-Rail über eine Straße: fällt um mehr als 1 m ab
   const sloped = level.rails
     .map((r) => r.curve.points)
-    .find((p) => Math.abs(p[0].x + 52.5) < 0.5 && p[0].y > p[1].y + 1);
+    .find((p) => p[0].y > p[1].y + 1 && Math.abs(p[0].x - p[1].x) < 0.5);
 
-  // Erstes Feuerleiter-Podest in der Gasse zwischen B2 und B3 (1.4 x 3.2)
+  // Schwungstange: waagerechte 4-m-Rail auf Dachhöhe
+  const barPts = level.rails
+    .map((r) => r.curve.points)
+    .find(
+      (p) =>
+        Math.abs(p[0].y - p[1].y) < 0.01 &&
+        p[0].y > 8 &&
+        Math.abs(Math.abs(p[1].x - p[0].x) - 4) < 0.15,
+    );
+
+  // Kletterhäuschen auf einem Dach (3 x 3 x 3)
+  const shed = faces
+    .filter((f) => Math.abs(f.halfX - 1.5) < 0.01 && Math.abs(f.halfZ - 1.5) < 0.01)
+    .sort((a, b) => b.y - a.y)[0];
+
+  // Erstes Feuerleiter-Podest in einer Gasse (1.4 x 3.2)
   const escape = faces
     .filter((f) => Math.abs(f.halfX - 0.7) < 0.01 && Math.abs(f.halfZ - 1.6) < 0.01)
-    .filter((f) => Math.abs(f.cz + 20) < 0.5)
     .sort((a, b) => a.y - b.y)[0];
 
-  // Karosserie eines parkenden Autos (4.4 x 1.9) an der A–B-Straße
+  // Karosserie eines parkenden Autos (4.4 x 1.9)
   const car = faces
     .filter((f) => Math.abs(f.halfX - 2.2) < 0.01 && Math.abs(f.halfZ - 0.95) < 0.01)
     .sort((a, b) => a.cx - b.cx)[0];
 
-  // Deck der Fußgängerbrücke (2.6 x 13)
-  const bridge = faces.find((f) => Math.abs(f.halfX - 1.3) < 0.01 && Math.abs(f.halfZ - 6.5) < 0.01);
+  // Deck der Fußgängerbrücke (2.6 m breit, lang)
+  const bridge = faces.find((f) => Math.abs(f.halfX - 1.3) < 0.01 && f.halfZ > 6);
 
   return {
-    b0: flat(roof(-70, -20, 14)),
-    b1: flat(roof(-52.5, -20, 13)),
-    step: flat(step),
+    b0: pair && flat(pair[0]),
+    b1: pair && flat(pair[1]),
+    step: flat(steps[0]),
     sloped: sloped ? { x: sloped[0].x, y: sloped[0].y, z: sloped[0].z } : null,
+    bar: barPts
+      ? { x: (barPts[0].x + barPts[1].x) / 2, y: barPts[0].y, z: barPts[0].z }
+      : null,
+    shed: flat(shed),
     escape: flat(escape),
     car: flat(car),
     bridge: flat(bridge),
@@ -121,7 +149,7 @@ results.stats = await stats();
 // --- Dachlücken-Sprung: B0 -> B1 über die Fuge (W hält den +x-Speed)
 await lookAt(-Math.PI / 2);
 await page.keyboard.down('w');
-await teleport(anchors.b0.x + anchors.b0.halfX - 0.5, anchors.b0.y + 1, -20, 8, 8, 0);
+await teleport(anchors.b0.x + anchors.b0.halfX - 0.5, anchors.b0.y + 1, anchors.b0.z, 8, 8, 0);
 // Auf die Landung DRÜBEN warten: nur „RUN und y > 13" wäre schon im Moment
 // des Absprungs erfüllt und würde einen misslungenen Sprung durchwinken.
 const b1West = anchors.b1.x - anchors.b1.halfX;
@@ -142,17 +170,20 @@ await stepMs(page, 400);
 results.rail = await state();
 await reset();
 
-// --- Schwungstange: von B3-Dach fallend an die Stangenreihe (y=13, z=-28.5)
-await teleport(-17.5, 12.1, -28.2, 0, 0, -3);
-await stepMs(page, 400);
+// --- Schwungstange: seitlich UNTER der Stange ankommen. Von oben drauf
+// fallen ergäbe BALANCE — die Stange wird dann als Rail gefangen, nicht
+// mit den Händen gegriffen (Hände liegen 0.6 m über der Kapselmitte).
+await teleport(anchors.bar.x, anchors.bar.y - 0.9, anchors.bar.z + 0.3, 0, 0, -3);
+await stepUntil(page, () => window.game.player.fsm.current === 'SWING', 120);
 results.bar = await state();
 await reset();
 
 // --- Kletterhäuschen auf A2: Anlauf -> Wandlauf -> HANG
 // W nur bis zum Grab halten — gehaltenes W würde nach der
 // 250-ms-Schonfrist sofort das Mantle auslösen
+await lookAt(-Math.PI / 2);
 await page.keyboard.down('w');
-await teleport(-43, 9.95, -48, 6, 0, 0);
+await teleport(anchors.shed.x - 4.5, anchors.shed.y - 2.1, anchors.shed.z, 6, 0, 0);
 await stepUntil(page, () => window.game.player.fsm.current === 'HANG', 480);
 await page.keyboard.up('w');
 await stepMs(page, 300);
@@ -212,7 +243,7 @@ const calls = Number(results.stats?.match(/(\d+) calls/)?.[1] ?? 999);
 // Budget aus Task 17b ist 150. Der Stadt-Batch bündelt alle Boxen nach Stil,
 // deshalb liegt die Stadt bei ~30 — bei 80 ist etwas an der Bündelung kaputt.
 if (calls >= 80) fails.push(`draw-calls (${calls})`);
-if (results.gapJump.st !== 'RUN' || results.gapJump.pos.y < 13.5) fails.push('dachluecke');
+if (results.gapJump.st !== 'RUN' || results.gapJump.pos.x < b1West) fails.push('dachluecke');
 if (results.rail.st !== 'BALANCE') fails.push('rail');
 if (results.bar.st !== 'SWING') fails.push('stange');
 if (results.shed.st !== 'HANG') fails.push('kletterhaus');
