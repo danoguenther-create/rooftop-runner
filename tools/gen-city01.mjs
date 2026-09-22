@@ -55,6 +55,7 @@ const boxes = [];
 const ramps = [];
 const rails = [];
 const markers = [];
+const scenery = { buildings: [], cars: [], trees: [], lamps: [], signs: [] };
 
 /** Deterministischer Pseudo-Zufall — der Stadtplan ist bei jedem Lauf gleich. */
 const hash = (a, b) => {
@@ -72,14 +73,14 @@ const rail = (a, b) => rails.push({ points: [a, b] });
 
 // Farbwelt: warmer Altbaubestand, kühle Nachkriegsbauten, Beton, Ziegel
 const FACADES = [
-  { color: '#c08a63', style: 'windows-mixed' }, // Sandstein-Altbau
-  { color: '#b5643f', style: 'windows-mixed' }, // Ziegelrot
-  { color: '#a8adb4', style: 'windows-grid' }, // Betongrau
-  { color: '#8e959d', style: 'windows-grid' },
-  { color: '#93a3a8', style: 'windows-strip' }, // Bandfassade, Nachkriegsbau
+  { color: '#e1c7a5', style: 'windows-mixed' }, // Sandstein-Altbau
+  { color: '#d99c8c', style: 'windows-mixed' }, // Ziegelrot
+  { color: '#c5d4cb', style: 'windows-grid' }, // Betongrau
+  { color: '#d8d2bd', style: 'windows-grid' },
+  { color: '#9fbeb9', style: 'windows-strip' }, // Bandfassade, Nachkriegsbau
   { color: '#c9c3b4', style: 'windows-strip' },
 ];
-const ASPHALT = '#4c4f55';
+const ASPHALT = '#343b40';
 const CONCRETE = ['#9aa0a3', '#b3b8bc', '#8b9094'];
 const CURB = '#a9aeb3';
 const METAL = '#5d646e';
@@ -133,11 +134,23 @@ for (let r = 0; r < rows.length; r++) {
       pos: [bx(i), height / 2, rz(r)],
       size: [W(r, i), height, D(r, i)],
       color: f.color,
-      style: f.style,
+      style: 'plain',
     });
+    const stairSide = ({7:1,20:1,22:-1,31:-1})[r*8+i] ?? 0;
+    scenery.buildings.push({ stairSide, x: bx(i), z: rz(r), width: W(r,i), depth: D(r,i), height, color: f.color, variant: (r * 3 + i) % 4 });
+    const bays = Math.floor((W(r,i)-1)/2.8);
+    for (const side of [-1,1]) for(let k=0;k<bays;k++) {
+      if (side === stairSide) continue;
+      const wx=bx(i)+(k-(bays-1)/2)*2.8;
+      const front=rz(r)+side*(D(r,i)/2+.06);
+      box([wx,2.87,front+side*.5],[2.5,.13,1.05],f.color,{invisible:true});
+      if((r*3+i)%4===1 && k%2===0) for(let y=4.7;y<height-1;y+=3.2) {
+        box([wx,y-.98,front+side*.58],[2.25,.16,1.2],f.color,{invisible:true});
+      }
+    }
     // Sockelzone: dunklerer, leicht vorstehender Fuß — gibt der Fassade
     // Maßstab und nebenbei einen 1.4-m-Absatz zum Aufsteigen
-    box([bx(i), 0.7, rz(r)], [W(r, i) + 0.5, 1.4, D(r, i) + 0.5], PLINTH);
+    box([bx(i), 0.7, rz(r)], [W(r, i) + 0.12, 1.4, D(r, i) + 0.12], '#9eaaab');
 
     // Staffelgeschoss auf den hohen Häusern. B3 bleibt frei: dort steht der
     // Spawn, und ein Aufbau direkt davor verstellt den ersten Blick.
@@ -284,7 +297,7 @@ for (const [r, i] of wallGaps) {
 
 // Vault-Kästen (Lüftung) auf den Lauflinien — Höhe 0.9 m
 for (const [r, i] of [[0, 1], [0, 4], [1, 2], [1, 3], [1, 5], [2, 1], [2, 3], [3, 2], [3, 4], [3, 6]]) {
-  box([bx(i), h(r, i) + 0.45, rz(r) + 2], [2.4, 0.9, 0.6], YELLOW);
+  box([bx(i), h(r, i) + 0.45, rz(r) + 2], [2.4, 0.9, 0.6], '#879b98');
 }
 
 // ============================================================ Dach-Querungen
@@ -435,9 +448,7 @@ for (let r = 0; r < 3; r++) {
     const x = bx(0) + 4 + k * PITCH * 1.4;
     for (const side of [-1, 1]) {
       const z = zc + side * 4.6;
-      deco([x, 2.6, z], [0.18, 5.2, 0.18], '#454b52');
-      deco([x, 5.1, z - side * 0.9], [0.14, 0.12, 1.8], '#454b52');
-      deco([x, 5.0, z - side * 1.7], [0.5, 0.2, 0.9], '#d9d2a8');
+      scenery.lamps.push({ x, z, side });
     }
     rail([x, 3.0, zc - 4.6], [x, 3.0, zc + 4.6]);
     deco([x, 3.35, zc], [1.6, 0.55, 0.08], YELLOW);
@@ -451,9 +462,9 @@ const parkCar = (x, z, n) => {
   for (let k = 0; k < n; k++) {
     const cx = x + k * 5.4;
     const c = CAR_COLORS[Math.floor(hash(cx, z) * CAR_COLORS.length)];
-    box([cx, 0.72, z], [4.4, 0.76, 1.9], c); // Karosserie
-    box([cx - 0.2, 1.32, z], [2.3, 0.62, 1.75], c); // Aufbau
-    deco([cx, 0.34, z], [4.0, 0.5, 2.0], '#25282c'); // Schweller/Räder
+    box([cx, 0.72, z], [4.4, 0.76, 1.9], c, { invisible: true }); // Karosserie
+    box([cx - 0.2, 1.32, z], [2.3, 0.62, 1.75], c, { invisible: true }); // Aufbau
+    scenery.cars.push({ x: cx, z, color: c }); // Schweller/Räder
   }
 };
 parkCar(sx(-58), streetZ(0) + 3.4, 4);
@@ -490,11 +501,7 @@ const busStop = { x: sx(-30), z: streetZ(0) - 4.6 };
 // Bäume und Pflanzkübel: Kübel sind Vaults, Kronen reine Silhouette
 const tree = (x, z, s = 1) => {
   box([x, 0.45, z], [1.6, 0.9, 1.6], CONCRETE[2]); // Kübel (Vault)
-  deco([x, 1.9 * s + 0.9, z], [0.34, 2.6 * s, 0.34], '#6b543c');
-  // Krone aus zwei versetzten Blöcken — eine einzelne Platte sieht aus der
-  // Straßenperspektive wie ein schwebendes Schild aus
-  deco([x, 3.2 * s + 0.9, z], [2.4 * s, 1.6 * s, 2.4 * s], GREEN);
-  deco([x + 0.3 * s, 4.2 * s + 0.9, z - 0.2 * s], [1.7 * s, 1.3 * s, 1.7 * s], '#6d8a52');
+  scenery.trees.push({ x, z, scale: s, palm: scenery.trees.length % 3 !== 2 });
 };
 for (const [x, dz, r] of [
   [-46, -4.9, 2], [-38, -4.9, 2], [12, -4.9, 2], [56, -4.9, 2],
@@ -752,6 +759,36 @@ const cps = [
 cps.forEach((pos, i) => markers.push({ type: 'checkpoint', id: `cp${i + 1}`, pos }));
 markers.push({ type: 'finish', id: 'finish-1', pos: [bx(6), h(0, 6) + 1.4, rz(0)] });
 
+// Coastal extension: connected boardwalk, training plaza and pavilion roofs.
+box([8, -0.5, 94], [224, 1, 50], '#8a968b');
+box([8, 0.08, 96], [220, 0.16, 30], '#b8b6a4');
+for (let x = -94; x <= 108; x += 12) {
+  scenery.trees.push({ x, z: 108, scale: 1.15 + hash(x, 9) * 0.3, palm: true });
+  scenery.lamps.push({ x: x + 4, z: 85, side: -1 });
+  // Seating is also a low vault and precision line.
+  box([x, 0.48, 104], [3.6, 0.96, 0.65], '#bdaf95');
+}
+for (let k = 0; k < 7; k++) {
+  const x = -83 + k * 8;
+  box([x, 0.4 + (k%3)*0.3, 94], [2.8, 0.8 + (k%3)*0.6, 2.4], '#d4cbb8');
+  deco([x, 0.815 + (k%3)*0.6, 94], [2.7, 0.025, 2.3], '#558c86');
+}
+for (let k = 0; k < 4; k++) {
+  const x = -10 + k * 3.4;
+  for (const dz of [-2, 2]) box([x, 1.5, 94+dz], [0.12, 3, 0.12], '#657a79');
+  rail([x, 3, 92], [x, 3, 96]);
+}
+for (let k = 0; k < 3; k++) {
+  const x = 32 + k * 15;
+  box([x, 1.35, 94], [8, 2.7, 7], ['#b9cfc3','#d8b4a0','#cec5ac'][k]);
+  box([x, 2.8, 94], [8.5, 0.2, 7.5], '#ede5d2');
+  box([x-5, 0.5, 92], [1.8, 1, 2], '#ada994');
+  box([x-5, 1.05, 95], [1.8, 2.1, 2], '#ada994');
+  scenery.signs.push({ x, y: 2, z: 90.45, text: ['BOARDWALK','FLOW CLUB','COASTAL CAFE'][k], color: '#164b50' });
+  rail([x-3, 3.3, 93], [x+3, 3.3, 93]);
+}
+scenery.signs.push({ x:-40, y:2.8, z:83, text:'PALM QUAY  /  FREERUN PARK', color:'#164b50' });
+
 // ============================================================ Kulisse
 // Skyline ohne Collider hinter dem Viertel — im Dunst (Fog ab 40 m) wird
 // daraus eine Stadt, die weitergeht. Kostet einen Bruchteil eines Draw-Calls,
@@ -760,10 +797,10 @@ const skyline = (pos, size, seed) => {
   const f = FACADES[Math.floor(hash(seed * 7, seed * 13 + 2) * FACADES.length)];
   boxes.push({ pos, size, color: f.color, style: f.style, solid: false });
 };
-for (const [zc, sign] of [[zN(0, 0) - 42, -1], [zS(3, 0) + 42, 1]]) {
-  for (let k = 0; k < 30; k++) {
-    const x = -175 + k * 13 + hash(k, zc) * 4;
-    const height = 16 + hash(k * 3, zc + 1) * 34;
+for (const [zc, sign] of [[zN(0, 0) - 85, -1], [zS(3, 0) + 165, 1]]) {
+  for (let k = 0; k < 18; k++) {
+    const x = -175 + k * 22 + hash(k, zc) * 6;
+    const height = 12 + hash(k * 3, zc + 1) * 38;
     skyline([x, height / 2, zc + sign * hash(k, zc + 3) * 22], [9 + hash(k * 5, zc) * 6, height, 10], k + zc);
   }
 }
@@ -776,12 +813,13 @@ for (const xc of [bx(0) - 85, TOWER_X + 75]) {
 }
 
 const level = {
-  name: 'Rooftops District',
+  name: 'Palm Quay — Coastal District',
   spawn: [bx(3), h(1, 3) + 0.1, rz(1)],
   boxes,
   ramps,
   rails,
   markers,
+  scenery,
   trialTimes: { gold: 60000, silver: 80000, bronze: 100000 },
 };
 

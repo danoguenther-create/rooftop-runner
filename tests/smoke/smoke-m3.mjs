@@ -61,7 +61,7 @@ await teleport(0, 12, -20, 0, 0, 0); // 12 m Sturz auf den Boden -> BAIL
 await stepMs(page, 1600); // Sturz ~1.1s bis zum Aufschlag
 // Das Ausblenden der Combo hängt an einem window.setTimeout (HUD: Wackeln,
 // dann verstecken) — reine Anzeige, läuft in Echtzeit und nicht im Physiktakt.
-await page.waitForTimeout(600);
+await page.waitForFunction(() => document.querySelector('.hud-combo')?.style.opacity === '0', null, { timeout: 5000 });
 results.afterBail = await hudState();
 
 for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===`, JSON.stringify(v));

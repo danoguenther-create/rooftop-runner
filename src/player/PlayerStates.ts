@@ -11,7 +11,6 @@ import {
   HANG_CENTER_BELOW,
   MANTLE_S,
   SHIMMY_SPEED,
-  VAULT_DURATION_S,
   WALLJUMP_NORMAL_IMPULSE,
   WALLJUMP_UP_IMPULSE,
   WALLRUN_GRAVITY_FACTOR,
@@ -85,6 +84,10 @@ export class StateMachine {
       return;
     }
     this.currentState.exit();
+    if (to !== 'AIR' && to !== 'RUN') {
+      this.player.cancelAirPose();
+      this.player.climb.stopWallClimb();
+    }
     this.currentState = this.states[to];
     this.currentState.enter();
     this.player.bus.emit('player:stateChange', { from, to });
@@ -176,12 +179,12 @@ class AirState extends PlayerState {
 
 // --------------------------------------------------------------- WALLRUN
 
-const _wallNormal = new THREE.Vector3();
-const _wallTangent = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 class WallRunState extends PlayerState {
   readonly name = 'WALLRUN' as const;
+  private readonly normal = new THREE.Vector3();
+  private readonly tangent = new THREE.Vector3();
   private side: WallSide = 'left';
   private speed = 0;
   private elapsed = 0;
@@ -192,7 +195,7 @@ class WallRunState extends PlayerState {
     this.side = hit.side;
     this.elapsed = 0;
     this.speed = p.horizontalSpeed;
-    _wallNormal.copy(hit.normal);
+    this.normal.copy(hit.normal);
     this.updateTangent();
 
     p.velocity.y = Math.max(p.velocity.y, -1);
@@ -203,9 +206,9 @@ class WallRunState extends PlayerState {
   /** Tangente entlang der Wand, in bisheriger Laufrichtung. */
   private updateTangent(): void {
     const p = this.player;
-    _wallTangent.crossVectors(_wallNormal, UP).normalize();
-    if (_wallTangent.x * p.velocity.x + _wallTangent.z * p.velocity.z < 0) {
-      _wallTangent.negate();
+    this.tangent.crossVectors(this.normal, UP).normalize();
+    if (this.tangent.x * p.velocity.x + this.tangent.z * p.velocity.z < 0) {
+      this.tangent.negate();
     }
   }
 
@@ -219,15 +222,15 @@ class WallRunState extends PlayerState {
       p.fsm.transition('AIR');
       return;
     }
-    _wallNormal.copy(hit.normal);
+    this.normal.copy(hit.normal);
     this.updateTangent();
 
     // Wall-Jump?
     if (p.consumeJumpRequest()) {
       p.velocity.set(
-        _wallNormal.x * WALLJUMP_NORMAL_IMPULSE + _wallTangent.x * this.speed * 0.7,
+        this.normal.x * WALLJUMP_NORMAL_IMPULSE + this.tangent.x * this.speed * 0.7,
         WALLJUMP_UP_IMPULSE,
-        _wallNormal.z * WALLJUMP_NORMAL_IMPULSE + _wallTangent.z * this.speed * 0.7,
+        this.normal.z * WALLJUMP_NORMAL_IMPULSE + this.tangent.z * this.speed * 0.7,
       );
       p.bus.emit('trick:walljump', { side: this.side });
       p.fsm.transition('AIR');
@@ -236,8 +239,8 @@ class WallRunState extends PlayerState {
 
     // Entlang der Wand, leicht abklingend; sanft an die Wand ziehen
     this.speed = Math.max(this.speed - 1 * dt, 0);
-    p.velocity.x = _wallTangent.x * this.speed - _wallNormal.x * 0.5;
-    p.velocity.z = _wallTangent.z * this.speed - _wallNormal.z * 0.5;
+    p.velocity.x = this.tangent.x * this.speed - this.normal.x * 0.5;
+    p.velocity.z = this.tangent.z * this.speed - this.normal.z * 0.5;
     p.velocity.y -= GRAVITY * WALLRUN_GRAVITY_FACTOR * dt;
 
     p.applyMovement(dt);
@@ -245,6 +248,7 @@ class WallRunState extends PlayerState {
   }
 
   override exit(): void {
+    this.player.wallDetector.endRun();
     this.player.wallHit = null;
     this.player.currentWallSide = null;
   }
@@ -282,11 +286,13 @@ class VaultState extends PlayerState {
   override enter(): void {
     const p = this.player;
     this.plan = p.pendingVault;
+    p.activeVault = this.plan;
+    p.vaultProgress = 0;
     p.pendingVault = null;
     this.t = 0;
     p.grounded = false;
     p.vaultDetector.markVaulted();
-    p.bus.emit('trick:vault', { obstacleHeight: this.plan?.obstacleHeight ?? 0 });
+    p.bus.emit('trick:vault', { obstacleHeight: this.plan?.obstacleHeight ?? 0, kind: this.plan?.kind });
   }
 
   override update(dt: number): void {
@@ -297,7 +303,8 @@ class VaultState extends PlayerState {
       return;
     }
 
-    this.t = Math.min(this.t + dt / VAULT_DURATION_S, 1);
+    this.t = Math.min(this.t + dt / plan.duration, 1);
+    p.vaultProgress = this.t;
     quadraticBezier(plan.start, plan.control, plan.end, this.t, _bezier);
     // Eingaben/Kollision ignorieren: Position direkt setzen
     p.body.setNextKinematicTranslation({ x: _bezier.x, y: _bezier.y, z: _bezier.z });
@@ -312,6 +319,7 @@ class VaultState extends PlayerState {
 
   override exit(): void {
     this.plan = null;
+    this.player.activeVault = null;
   }
 }
 
@@ -365,9 +373,6 @@ const _edge = new THREE.Vector3();
 const _out = new THREE.Vector3();
 const _edgeDir = new THREE.Vector3();
 const _hangPos = new THREE.Vector3();
-const _mantleStart = new THREE.Vector3();
-const _mantleControl = new THREE.Vector3();
-const _mantleEnd = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 
 const HANG_CENTER_OFFSET = CAPSULE_RADIUS + 0.1;
@@ -375,12 +380,15 @@ const CENTER_TO_FEET_H = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
 class HangState extends PlayerState {
   readonly name = 'HANG' as const;
+  private readonly mantleStart = new THREE.Vector3();
+  private readonly mantleEnd = new THREE.Vector3();
   private mantleT = -1; // -1 = hängend, sonst Fortschritt 0..1
   private inputLockUntil = 0;
 
   override enter(): void {
     const p = this.player;
     this.mantleT = -1;
+    p.mantleProgress = -1;
     // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
     // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
     this.inputLockUntil = simNow() + 250;
@@ -395,7 +403,13 @@ class HangState extends PlayerState {
     // --- Hochziehen läuft
     if (this.mantleT >= 0) {
       this.mantleT = Math.min(this.mantleT + dt / MANTLE_S, 1);
-      quadraticBezier(_mantleStart, _mantleControl, _mantleEnd, this.mantleT, _hangPos);
+      p.mantleProgress = this.mantleT;
+      // Pull vertically first, then transfer weight over the ledge and stand.
+      const u = this.mantleT;
+      const vertical = THREE.MathUtils.smoothstep(u,0,0.85);
+      const forward = THREE.MathUtils.smoothstep(u,0.35,1);
+      _hangPos.copy(this.mantleStart).lerp(this.mantleEnd,forward);
+      _hangPos.y = THREE.MathUtils.lerp(this.mantleStart.y,this.mantleEnd.y,vertical);
       p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
       if (this.mantleT >= 1) {
         p.velocity.set(0, 0, 0);
@@ -412,14 +426,13 @@ class HangState extends PlayerState {
 
     // --- Hochziehen starten (W oder Sprungtaste)
     if (moveY > 0.5 || (!locked && p.consumeJumpRequest())) {
-      p.getPosition(_mantleStart);
+      p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
-      _mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
-      _mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
-      _mantleControl.copy(_edge);
-      _mantleControl.y = _mantleEnd.y + 0.3;
+      this.mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
+      this.mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
       this.mantleT = 0;
+      p.mantleProgress = 0;
       return;
     }
 
@@ -444,6 +457,7 @@ class HangState extends PlayerState {
 
   override exit(): void {
     this.player.climb.releaseGrab();
+    this.player.mantleProgress = -1;
   }
 
   /** Kapselzentrum: knapp außerhalb der Kante, Hände auf Kantenhöhe. */

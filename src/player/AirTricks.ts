@@ -29,6 +29,13 @@ export class AirTricks {
     return this.flipKind !== null || this.spinTargetDeg !== 0;
   }
 
+  /** Compress during rotation, open before the last turn completes. */
+  get tuckWeight(): number {
+    if (!this.flipKind || this.flipProgress >= this.flipTarget) return 0;
+    const smooth = (x: number) => { const t = Math.max(0, Math.min(1, x)); return t * t * (3 - 2 * t); };
+    return smooth(this.flipProgress / 0.22) * smooth((this.flipTarget - this.flipProgress) / 0.25);
+  }
+
   /** Pfeiltaste: Flip starten bzw. weitere Umdrehung anhängen. */
   queueFlip(kind: FlipKind): void {
     if (!this.flipKind) {
@@ -60,6 +67,8 @@ export class AirTricks {
   /** Nach mesh.rotation.y = meshYaw aufrufen — addiert Spin + Flip-Pose. */
   applyVisual(mesh: THREE.Group): void {
     mesh.rotation.y += (this.spinDeg * Math.PI) / 180;
+    mesh.rotation.x = 0;
+    mesh.rotation.z = 0;
     const angle = this.flipProgress * Math.PI * 2;
     switch (this.flipKind) {
       case 'front':

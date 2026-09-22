@@ -1,6 +1,6 @@
 import type { Game } from '../core/Game';
 
-const ACCENT = '#ff6a00';
+const ACCENT = '#277d7b';
 
 /**
  * Start- und Pausemenü (Task 23). DOM in #menu, Stil wie das HUD.
@@ -70,17 +70,17 @@ export class Menus {
     };
 
     if (kind === 'start') {
-      btn('▶ Free Run — Graybox (Physik-Playground)', () => switchLevel('testlevel'));
-      btn('▶ Free Run — Rooftops District', () => switchLevel('city01'));
-      btn('⏱ Time Trial — Rooftops District', () => switchLevel('city01', '&trial=1'));
+      btn('▶ Palm Quay erkunden', () => switchLevel('city01'));
+      btn('▶ Trainingsgelände', () => switchLevel('testlevel'), true);
+      btn('⏱ Time Trial — Palm Quay', () => switchLevel('city01', '&trial=1'));
       // Splitscreen-Duell (2 Spieler an einer Tastatur): eigener Modus,
       // startet direkt (play=1) — reiner Trick-Score-Vergleich
       btn('👥 Splitscreen — Graybox', () => switchLevel('testlevel', '&mode=split&play=1'));
-      btn('👥 Splitscreen — Rooftops District', () =>
+      btn('👥 Splitscreen — Palm Quay', () =>
         switchLevel('city01', '&mode=split&play=1'),
       );
       // Game of PARK: vorlegen & nachmachen (S.K.A.T.E.-Prinzip)
-      btn('🎯 Game of PARK — Rooftops District', () =>
+      btn('🎯 Game of PARK — Palm Quay', () =>
         switchLevel('city01', '&mode=split&game=park&play=1'),
       );
 

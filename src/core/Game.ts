@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { Sky } from 'three/examples/jsm/objects/Sky.js';
+import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
 import { clone as cloneSkeleton } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { EventBus } from './EventBus';
 import { Input, keymapP1, keymapP2, type InputState } from './Input';
@@ -67,7 +69,7 @@ export class Game {
   private statsEl: HTMLDivElement;
   private debugEl: HTMLDivElement;
   private hintEl: HTMLDivElement;
-  private debugVisible = true;
+  private debugVisible = new URLSearchParams(location.search).has('debug') || new URLSearchParams(location.search).has('nochar');
   private frameCount = 0;
   private statsTimer = 0;
 
@@ -101,6 +103,14 @@ export class Game {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setSize(window.innerWidth, window.innerHeight);
+    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    this.renderer.toneMappingExposure = 1.05;
+    const pmrem = new THREE.PMREMGenerator(this.renderer);
+    const room = new RoomEnvironment();
+    this.scene.environment = pmrem.fromScene(room, 0.04).texture;
+    this.scene.environmentIntensity = 0.35;
+    room.dispose();
+    pmrem.dispose();
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -137,6 +147,7 @@ export class Game {
     this.debugEl.style.cssText =
       'position:absolute;bottom:8px;left:8px;padding:4px 8px;background:rgba(0,0,0,.55);' +
       'color:#fc6;font:12px monospace;border-radius:4px;white-space:pre;';
+    this.debugEl.style.display = this.debugVisible ? 'block' : 'none';
     hud.appendChild(this.debugEl);
     window.addEventListener('keydown', (e) => {
       if (e.code === 'F3') {
@@ -157,7 +168,7 @@ export class Game {
       'Click to play — W/S laufen · A/D drehen · Space Sprung · Shift Sprint · ' +
       'C Roll · Luft: W/A/S/D erneut = Flip, Q/E Spin · R Respawn · Maus optional';
     this.hintEl.style.cssText =
-      'position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+      'position:absolute;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:85vw;' +
       'padding:14px 22px;background:rgba(0,0,0,.65);color:#fff;font:15px system-ui;' +
       'border-radius:8px;border:1px solid #ff6a00;';
     hud.appendChild(this.hintEl);
@@ -181,12 +192,22 @@ export class Game {
 
   /** Licht + Himmel (levelunabhängig). */
   private buildEnvironment(): void {
-    this.scene.background = new THREE.Color(0x87b7dc);
+    this.scene.background = new THREE.Color(0xb6ced0);
     // Distanznebel in Himmelfarbe: kaschiert das Levelende (Task 17)
-    this.scene.fog = new THREE.Fog(0x87b7dc, 40, 180);
+    this.scene.fog = new THREE.Fog(0xb6ced0, 95, 390);
+    const sky = new Sky();
+    sky.scale.setScalar(1200);
+    sky.material.uniforms.turbidity.value = 3;
+    sky.material.uniforms.rayleigh.value = 1.6;
+    sky.material.uniforms.mieCoefficient.value = 0.004;
+    sky.material.uniforms.mieDirectionalG.value = 0.82;
+    sky.material.uniforms.sunPosition.value.set(55, 70, -45);
+    this.scene.add(sky);
 
-    const sun = new THREE.DirectionalLight(0xffffff, 2.5);
-    sun.position.set(15, 30, 12);
+    const sun = new THREE.DirectionalLight(0xffe2b5, 3.1);
+    sun.position.set(55, 70, -45);
+    sun.shadow.bias = -0.0002;
+    sun.shadow.normalBias = 0.035;
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
     sun.shadow.camera.left = -40;
@@ -194,8 +215,8 @@ export class Game {
     sun.shadow.camera.top = 40;
     sun.shadow.camera.bottom = -40;
     this.sun = sun;
-    this.scene.add(sun);
-    this.scene.add(new THREE.HemisphereLight(0xbfd9ff, 0x5a6b50, 1.2));
+    this.scene.add(sun, sun.target);
+    this.scene.add(new THREE.HemisphereLight(0xc2e0ed, 0x77755d, 1.4));
   }
 
   /** Async wegen RAPIER.init(); erst danach startet der Loop. */
@@ -449,6 +470,12 @@ export class Game {
 
   /** Zeichnen + Overlays — läuft immer im Bildtakt, auch bei manuellem Takt. */
   private renderFrame(dt: number): void {
+    if (this.player) {
+      const at=this.player.body.translation();
+      this.sun.position.set(at.x+55,at.y+70,at.z-45);
+      this.sun.target.position.set(at.x,at.y,at.z);
+      this.sun.target.updateMatrixWorld();
+    }
     if (this.mode === 'split') {
       const w = window.innerWidth;
       const h = window.innerHeight;

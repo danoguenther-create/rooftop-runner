@@ -24,6 +24,8 @@ const TESTS = [
   'smoke-city',
   'smoke-m4',
   'smoke-char',
+  'smoke-contacts',
+  'smoke-motion-flow',
   'smoke-split',
   'smoke-park',
   'smoke-modes',

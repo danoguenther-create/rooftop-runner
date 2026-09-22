@@ -63,6 +63,13 @@ export class Swinger {
     return this.active;
   }
 
+  grip(point: THREE.Vector3, tangent: THREE.Vector3): boolean {
+    if (!this.active) return false;
+    this.active.rail.curve.getPointAt(this.active.t, point);
+    this.active.rail.curve.getTangentAt(this.active.t, tangent).normalize();
+    return true;
+  }
+
   /** Hände von unten in Stangen-Reichweite? Dann fangen. */
   trySnap(): boolean {
     const p = this.player;

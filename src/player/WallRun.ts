@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { simNow } from '../core/SimClock';
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { PlayerController } from './PlayerController';
 import { WALLRUN_MIN_SPEED, WALLRUN_RAY_LEN } from './tuning';
@@ -25,6 +26,16 @@ const UP = new THREE.Vector3(0, 1, 0);
  * Tempo und Lauf-entlang-Winkel (< 45° zur Wandtangente).
  */
 export class WallRunDetector {
+  private blockedUntil = 0;
+  private blockedNormal: THREE.Vector3 | null = null;
+  private readonly blockedPoint = new THREE.Vector3();
+
+  endRun(): void {
+    this.blockedUntil = simNow() + 300;
+    this.blockedNormal = this.result.normal.clone();
+    this.blockedPoint.copy(this.result.point);
+  }
+
   private readonly result: WallHit = {
     side: 'left',
     normal: new THREE.Vector3(),
@@ -33,6 +44,17 @@ export class WallRunDetector {
 
   /** Prüft beide Seiten; bei Doppeltreffer gewinnt die nähere Wand. */
   check(player: PlayerController): WallHit | null {
+    if (player.grounded) {
+      this.blockedNormal = null;
+      return null;
+    }
+    if (simNow() < this.blockedUntil) return null;
+    if (this.blockedNormal) {
+      const at = player.body.translation();
+      const distance = (at.x - this.blockedPoint.x) * this.blockedNormal.x + (at.z - this.blockedPoint.z) * this.blockedNormal.z;
+      if (distance < WALLRUN_RAY_LEN + 0.2) return null;
+      this.blockedNormal = null;
+    }
     const hSpeed = player.horizontalSpeed;
     if (hSpeed < WALLRUN_MIN_SPEED) return null;
 

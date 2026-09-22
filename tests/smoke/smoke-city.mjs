@@ -238,7 +238,7 @@ console.log('Konsolen-Fehler:', errors.length ? errors : 'keine');
 await browser.close();
 
 const fails = [];
-if (results.spawn.level !== 'Rooftops District' || results.spawn.st !== 'RUN') fails.push('spawn');
+if (results.spawn.level !== 'Palm Quay — Coastal District' || results.spawn.st !== 'RUN') fails.push('spawn');
 const calls = Number(results.stats?.match(/(\d+) calls/)?.[1] ?? 999);
 // Budget aus Task 17b ist 150. Der Stadt-Batch bündelt alle Boxen nach Stil,
 // deshalb liegt die Stadt bei ~30 — bei 80 ist etwas an der Bündelung kaputt.

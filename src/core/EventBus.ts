@@ -13,7 +13,7 @@ export interface GameEvents {
   'player:bail': { fallHeight: number };
   'trick:wallrun': { side: WallSide };
   'trick:walljump': { side: WallSide };
-  'trick:vault': { obstacleHeight: number };
+  'trick:vault': { obstacleHeight: number; kind?: 'speed' | 'kong' };
   'trick:balanceStart': { rail: number };
   'trick:balanceTick': { seconds: number };
   /** full = (fast) die gesamte Rail-Länge balanciert -> Bonus. */

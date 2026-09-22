@@ -18,9 +18,11 @@
  * Ersetzt das Raten mit festen Sekunden nach page.goto().
  */
 export const waitForPlaying = (page) =>
-  page.waitForFunction(() => window.game?.state === 'PLAYING' && window.game.players.length > 0, {
-    timeout: 60000,
-  });
+  page.waitForFunction(
+    () => window.game?.state === 'PLAYING' && window.game.players.length > 0,
+    null,
+    { timeout: 120000 },
+  );
 
 /**
  * Wie waitForPlaying, zusätzlich bis der Spieler nach dem Spawn Boden unter den

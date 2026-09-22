@@ -34,7 +34,6 @@ const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
 const _pos = new THREE.Vector3();
 const _wish = new THREE.Vector3();
 const _outward = new THREE.Vector3();
-const _pushNormal = new THREE.Vector3();
 
 /**
  * Vertikaler Wandlauf + Ledge-Grab (Task 16b). Der Wandlauf ist kein
@@ -48,6 +47,12 @@ export class Climber {
   private climbingUntil = 0;
   private regrabAt = 0;
   private pushPending = false;
+  private readonly pushNormal = new THREE.Vector3();
+
+  stopWallClimb(): void {
+    this.climbingUntil = 0;
+    this.pushPending = false;
+  }
 
   /** Für Animations-Blending (Task 21) und Debug. */
   get isWallClimbing(): boolean {
@@ -58,6 +63,9 @@ export class Climber {
   tryWallClimb(p: PlayerController): void {
     const now = simNow();
     if (now < this.climbCooldownUntil) return;
+    // A descending approach already at hand height should catch the ledge.
+    // Boosting before reaching the grab radius lifts the hands past it.
+    if (p.velocity.y <= 0.5 && this.ledgeInReach(p, CAPSULE_RADIUS + 0.45)) return;
     const hSpeed = p.horizontalSpeed;
     if (hSpeed < WALLCLIMB_MIN_SPEED) return;
 
@@ -87,7 +95,7 @@ export class Climber {
 
     // Deterministische Steighöhe: vy auf Wandlauf-Tempo heben (nie senken)
     p.velocity.y = Math.max(p.velocity.y, WALLCLIMB_VY);
-    _pushNormal.set(n.x, 0, n.z).normalize();
+    this.pushNormal.set(n.x, 0, n.z).normalize();
     this.climbingUntil = now + WALLCLIMB_MAX_MS;
     this.climbCooldownUntil = now + WALLCLIMB_COOLDOWN_MS;
     this.pushPending = true;
@@ -96,8 +104,8 @@ export class Climber {
   /** Nach abgelaufener Wandlauf-Phase einmalig von der Wand abdrücken. */
   tick(p: PlayerController): void {
     if (this.pushPending && !this.isWallClimbing && p.fsm.current === 'AIR') {
-      p.velocity.x += _pushNormal.x * WALLCLIMB_PUSH;
-      p.velocity.z += _pushNormal.z * WALLCLIMB_PUSH;
+      p.velocity.x += this.pushNormal.x * WALLCLIMB_PUSH;
+      p.velocity.z += this.pushNormal.z * WALLCLIMB_PUSH;
       this.pushPending = false;
     }
   }
@@ -107,7 +115,7 @@ export class Climber {
    * geprüft — dient dem Controller nur dazu, in Kantennähe einen
    * Richtungsdruck als Grab-Absicht (nicht als Flip) zu werten.
    */
-  ledgeInReach(p: PlayerController): boolean {
+  ledgeInReach(p: PlayerController, maxDistance = LEDGE_GRAB_DIST): boolean {
     if (p.velocity.y > 0.5 || simNow() < this.regrabAt) return false;
     p.getPosition(_pos);
     const feetY = _pos.y - CENTER_TO_FEET;
@@ -123,7 +131,7 @@ export class Climber {
       if (Math.abs(lx) <= face.halfX && Math.abs(lz) <= face.halfZ) continue;
       const clx = THREE.MathUtils.clamp(lx, -face.halfX, face.halfX);
       const clz = THREE.MathUtils.clamp(lz, -face.halfZ, face.halfZ);
-      if (Math.hypot(lx - clx, lz - clz) <= LEDGE_GRAB_DIST) return true;
+      if (Math.hypot(lx - clx, lz - clz) <= maxDistance) return true;
     }
     return false;
   }
@@ -131,6 +139,7 @@ export class Climber {
   /** Nach Loslassen/Mantle kurz nicht erneut greifen. */
   releaseGrab(): void {
     this.grab = null;
+    this.stopWallClimb();
     this.regrabAt = simNow() + LEDGE_REGRAB_MS;
   }
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 
 /** Ergebnis von loadCharacter(): fertig skaliertes Modell + benannte Clips. */
@@ -40,7 +41,7 @@ const MIXAMO_SCALE = 0.01;
  * Wall-Run-Clip ist ein kompletter Bogen (hoch + runter, ~0,9 m Hub) —
  * als Loop würde der Charakter pulsieren; die echte Höhe macht die Kapsel.
  */
-const STRIP_Y = new Set(['wallrun', 'wallclimb']);
+const STRIP_Y = new Set(['wallrun', 'wallclimb', 'hang', 'vault', 'jump', 'running-jump']);
 
 /**
  * Entfernt die horizontale Root-Bewegung (X/Z der Hips) aus einem Clip.
@@ -68,7 +69,7 @@ function stripRootMotion(clip: THREE.AnimationClip, stripY: boolean): void {
  * Wirft bei Fehlern — der Aufrufer entscheidet, ob die Platzhalter-Kapsel
  * sichtbar bleibt.
  */
-export async function loadCharacter(basePath = 'models/mixamo/'): Promise<CharacterAssets> {
+export async function loadFBXCharacter(basePath = 'models/mixamo/'): Promise<CharacterAssets> {
   const overlay = document.createElement('div');
   overlay.style.cssText =
     'position:fixed;inset:0;display:flex;align-items:center;justify-content:center;' +
@@ -124,4 +125,20 @@ export async function loadCharacter(basePath = 'models/mixamo/'): Promise<Charac
   } finally {
     overlay.remove();
   }
+}
+
+/** Optimized runtime asset; original FBX sources remain a recoverable fallback. */
+export async function loadCharacter(): Promise<CharacterAssets> {
+  const overlay=document.createElement('div');
+  overlay.style.cssText='position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#15272dec;color:#efe7d2;font:16px system-ui;z-index:50';
+  overlay.textContent='Palm Quay — Charakter wird geladen …';
+  document.body.appendChild(overlay);
+  try {
+    const gltf=await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/optimized/runner.glb`);
+    gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=true;o.frustumCulled=false;}});
+    return {model:gltf.scene,clips:new Map(gltf.animations.map(c=>[c.name,c]))};
+  } catch(error) {
+    console.warn('Optimierter Charakter nicht verfügbar, lade FBX-Quelldaten.',error);
+    return await loadFBXCharacter();
+  } finally {overlay.remove();}
 }
