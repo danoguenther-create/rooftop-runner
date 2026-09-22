@@ -81,6 +81,7 @@ export class Swinger {
 
     const now = simNow();
     for (const rail of p.level.rails) {
+      if (!rail.swing) continue;
       if (rail === this.cooldownRail && now < this.cooldownUntil) continue;
 
       let bestIdx = -1;

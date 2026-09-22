@@ -11,6 +11,7 @@ interface Chain {
 }
 /** Two-bone world-space IK on top of the sampled clip. Physics owns all anchors. */
 export class ContactPose {
+  private stride = 0;
   private bones = new Map<string, THREE.Bone>();
   private sampled: {
     bone: THREE.Bone;
@@ -200,11 +201,13 @@ export class ContactPose {
     }
     const p = this.p,
       state = p.fsm.current;
+    this.stride += p.horizontalSpeed * _dt;
     this.activeHands = 0;
     this.handErrors.fill(0);
     // Keep the imported character's identity, with less exaggerated head proportions.
     const head = this.bones.get("Head");
     if (head) head.scale.setScalar(0.82);
+    if (state === "BALANCE") this.model.position.y -= 0.12;
     p.mesh.updateMatrixWorld(true);
     if (state === "AIR" && p.airTricks.tuckWeight > 0) {
       const weight = p.airTricks.tuckWeight;
@@ -281,29 +284,49 @@ export class ContactPose {
     } else if (state === "VAULT" && p.activeVault) {
       const t = p.vaultProgress,
         plan = p.activeVault;
-      const tuck = Math.sin(Math.PI * t);
-      if (plan.kind === "speed") {
-        p.mesh.rotation.z = 0.5 * tuck;
-        p.mesh.updateMatrixWorld(true);
-      }
+      const tuck = ease(t, 0.05, 0.3) * (1 - ease(t, 0.6, 0.95));
+      p.mesh.rotation.x = 0.25 * tuck;
+      p.mesh.rotation.z = 0.16 * tuck;
+      p.mesh.updateMatrixWorld(true);
       this.edge.copy(plan.contact);
       this.lateral.crossVectors(UP, plan.direction).normalize();
-      const contact = ease(t, 0.08, 0.23) * (1 - ease(t, 0.5, 0.72));
-      if (contact > 0)
-        this.hands(this.edge, this.lateral, contact, plan.kind === "kong");
+      const contact = ease(t, 0.05, 0.2) * (1 - ease(t, 0.36, 0.55));
+      if (contact > 0) this.hands(this.edge, this.lateral, contact, false);
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
         if (!chain) continue;
         chain.end.getWorldPosition(this.endpoint);
-        this.local(
-          (i === 0 ? 0.18 : -0.18) + (plan.kind === "speed" ? 0.45 * tuck : 0),
-          -0.82 + 0.8 * tuck,
-          0.4 * tuck,
-          this.target,
-        );
+        this.local((i === 0 ? 0.18 : -0.18) + (i === 0 ? 0.72 : 0.6) * tuck,
+          -0.8 + 0.36 * tuck, (i === 0 ? 0.25 : -0.2) * tuck, this.target);
+        if (t > 0.2 && t < 0.72) this.target.y = Math.max(this.target.y,plan.contact.y+0.12);
         this.target.lerp(this.endpoint, 1 - tuck);
-        this.local(i === 0 ? 0.25 : -0.25, 0.25, 1, this.pole);
+        this.local(0.9, -0.25, 0.6, this.pole);
         this.solve(chain, this.target, this.pole);
+      }
+    } else if (state === "WALLRUN" && p.wallHit) {
+      const hit = p.wallHit;
+      this.outward.copy(hit.normal).setY(0).normalize();
+      this.lateral.crossVectors(UP, this.outward).normalize();
+      if (this.lateral.dot(p.velocity) < 0) this.lateral.negate();
+      // Keep the torso clear of the wall. Feet alternately plant on its plane.
+      this.a.copy(this.outward).multiplyScalar(0.12);
+      p.mesh.getWorldQuaternion(this.parentQ).invert();
+      this.model.position.add(this.a.applyQuaternion(this.parentQ));
+      p.mesh.updateMatrixWorld(true);
+      for (let i = 0; i < 2; i++) {
+        const leg = this.legs[i];
+        if (!leg) continue;
+        const phase = this.stride * 7 + i * Math.PI;
+        this.target.copy(hit.point).addScaledVector(this.outward, 0.1)
+          .addScaledVector(this.lateral, Math.cos(phase) * 0.27);
+        this.target.y = p.mesh.position.y - 0.45 + Math.sin(phase) * 0.17;
+        this.pole.copy(this.target).addScaledVector(this.outward, 0.6).addScaledVector(this.lateral, 0.3);
+        this.solve(leg, this.target, this.pole);
+        const toe = this.bones.get((i === 0 ? "Left" : "Right") + "ToeBase");
+        if (toe) {
+          this.fingerTarget.copy(this.target).addScaledVector(this.outward,-0.22).addScaledVector(UP,0.1);
+          this.aim(leg.end,toe,this.fingerTarget);
+        }
       }
     } else if (state === "BALANCE" && p.balancer.active) {
       const balance = p.balancer.active;
@@ -311,13 +334,15 @@ export class ContactPose {
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
         if (!chain) continue;
-        const offset =
-          ((i === 0 ? 0.16 : -0.16) * balance.alongAlign) / rail.length;
-        rail.curve.getPointAt(
-          THREE.MathUtils.clamp(balance.t + offset, 0, 1),
-          this.target,
-        );
-        this.target.y += 0.13;
+        const stride = 0.8;
+        const distance = balance.t * rail.length * balance.alongAlign;
+        const offset = i * stride * 0.5;
+        const cycle = (distance + offset) / stride;
+        const phase = cycle - Math.floor(cycle);
+        const swing = ease(phase, 0.5, 1);
+        const footDistance = (Math.floor(cycle) * stride - offset + stride * swing + stride * 0.25) * balance.alongAlign;
+        rail.curve.getPointAt(THREE.MathUtils.clamp(footDistance / rail.length, 0, 1), this.target);
+        this.target.y += 0.13 + (p.horizontalSpeed > 0.1 && phase > 0.5 ? Math.sin((phase - 0.5) * Math.PI * 2) * 0.16 : 0);
         this.local(i === 0 ? 0.2 : -0.2, -0.1, 0.8, this.pole);
         this.solve(chain, this.target, this.pole);
       }

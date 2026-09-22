@@ -19,6 +19,7 @@ export interface TopFace {
   halfZ: number;
   rotY: number;
   cooldownUntil: number;
+  collider?: number;
 }
 
 const _pos = new THREE.Vector3();
@@ -83,8 +84,8 @@ export class EdgePrecision {
       // In lokale (um -rotY gedrehte) Flächen-Koordinaten
       const dx = pos.x - face.cx;
       const dz = pos.z - face.cz;
-      const cos = Math.cos(-face.rotY);
-      const sin = Math.sin(-face.rotY);
+      const cos = Math.cos(face.rotY);
+      const sin = Math.sin(face.rotY);
       const lx = dx * cos - dz * sin;
       const lz = dx * sin + dz * cos;
       if (Math.abs(lx) > face.halfX || Math.abs(lz) > face.halfZ) continue;

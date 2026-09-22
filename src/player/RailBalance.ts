@@ -177,7 +177,11 @@ export class RailBalancer {
     if (Math.abs(b.sway) > 1) {
       // Gekippt: seitlich runter
       const dir = Math.sign(b.sway);
-      p.velocity.set(_side.x * dir * 1.5, 0, _side.z * dir * 1.5);
+      p.velocity.set(_side.x * dir * 1.5, -1, _side.z * dir * 1.5);
+      const at=p.body.translation();
+      // Clear the solid rail before gravity takes over; otherwise its collider
+      // catches the capsule and re-snaps it after the short cooldown.
+      p.body.setNextKinematicTranslation({x:at.x+_side.x*dir*.55,y:at.y,z:at.z+_side.z*dir*.55});
       this.end();
       return false;
     }

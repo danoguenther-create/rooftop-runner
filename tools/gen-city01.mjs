@@ -29,6 +29,7 @@
  * Aufruf: node tools/gen-city01.mjs   (schreibt die JSON-Datei direkt)
  */
 import { writeFileSync } from 'node:fs';
+import { addFactoryDistrict } from './factory-district.mjs';
 
 // ============================================================ Raster
 const PITCH = 20.5; // Abstand der Gebäudezentren in x
@@ -804,13 +805,15 @@ for (const [zc, sign] of [[zN(0, 0) - 85, -1], [zS(3, 0) + 165, 1]]) {
     skyline([x, height / 2, zc + sign * hash(k, zc + 3) * 22], [9 + hash(k * 5, zc) * 6, height, 10], k + zc);
   }
 }
-for (const xc of [bx(0) - 85, TOWER_X + 75]) {
+for (const xc of [bx(0) - 85, TOWER_X + 155]) {
   for (let k = 0; k < 16; k++) {
     const z = Z0 - 40 + k * 13;
     const height = 14 + hash(k * 11, xc) * 30;
     skyline([xc + (hash(k, xc) - 0.5) * 18, height / 2, z], [10, height, 9 + hash(k * 3, xc) * 6], k + xc);
   }
 }
+
+addFactoryDistrict({boxes,rails,scenery});
 
 const level = {
   name: 'Palm Quay — Coastal District',

@@ -11,9 +11,10 @@ export type Vec3 = [number, number, number];
  * - `plain`: keine Textur, nur Farbe (Bordsteine, Autos, Mobiliar, Sockel)
  * - `windows-*`: Fensterraster auf den Seitenflächen, Dach/Boden bleiben glatt
  */
-export type BoxStyle = 'plain' | 'windows-grid' | 'windows-strip' | 'windows-mixed';
+export type BoxStyle = 'plain' | 'brick' | 'windows-grid' | 'windows-strip' | 'windows-mixed';
 
 export interface BoxData {
+  tag?: string;
   pos: Vec3;
   size: Vec3;
   rotY?: number;
@@ -38,6 +39,7 @@ export interface RampData {
 }
 
 export interface RailData {
+  swing?: boolean;
   points: Vec3[];
 }
 
@@ -58,11 +60,12 @@ export interface MarkerData {
 
 export interface LevelData {
   scenery?: {
+    industrial?: { kind: "barrel" | "pipe"; pos: Vec3; length?: number }[];
     buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number }[];
     cars: { x:number; z:number; color:string }[];
     trees: { x:number; z:number; scale:number; palm:boolean }[];
     lamps: { x:number; z:number; side:number }[];
-    signs: { x:number; y:number; z:number; text:string; color:string }[];
+    signs: { x:number; y:number; z:number; text:string; color:string; side?:number }[];
   };
   name: string;
   spawn: Vec3;

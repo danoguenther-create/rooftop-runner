@@ -18,6 +18,7 @@ await page.waitForFunction(() => window.game?.player?.animator, null, {
 });
 await waitForGrounded(page);
 await page.evaluate(() => {
+  const g=window.game;g.reviewRender=g.renderFrame.bind(g);g.renderFrame=()=>{};
   window.game.hintEl.style.display = "none";
 });
 async function teleport(x, y, z, vx = 0, vy = 0, vz = 0) {
@@ -47,14 +48,14 @@ async function state() {
   });
 }
 async function shot(name) {
-  await page.evaluate(() => {
+  await page.evaluate((name) => {
     const g = window.game,
       p = g.player.body.translation();
     g.followCamera.update = () => {};
-    g.camera.position.set(p.x + 4, p.y + 1.4, p.z + 3);
+    g.camera.position.set(p.x + (name === "wallrun" ? -0.8 : 4), p.y + 1.4, p.z + (name === "wallrun" ? -3 : 3));
     g.camera.lookAt(p.x, p.y + 0.3, p.z);
-    g.renderFrame(0);
-  });
+    g.reviewRender(0);
+  }, name);
   await page.screenshot({
     type: "jpeg",
     quality: 80,
@@ -98,6 +99,14 @@ await shot("speed-vault");
 await step(page, 12);
 await shot("vault-landing");
 await page.keyboard.up("s");
+await page.keyboard.press("r");
+await stepMs(page,800);
+await teleport(-8.7,2.5,-1,0,0,7);
+await page.keyboard.down("w");
+await step(page,18);
+await page.keyboard.up("w");
+console.log("WALLRUN",JSON.stringify(await state()));
+await shot("wallrun");
 console.log(
   "FACES",
   JSON.stringify(

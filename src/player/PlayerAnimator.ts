@@ -155,9 +155,9 @@ export class PlayerAnimator {
         }
         return "fall";
       case "WALLRUN":
-        return "wallrun";
+        return "run"; // feet-on-wall IK supplies the wall contact, torso stays upright
       case "VAULT":
-        return "vault";
+        return "idle"; // contact pose drives the short one-hand vault
       case "BAIL":
         return "land";
       case "BALANCE":
