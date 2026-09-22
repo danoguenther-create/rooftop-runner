@@ -84,6 +84,10 @@ export class StateMachine {
       return;
     }
     this.currentState.exit();
+    if (to !== 'AIR' && to !== 'RUN') {
+      this.player.cancelAirPose();
+      this.player.climb.stopWallClimb();
+    }
     this.currentState = this.states[to];
     this.currentState.enter();
     this.player.bus.emit('player:stateChange', { from, to });
@@ -175,12 +179,12 @@ class AirState extends PlayerState {
 
 // --------------------------------------------------------------- WALLRUN
 
-const _wallNormal = new THREE.Vector3();
-const _wallTangent = new THREE.Vector3();
 const UP = new THREE.Vector3(0, 1, 0);
 
 class WallRunState extends PlayerState {
   readonly name = 'WALLRUN' as const;
+  private readonly normal = new THREE.Vector3();
+  private readonly tangent = new THREE.Vector3();
   private side: WallSide = 'left';
   private speed = 0;
   private elapsed = 0;
@@ -191,7 +195,7 @@ class WallRunState extends PlayerState {
     this.side = hit.side;
     this.elapsed = 0;
     this.speed = p.horizontalSpeed;
-    _wallNormal.copy(hit.normal);
+    this.normal.copy(hit.normal);
     this.updateTangent();
 
     p.velocity.y = Math.max(p.velocity.y, -1);
@@ -202,9 +206,9 @@ class WallRunState extends PlayerState {
   /** Tangente entlang der Wand, in bisheriger Laufrichtung. */
   private updateTangent(): void {
     const p = this.player;
-    _wallTangent.crossVectors(_wallNormal, UP).normalize();
-    if (_wallTangent.x * p.velocity.x + _wallTangent.z * p.velocity.z < 0) {
-      _wallTangent.negate();
+    this.tangent.crossVectors(this.normal, UP).normalize();
+    if (this.tangent.x * p.velocity.x + this.tangent.z * p.velocity.z < 0) {
+      this.tangent.negate();
     }
   }
 
@@ -218,15 +222,15 @@ class WallRunState extends PlayerState {
       p.fsm.transition('AIR');
       return;
     }
-    _wallNormal.copy(hit.normal);
+    this.normal.copy(hit.normal);
     this.updateTangent();
 
     // Wall-Jump?
     if (p.consumeJumpRequest()) {
       p.velocity.set(
-        _wallNormal.x * WALLJUMP_NORMAL_IMPULSE + _wallTangent.x * this.speed * 0.7,
+        this.normal.x * WALLJUMP_NORMAL_IMPULSE + this.tangent.x * this.speed * 0.7,
         WALLJUMP_UP_IMPULSE,
-        _wallNormal.z * WALLJUMP_NORMAL_IMPULSE + _wallTangent.z * this.speed * 0.7,
+        this.normal.z * WALLJUMP_NORMAL_IMPULSE + this.tangent.z * this.speed * 0.7,
       );
       p.bus.emit('trick:walljump', { side: this.side });
       p.fsm.transition('AIR');
@@ -235,8 +239,8 @@ class WallRunState extends PlayerState {
 
     // Entlang der Wand, leicht abklingend; sanft an die Wand ziehen
     this.speed = Math.max(this.speed - 1 * dt, 0);
-    p.velocity.x = _wallTangent.x * this.speed - _wallNormal.x * 0.5;
-    p.velocity.z = _wallTangent.z * this.speed - _wallNormal.z * 0.5;
+    p.velocity.x = this.tangent.x * this.speed - this.normal.x * 0.5;
+    p.velocity.z = this.tangent.z * this.speed - this.normal.z * 0.5;
     p.velocity.y -= GRAVITY * WALLRUN_GRAVITY_FACTOR * dt;
 
     p.applyMovement(dt);
@@ -244,6 +248,7 @@ class WallRunState extends PlayerState {
   }
 
   override exit(): void {
+    this.player.wallDetector.endRun();
     this.player.wallHit = null;
     this.player.currentWallSide = null;
   }

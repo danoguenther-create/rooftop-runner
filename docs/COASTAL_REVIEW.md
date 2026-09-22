@@ -48,3 +48,13 @@ Die Stadt ist eine eigene Küstenarchitektur mit Art-déco-Anleihen. Die vorhand
 - Im ersten Gesamtlauf fielen HUD-Timing, das Zeichenbudget und ein Start-Timeout auf. Alle drei sind nach Korrektur separat erfolgreich nachgeprüft. Beim Modus-Test wurde die Playwright-Timeout-Option bisher als Funktionsargument statt als Option übergeben; Singleplayer, Zeitrennen, Splitscreen und Game of PARK bestehen nun. Damit liegen für alle 14 Smoke-Tests erfolgreiche Ergebnisse vor (Gesamtlauf plus gezielte Nachprüfungen).
 
 Die Darstellung ist stilisiert mit detaillierterer Küstenarchitektur und PBR-Materialien. Sie erreicht keine fotorealistische AAA-Grafik. Die Bewegungen nutzen die vorhandenen Clips mit prozeduralen Kontaktkorrekturen, keine komplett neu aufgenommenen Animationen.
+
+## Nachbesserung: Flips, Wallrun und schnelle Griffe
+
+- Flips ziehen beide Beine an und führen die Hände zu den Knien. Die Pose öffnet sich vor Abschluss der letzten Rotation; bei mehrfachen Flips bleibt sie dazwischen kompakt.
+- Der reproduzierte Wallrun-Fehler war eine Folge wiederholter AIR/WALLRUN-Wechsel an derselben Wand. Nach dem Ende wird die Wand bis zur räumlichen Trennung bzw. Landung gesperrt; Bodenkontakt startet keinen neuen Wallrun. Wandnormalen gehören jetzt zum jeweiligen Spieler.
+- Beim Übergang zu einem Griff werden Flip-/Dive-Restrotation und ein ausstehender Wand-Boost sofort beendet. Eine vorherige Rollanimation blockiert die neue Kontaktpose nicht.
+- Ein fallender Spieler auf passender Griffhöhe bekommt keinen Wand-Boost, der ihn über die Kante hebt.
+- `smoke-motion-flow` prüft einen durchgehenden Wallrun bis zur Landung, Tuck und Öffnung in allen vier Flip-Richtungen sowie schnelle gerade/schräge Griffe einschließlich des ersten Kontakt-Frames.
+
+Validierung der Nachbesserung: Produktionsbuild erfolgreich; kompletter Lauf aller 15 Smoke-Tests ohne Fehler. Tuck-Pose zusätzlich im gerenderten Bild geprüft. Die öffentliche Vorschau liefert den aktuellen Build.

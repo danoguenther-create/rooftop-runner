@@ -206,7 +206,35 @@ export class ContactPose {
     const head = this.bones.get("Head");
     if (head) head.scale.setScalar(0.82);
     p.mesh.updateMatrixWorld(true);
-    if (state === "HANG" && p.climb.grab) {
+    if (state === "AIR" && p.airTricks.tuckWeight > 0) {
+      const weight = p.airTricks.tuckWeight;
+      const hips = this.bones.get("Hips");
+      if (hips) {
+        hips.getWorldPosition(this.edge);
+        p.mesh.worldToLocal(this.edge);
+        // Feet below the pelvis, knees forward toward the chest. Targets are
+        // in body space so front/back/side flips share the same compact pose.
+        for (let i = 0; i < 2; i++) {
+          const side = i === 0 ? 1 : -1;
+          const leg = this.legs[i];
+          if (leg) {
+            leg.end.getWorldPosition(this.endpoint);
+            this.local(this.edge.x + side * 0.16, this.edge.y - 0.18, this.edge.z + 0.2, this.target);
+            this.target.lerp(this.endpoint, 1 - weight);
+            this.local(this.edge.x + side * 0.2, this.edge.y + 0.65, this.edge.z + 1, this.pole);
+            this.solve(leg, this.target, this.pole);
+          }
+          const arm = this.arms[i];
+          if (arm && leg) {
+            leg.lower.getWorldPosition(this.target);
+            arm.end.getWorldPosition(this.endpoint);
+            this.target.lerp(this.endpoint, 1 - weight);
+            this.local(side * 0.65, 0.15, 0.65, this.pole);
+            this.solve(arm, this.target, this.pole);
+          }
+        }
+      }
+    } else if (state === "HANG" && p.climb.grab) {
       p.climb.edgePoint(this.edge);
       p.climb.outward(this.outward);
       this.lateral.crossVectors(UP, this.outward).normalize();

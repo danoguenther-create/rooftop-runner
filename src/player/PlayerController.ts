@@ -210,6 +210,11 @@ export class PlayerController {
     if (input.respawnPressed) this.respawn();
   }
 
+  cancelAirPose(): void {
+    this.airTricks.cancel();
+    this.diving = false;
+  }
+
   /** Render-Takt: Mesh nachziehen, Blickrichtung weich drehen. */
   update(dt: number): void {
     this.contactPose?.restore();
