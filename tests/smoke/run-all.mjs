@@ -22,6 +22,8 @@ const TESTS = [
   'smoke-16c',
   'smoke-16d',
   'smoke-city',
+  'smoke-factory',
+  'smoke-geometry',
   'smoke-m4',
   'smoke-char',
   'smoke-contacts',

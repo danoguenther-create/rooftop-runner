@@ -5,7 +5,6 @@ import type { WallSide } from './WallRun';
 import {
   BAIL_S,
   BALANCE_JUMP_VELOCITY,
-  CAPSULE_HALFHEIGHT,
   CAPSULE_RADIUS,
   GRAVITY,
   HANG_CENTER_BELOW,
@@ -31,7 +30,7 @@ export type StateName =
 
 /** Erlaubte Übergänge (Tasks 9/11/12/16b/16c/16d). */
 const ALLOWED: Record<StateName, readonly StateName[]> = {
-  RUN: ['AIR', 'VAULT', 'BAIL'],
+  RUN: ['AIR', 'VAULT', 'BAIL', 'BALANCE'],
   AIR: ['RUN', 'WALLRUN', 'BALANCE', 'VAULT', 'BAIL', 'HANG', 'SWING'],
   WALLRUN: ['AIR'],
   BALANCE: ['AIR'],
@@ -102,6 +101,8 @@ class RunState extends PlayerState {
   override update(dt: number): void {
     const p = this.player;
     p.tickLandingWindow(dt);
+    // Solid rails can be reached by a grounded step, not only by falling.
+    if (p.balancer.trySnap()) { p.fsm.transition('BALANCE'); return; }
     p.groundMove(dt);
     p.climb.tryWallClimb(p); // frontaler Wandlauf hebt ab -> AIR
 
@@ -376,7 +377,6 @@ const _hangPos = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 
 const HANG_CENTER_OFFSET = CAPSULE_RADIUS + 0.1;
-const CENTER_TO_FEET_H = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
 class HangState extends PlayerState {
   readonly name = 'HANG' as const;
@@ -429,8 +429,7 @@ class HangState extends PlayerState {
       p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
-      this.mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
-      this.mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
+      if (!p.climb.mantleTarget(p, this.mantleEnd)) return;
       this.mantleT = 0;
       p.mantleProgress = 0;
       return;

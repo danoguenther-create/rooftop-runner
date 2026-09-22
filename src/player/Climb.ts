@@ -126,8 +126,8 @@ export class Climber {
       const sin = Math.sin(face.rotY);
       const dx = _pos.x - face.cx;
       const dz = _pos.z - face.cz;
-      const lx = dx * cos + dz * sin;
-      const lz = -dx * sin + dz * cos;
+      const lx = dx * cos - dz * sin;
+      const lz = dx * sin + dz * cos;
       if (Math.abs(lx) <= face.halfX && Math.abs(lz) <= face.halfZ) continue;
       const clx = THREE.MathUtils.clamp(lx, -face.halfX, face.halfX);
       const clz = THREE.MathUtils.clamp(lz, -face.halfZ, face.halfZ);
@@ -171,8 +171,8 @@ export class Climber {
       const sin = Math.sin(face.rotY);
       const dx = _pos.x - face.cx;
       const dz = _pos.z - face.cz;
-      const lx = dx * cos + dz * sin;
-      const lz = -dx * sin + dz * cos;
+      const lx = dx * cos - dz * sin;
+      const lz = dx * sin + dz * cos;
       if (Math.abs(lx) <= face.halfX && Math.abs(lz) <= face.halfZ) continue; // über der Fläche
 
       const clx = THREE.MathUtils.clamp(lx, -face.halfX, face.halfX);
@@ -189,17 +189,47 @@ export class Climber {
       this.outwardWorld(face, axis, sign, _outward);
       if (wish && wish.dot(_outward) > -0.3) continue; // nicht Richtung Wand gedrückt
 
-      const margin = 0.15;
+      const margin = 0.25;
       const other = axis === 'x' ? face.halfZ : face.halfX;
-      this.grab = {
+      const candidate: Grab = {
         face,
         axis,
         sign,
         t: THREE.MathUtils.clamp(axis === 'x' ? clz : clx, -other + margin, other - margin),
       };
+      this.grab = candidate;
+      if (!this.validGrip(p)) { this.grab = null; continue; }
       return true;
     }
     return false;
+  }
+
+  /** Confirm a real exposed collider top, not an occluded or mirrored edge. */
+  validGrip(p: PlayerController): boolean {
+    if (!this.grab) return false;
+    this.edgePoint(_pos);
+    this.outward(_outward);
+    _ray.origin.x = _pos.x - _outward.x * 0.035;
+    _ray.origin.y = _pos.y + 0.08;
+    _ray.origin.z = _pos.z - _outward.z * 0.035;
+    _ray.dir.x = 0; _ray.dir.y = -1; _ray.dir.z = 0;
+    const hit = p.physics.world.castRayAndGetNormal(_ray, 0.16, true, undefined, undefined, p.collider, p.body);
+    return !!hit && hit.normal.y > 0.8 && Math.abs(0.08 - hit.timeOfImpact) < 0.025 &&
+      (this.grab.face.collider === undefined || hit.collider.handle === this.grab.face.collider);
+  }
+
+  mantleTarget(p: PlayerController, out: THREE.Vector3): boolean {
+    if (!this.validGrip(p)) return false;
+    this.edgePoint(out); this.outward(_outward);
+    out.addScaledVector(_outward, -0.45);
+    out.y += CENTER_TO_FEET + 0.025;
+    const occupied = p.physics.world.intersectionWithShape(out, {x:0,y:0,z:0,w:1},
+      new RAPIER.Capsule(CAPSULE_HALFHEIGHT, CAPSULE_RADIUS - 0.02), undefined, undefined, p.collider, p.body);
+    if (occupied) return false;
+    _ray.origin.x = out.x; _ray.origin.y = out.y; _ray.origin.z = out.z;
+    _ray.dir.x=0; _ray.dir.y=-1; _ray.dir.z=0;
+    const floor = p.physics.world.castRay(_ray, CENTER_TO_FEET + 0.06, true, undefined, undefined, p.collider, p.body);
+    return !!floor && Math.abs(floor.timeOfImpact - CENTER_TO_FEET - 0.025) < 0.06;
   }
 
   /** Weltposition des Griffpunkts auf der Kante. */
@@ -246,12 +276,12 @@ export class Climber {
   private toWorld(face: TopFace, lx: number, lz: number, out: THREE.Vector3): THREE.Vector3 {
     const cos = Math.cos(face.rotY);
     const sin = Math.sin(face.rotY);
-    return out.set(face.cx + lx * cos - lz * sin, 0, face.cz + lx * sin + lz * cos);
+    return out.set(face.cx + lx * cos + lz * sin, 0, face.cz - lx * sin + lz * cos);
   }
 
   private dirToWorld(face: TopFace, lx: number, lz: number, out: THREE.Vector3): THREE.Vector3 {
     const cos = Math.cos(face.rotY);
     const sin = Math.sin(face.rotY);
-    return out.set(lx * cos - lz * sin, 0, lx * sin + lz * cos).normalize();
+    return out.set(lx * cos + lz * sin, 0, -lx * sin + lz * cos).normalize();
   }
 }

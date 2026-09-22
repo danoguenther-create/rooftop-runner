@@ -132,6 +132,7 @@ const windowTexture = (style: BoxStyle): THREE.CanvasTexture => {
  */
 export const createStyleMaterial = (style: BoxStyle): THREE.MeshStandardMaterial => {
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84, metalness: 0.02 });
+  if (style === 'brick') return surfaceFinish(mat, 'brick');
   if (style === 'plain') return surfaceFinish(mat, 'concrete');
 
   mat.map = windowTexture(style);

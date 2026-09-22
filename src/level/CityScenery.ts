@@ -10,6 +10,10 @@ export function buildCityScenery(
   data: Scenery,
   rails: RailData[],
   boxes: BoxData[],
+  physics?: {
+    box: (pos: [number, number, number], size: [number, number, number], rotation?: THREE.Quaternion) => void;
+    rail: (points: THREE.Vector3[]) => void;
+  },
 ): THREE.Group {
   const root = new THREE.Group();
   root.name = "Palm Quay architectural details";
@@ -99,6 +103,7 @@ export function buildCityScenery(
     mat: THREE.MeshStandardMaterial,
     round = 0,
   ) {
+    physics?.box([x, y, z], [w, h, d]);
     add(
       round
         ? new RoundedBoxGeometry(
@@ -124,6 +129,8 @@ export function buildCityScenery(
   ) {
     const dir = b.clone().sub(a),
       mid = a.clone().add(b).multiplyScalar(0.5);
+    if (r >= 0.04) physics?.box(mid.toArray(), [r*2, dir.length(), r*2],
+      new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),dir.clone().normalize()));
     const g = new THREE.CylinderGeometry(r2, r, dir.length(), 8);
     g.applyQuaternion(
       new THREE.Quaternion().setFromUnitVectors(
@@ -199,11 +206,12 @@ export function buildCityScenery(
           box(wx, y, front + side * 0.035, 1.58, 1.86, 0.1, dark);
           box(wx, y, front + side * 0.1, 1.4, 1.7, 0.08, glass);
           box(wx, y, front + side * 0.17, 0.055, 1.74, 0.1, cream);
-          box(wx, y - 0.95, front + side * 0.18, 1.9, 0.12, 0.38, cream);
+          if (side !== b.stairSide) box(wx, y - 0.95, front + side * 0.56, 1.9, 0.12, 1.15, cream);
           if (v === 1 && k % 2 === 0 && side !== b.stairSide) {
             // Deep balcony slabs + open railings, not a solid decorative wall.
             box(wx, y - 0.98, front + side * 0.58, 2.25, 0.16, 1.2, cream);
             box(wx, y - 0.22, front + side * 1.13, 2.22, 0.065, 0.065, dark);
+            physics?.rail([new THREE.Vector3(wx-1.11,y-.1875,front+side*1.13),new THREE.Vector3(wx+1.11,y-.1875,front+side*1.13)]);
             for (let q = -1; q <= 1; q += 0.25)
               box(
                 wx + q,
@@ -215,7 +223,7 @@ export function buildCityScenery(
                 dark,
               );
           }
-          if (v === 2)
+          if (v === 2 && side !== b.stairSide)
             box(wx, y + 1.0, front + side * 0.38, 2.1, 0.12, 0.85, accent);
         }
       }
@@ -230,6 +238,13 @@ export function buildCityScenery(
           Math.min(w - 1, 6),
           0.68,
         );
+    }
+    if (index % 8 === 2) {
+      const rz=z+d/2+2.1;
+      const a=new THREE.Vector3(x-3,1.25,rz), b=new THREE.Vector3(x+3,1.25,rz);
+      rod(a,b,.05,dark);
+      for(const xx of [x-3,x,x+3]) rod(new THREE.Vector3(xx,.05,rz),new THREE.Vector3(xx,1.25,rz),.045,dark);
+      physics?.rail([a,b]);
     }
     if (v === 0) {
       for (let k = 0; k < 3; k++)
@@ -260,7 +275,7 @@ export function buildCityScenery(
           box(sideX, y, wz, 0.1, 1.95, 1.65, dark);
           box(sideX + side * 0.065, y, wz, 0.055, 1.78, 1.48, glass);
           box(sideX + side * 0.1, y, wz, 0.08, 1.8, 0.055, cream);
-          box(sideX + side * 0.15, y - 1, wz, 0.4, 0.1, 1.9, cream);
+          box(sideX + side * 0.44, y - 1, wz, 0.9, 0.1, 1.9, cream);
         }
     }
     // Roof gravel panels, service ducting, solar arrays; keep central running corridor clear.
@@ -425,6 +440,21 @@ export function buildCityScenery(
     box(x - 2.21, 0.6, z, 0.035, 0.16, 0.42, cream);
     if (index % 4 === 0) box(x - 0.25, 1.72, z, 1.3, 0.09, 1.3, chrome, 0.04);
   });
+  for (const prop of data.industrial ?? []) {
+    const [x,y,z]=prop.pos;
+    const rust=material("#725240",0.25,0.86);
+    if (prop.kind === "barrel") {
+      add(new THREE.CylinderGeometry(.42,.43,1.1,16),rust,x,y+.55,z);
+      for (const h of [.08,.32,.78,1.03]) add(new THREE.TorusGeometry(.423,.025,5,16),dark,x,y+h,z,Math.PI/2);
+      add(new THREE.CylinderGeometry(.38,.38,.025,16),dark,x,y+1.11,z);
+      physics?.box([x,y+.55,z],[.84,1.1,.84]);
+    } else {
+      const length=prop.length??5;
+      add(new THREE.CylinderGeometry(.34,.34,length,16,1,true),rust,x,y,z,0,0,Math.PI/2);
+      for (const dx of [-length/2,0,length/2]) add(new THREE.TorusGeometry(.345,.035,6,16),dark,x+dx,y,z,0,Math.PI/2);
+      physics?.box([x,y,z],[length,.68,.68]);
+    }
+  }
   data.lamps.forEach(({ x, z, side }) => {
     rod(
       new THREE.Vector3(x, 0.05, z),
@@ -455,6 +485,11 @@ export function buildCityScenery(
         new THREE.Vector3(x + 0.65 * s, height, z + 0.2 * s),
       ]);
       add(new THREE.TubeGeometry(trunk, 12, 0.16 * s, 9, false), wood, 0, 0, 0);
+      for(let k=0;k<6;k++) {
+        const a=trunk.getPoint(k/6), b=trunk.getPoint((k+1)/6), d=b.clone().sub(a);
+        physics?.box(a.clone().add(b).multiplyScalar(.5).toArray(), [.32*s,d.length(),.32*s],
+          new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),d.normalize()));
+      }
       for (let k = 0; k < 16; k++)
         add(
           new THREE.TorusGeometry(0.16 * s, 0.014 * s, 4, 9),
@@ -552,7 +587,7 @@ export function buildCityScenery(
       }
     }
   });
-  for (const s of data.signs) sign(s.x, s.y, s.z, s.text, s.color, -1, 6, 1);
+  for (const s of data.signs) sign(s.x, s.y, s.z, s.text, s.color, s.side ?? -1, 6, 1);
   // One texture atlas and draw call for all shopfront / route signs.
   const labels = [...new Set(signs.map((s) => s.text + "|" + s.color))];
   const c = document.createElement("canvas");

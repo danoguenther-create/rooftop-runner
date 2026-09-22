@@ -203,10 +203,10 @@ results.bridge = await state();
 await reset();
 
 // --- Parkendes Auto ist ein Vault-Hindernis (Anlauf quer zur Straße; W läuft
-// bei yaw 0 Richtung -z). Auf Höhe des Hecks: über dem Dach wäre das
+// von der freien Straßenseite bei yaw PI Richtung +z). Auf Höhe des Hecks: über dem Dach wäre das
 // Hindernis 1.6 m hoch und damit außerhalb des Vault-Fensters (0.5–1.2 m).
-await lookAt(0);
-await teleport(anchors.car.x + 1.7, 1.0, anchors.car.z + 3.0, 0, 0, 0);
+await lookAt(Math.PI);
+await teleport(anchors.car.x + 1.7, 1.0, anchors.car.z - 3.0, 0, 0, 0);
 await page.keyboard.down('w');
 results.carVault = await stepUntil(
   page,

@@ -33,12 +33,23 @@ try {
       if (e.to === 'WALLRUN') starts++;
       states.push(e.to);
     });
-    for (let i = 0; i < 240; i++) g.stepFixed(1);
-    return { starts, states, pos: p.body.translation() };
+    const contacts=[];
+    for (let i = 0; i < 240; i++) {
+      g.stepFixed(1);
+      if(p.fsm.current==='WALLRUN' && p.wallHit) {
+        const hit=p.wallHit;
+        const distance=bone=>bone.getWorldPosition(p.mesh.position.clone()).sub(hit.point).dot(hit.normal);
+        contacts.push({feet:p.contactPose.legs.map(l=>distance(l.end)),torso:distance(p.contactPose.bones.get('Spine2'))});
+      }
+    }
+    return { starts, states, contacts, pos: p.body.translation() };
   });
   await page.keyboard.up('w');
   assert.equal(wall.starts, 1, `wall-run retriggers: ${JSON.stringify(wall)}`);
   assert(wall.states.includes('RUN'), 'wall-run reaches a landing');
+  assert(wall.contacts.length>10,'wall-run contact samples');
+  assert(wall.contacts.every(c=>c.feet.every(d=>d>-.04&&d<.24)&&c.torso>Math.max(...c.feet)+.08),JSON.stringify(wall.contacts));
+  console.log('OK wall-run plants feet while torso stays clear');
   console.log('OK continuous wall-run exits once and lands', wall.pos);
   for (const kind of ['front', 'back', 'left', 'right']) {
     await page.keyboard.press('r');

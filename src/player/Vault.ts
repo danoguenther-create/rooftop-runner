@@ -148,14 +148,14 @@ export class VaultDetector {
     this.plan.end.set(landOx, landY + CENTER_TO_FEET + 0.025, landOz);
     this.plan.contact.set(topOx, topY + 0.035, topOz);
     this.plan.direction.copy(_dir);
-    this.plan.kind = exit - dist > 1.15 ? "kong" : "speed";
+    this.plan.kind = "speed";
     this.plan.duration = THREE.MathUtils.clamp(
       landingDistance / Math.max(hSpeed, 4),
-      0.52,
-      0.85,
+      0.32,
+      0.72,
     );
     // Bezier control is twice the desired midpoint height minus endpoints.
-    const apex = topY + CENTER_TO_FEET + 0.22;
+    const apex = topY + 0.58;
     this.plan.control
       .addVectors(this.plan.start, this.plan.end)
       .multiplyScalar(0.5);

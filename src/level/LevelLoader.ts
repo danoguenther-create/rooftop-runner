@@ -11,6 +11,7 @@ import type { TopFace } from '../gameplay/EdgeDetection';
 const RAIL_SAMPLES = 50;
 
 export interface LoadedRail {
+  swing: boolean;
   curve: THREE.CatmullRomCurve3;
   /** Bogenlänge in Metern (gecacht) */
   length: number;
@@ -61,6 +62,17 @@ export class LevelLoader {
     // Instanzierbare Boxen nach size+color bündeln (1 Draw-Call pro Gruppe)
     const instanceGroups = new Map<string, { size: [number, number, number]; color: string; items: typeof data.boxes }>();
     for (const box of data.boxes) {
+      // Physical street furniture used to be incorrectly tagged as scenery.
+      if (box.solid === false && box.style === 'plain' && box.pos[1] > 0.25 && box.size[1] >= 0.08 && Math.max(...box.size) < 120) {
+        box.solid = true;
+        const [w,h,d]=box.size;
+        if (Math.min(w,d)<0.18 && Math.max(w,d)>1.2 && h<=1.05) {
+          const dx=w>d?w/2:0,dz=d>w?d/2:0;
+          const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),box.rotY??0);
+          const c=new THREE.Vector3(...box.pos);
+          this.addRail([new THREE.Vector3(-dx,h/2,-dz).applyQuaternion(q).add(c),new THREE.Vector3(dx,h/2,dz).applyQuaternion(q).add(c)],false,false);
+        }
+      }
       if (box.invisible) {
         if (box.solid !== false) this.registerBoxPhysics(box.pos, box.size, box.rotY ?? 0, 0);
         continue;
@@ -90,16 +102,19 @@ export class LevelLoader {
       this.addBox(ramp.pos, ramp.size, ramp.rotY ?? 0, ramp.tiltX ?? 0, ramp.color ?? '#8d939c');
     }
     for (const rail of data.rails ?? []) {
-      this.addRail(rail.points.map((p) => new THREE.Vector3().fromArray(p)));
+      this.addRail(rail.points.map((p) => new THREE.Vector3().fromArray(p)), rail.swing !== false);
     }
     this.mergeRailMeshes();
     if (data.markers) this.markers.push(...data.markers);
 
     if (data.scenery) {
-      this.group.add(buildCityScenery(data.scenery, data.rails, data.boxes));
-      for (const tree of data.scenery.trees) {
-        this.physics.addStaticBox(new THREE.Vector3(tree.x+.15,tree.palm?2.5:1.6,tree.z),new THREE.Vector3(.3,tree.palm?5:3.2,.3));
-      }
+      this.group.add(buildCityScenery(data.scenery, data.rails, data.boxes, {
+        box: (pos,size,rotation) => {
+          if (rotation) this.physics.addStaticBox(new THREE.Vector3(...pos),new THREE.Vector3(...size),rotation);
+          else this.registerBoxPhysics(pos,size,0,0);
+        },
+        rail: points => this.addRail(points,false,false),
+      }));
       this.physics.addStaticBox(new THREE.Vector3(8,-.22,142),new THREE.Vector3(420,.16,44));
     }
     this.scene.add(this.group);
@@ -209,7 +224,7 @@ export class LevelLoader {
     tiltX: number,
   ): void {
     const quat = new THREE.Quaternion().setFromEuler(new THREE.Euler(tiltX, rotY, 0, 'YXZ'));
-    this.physics.addStaticBox(
+    const collider = this.physics.addStaticBox(
       new THREE.Vector3().fromArray(pos),
       new THREE.Vector3(...size),
       quat,
@@ -217,7 +232,7 @@ export class LevelLoader {
 
     // Deckfläche registrieren: nur ebene Flächen, und keine Riesenflächen
     // wie der Boden (deren „Kanten" sind keine Precision-Ziele)
-    if (tiltX === 0 && Math.min(size[0], size[2]) / 2 <= 10) {
+    if (tiltX === 0 && Math.min(size[0], size[2]) >= 0.22 && Math.min(size[0], size[2]) / 2 <= 10) {
       this.topFaces.push({
         cx: pos[0],
         cz: pos[2],
@@ -226,15 +241,22 @@ export class LevelLoader {
         halfZ: size[2] / 2,
         rotY,
         cooldownUntil: 0,
+        collider: collider.handle,
       });
     }
   }
 
-  private addRail(points: THREE.Vector3[]): void {
+  private addRail(points: THREE.Vector3[], swing = true, visible = true): void {
     const curve = new THREE.CatmullRomCurve3(points, false, 'catmullrom', 0.5);
-    this.railGeometries.push(new THREE.TubeGeometry(curve, 32, 0.05, 8, false));
+    if (visible) this.railGeometries.push(new THREE.TubeGeometry(curve, 32, 0.05, 8, false));
 
+    if (visible) for (let i=0;i<16;i++) {
+      const a=curve.getPointAt(i/16), b=curve.getPointAt((i+1)/16), direction=b.clone().sub(a);
+      this.physics.addStaticBox(a.clone().add(b).multiplyScalar(.5),new THREE.Vector3(.1,direction.length(),.1),
+        new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0,1,0),direction.normalize()));
+    }
     this.rails.push({
+      swing,
       curve,
       length: curve.getLength(),
       samples: curve.getSpacedPoints(RAIL_SAMPLES - 1),

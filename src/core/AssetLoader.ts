@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { fitClassicSneakers } from '../player/ClassicSneakers';
+import { tailorBaggyPants } from '../player/BaggyPants';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 
@@ -135,10 +137,15 @@ export async function loadCharacter(): Promise<CharacterAssets> {
   document.body.appendChild(overlay);
   try {
     const gltf=await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/optimized/runner.glb`);
+    tailorBaggyPants(gltf.scene);
+    fitClassicSneakers(gltf.scene);
     gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=true;o.frustumCulled=false;}});
     return {model:gltf.scene,clips:new Map(gltf.animations.map(c=>[c.name,c]))};
   } catch(error) {
     console.warn('Optimierter Charakter nicht verfügbar, lade FBX-Quelldaten.',error);
-    return await loadFBXCharacter();
+    const assets = await loadFBXCharacter();
+    tailorBaggyPants(assets.model);
+    fitClassicSneakers(assets.model);
+    return assets;
   } finally {overlay.remove();}
 }
