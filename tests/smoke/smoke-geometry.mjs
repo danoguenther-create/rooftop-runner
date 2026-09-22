@@ -30,10 +30,13 @@ try {
    grips.push({phantomRejected:!p.climb.validGrip(p)});
    p.climb.grab=null;
   }
-  return {clothing,independent,grips};
+  const shoes=g.players.map(p=>{const found=[];p.characterModel.traverse(o=>{if(o.name==='Classic NYL Pure Grey')found.push({parent:o.parent.name,meshes:o.children.filter(c=>c.isMesh).map(c=>({vertices:c.geometry.getAttribute('position').count,color:c.material.color.getHexString()}))});});return found;});
+  return {clothing,independent,grips,shoes};
  });
  assert.deepEqual(result.clothing,[true,true]);assert(result.independent);
  for(const grip of result.grips)for(const value of Object.values(grip))assert.equal(value,true,JSON.stringify(result));
+ for(const pair of result.shoes){assert.equal(pair.length,2);assert(pair.every(s=>s.parent.endsWith('Foot')&&s.meshes.every(m=>m.vertices>0&&m.color==='ffffff')));}
+ console.log('OK grey Classic Nylon shoes on both independent foot rigs');
  console.log('OK both players have baggy trousers and independent skeletons');
  console.log('OK rotated collider edges, blocked top-outs and phantom ledge rejection',result.grips);
  assert.deepEqual(errors,[]);

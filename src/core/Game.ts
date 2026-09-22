@@ -257,7 +257,7 @@ export class Game {
           // Spieler 2 einfärben (geklonte Materialien, Original bleibt)
           model.traverse((obj) => {
             const mesh = obj as THREE.Mesh;
-            if (mesh.isMesh && mesh.material) {
+            if (mesh.isMesh && mesh.material && !mesh.userData.preserveColor) {
               const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
               mat.color.multiply(P2_TINT);
               mesh.material = mat;

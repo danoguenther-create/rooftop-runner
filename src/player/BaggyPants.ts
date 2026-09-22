@@ -30,8 +30,9 @@ export function tailorBaggyPants(model: THREE.Group): void {
       const hem=THREE.MathUtils.smoothstep(fraction,0.035,0.18);
       const waist=1-THREE.MathUtils.smoothstep(fraction,0.78,0.99);
       const fullness=hem*waist*Math.min(1,influence[side]);
+      const thigh=THREE.MathUtils.smoothstep(fraction,0.4,0.62);
       const folds=1+Math.sin(fraction*65)*0.035*fullness;
-      positions.setXYZ(i,cx+(point.x-cx)*(1+0.7*fullness)*folds,point.y,cz+(point.z-cz)*(1+0.55*fullness)*folds);
+      positions.setXYZ(i,cx+(point.x-cx)*(1+(0.7+0.65*thigh)*fullness)*folds,point.y,cz+(point.z-cz)*(1+(0.55+0.4*thigh)*fullness)*folds);
     }
     positions.needsUpdate=true;
     geometry.computeVertexNormals();geometry.computeBoundingBox();geometry.computeBoundingSphere();
