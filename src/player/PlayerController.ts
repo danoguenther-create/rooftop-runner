@@ -5,6 +5,7 @@ import type { EventBus } from '../core/EventBus';
 import type { InputState } from '../core/Input';
 import type { LevelLoader } from '../level/LevelLoader';
 import type { CharacterAssets } from '../core/AssetLoader';
+import { ContactPose } from './ContactPose';
 import { PlayerAnimator } from './PlayerAnimator';
 import { StateMachine } from './PlayerStates';
 import { AirTricks } from './AirTricks';
@@ -77,6 +78,10 @@ export class PlayerController {
   currentWallSide: WallSide | null = null;
   /** Vom Zustandswechsel RUN/AIR -> VAULT übergebener Bewegungsplan */
   pendingVault: VaultPlan | null = null;
+  activeVault: VaultPlan | null = null;
+  vaultProgress = 0;
+  mantleProgress = -1;
+  private contactPose: ContactPose | null = null;
 
   /** Wurzel fürs Sichtbare: Platzhalter-Kapsel bzw. Charaktermodell (Task 21) */
   readonly mesh: THREE.Group;
@@ -169,6 +174,7 @@ export class PlayerController {
     this.mesh.add(assets.model);
     this.characterModel = assets.model;
     this.animator = new PlayerAnimator(assets.model, assets.clips, this.bus);
+    this.contactPose = new ContactPose(assets.model, this);
     this.setPlaceholderVisible(false);
   }
 
@@ -206,6 +212,7 @@ export class PlayerController {
 
   /** Render-Takt: Mesh nachziehen, Blickrichtung weich drehen. */
   update(dt: number): void {
+    this.contactPose?.restore();
     const t = this.body.translation();
     this.mesh.position.set(t.x, t.y, t.z);
 
@@ -213,12 +220,19 @@ export class PlayerController {
     // Im SWING die Blickrichtung einfrieren: die Pendelgeschwindigkeit
     // wechselt jede Halbperiode die Richtung — das Mesh würde sich sonst
     // ständig umdrehen
-    if (hs > 0.5 && this.fsm.current !== 'SWING') {
+    if (hs > 0.5 && this.fsm.current !== 'SWING' && this.fsm.current !== 'HANG') {
       const targetYaw = Math.atan2(this.velocity.x, this.velocity.z);
       let delta = targetYaw - this.meshYaw;
       while (delta > Math.PI) delta -= Math.PI * 2;
       while (delta < -Math.PI) delta += Math.PI * 2;
       this.meshYaw += delta * (1 - Math.exp(-12 * dt));
+    }
+    if (this.fsm.current === 'HANG' && this.climb.grab) {
+      this.climb.outward(_forward);
+      this.meshYaw = Math.atan2(-_forward.x,-_forward.z);
+    }
+    if (this.fsm.current === 'VAULT' && this.activeVault) {
+      this.meshYaw = Math.atan2(this.activeVault.direction.x,this.activeVault.direction.z);
     }
     this.mesh.rotation.y = this.meshYaw;
     this.airTricks.applyVisual(this.mesh);
@@ -234,10 +248,10 @@ export class PlayerController {
     }
     // Hang-Pose hat die Hände etwas tiefer als den Physik-Anker: anheben
     if (this.characterModel) {
-      this.characterModel.position.y =
-        -CENTER_TO_FEET + (this.fsm.current === 'SWING' ? 0.15 : 0);
+      this.characterModel.position.set(0, -CENTER_TO_FEET + (this.fsm.current === 'SWING' ? 0.15 : 0), 0);
     }
-    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing);
+    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing, this.mantleProgress, this.vaultProgress);
+    this.contactPose?.update(dt);
   }
 
   // ---------------------------------------------------------- Physik-Takt

@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { surfaceFinish } from './SurfaceFinish';
+import { buildCityScenery } from './CityScenery';
 import type { BoxData, BoxStyle, LevelData, MarkerData } from './levelTypes';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { createStyleMaterial, jitterColor } from './CityFacade';
@@ -32,7 +34,7 @@ export class LevelLoader {
   /** Medaillen-Zielzeiten fürs Zeitrennen (Task 19), falls im Level definiert */
   trialTimes: { gold: number; silver: number; bronze: number } | null = null;
 
-  private materials = new Map<string, THREE.MeshLambertMaterial>();
+  private materials = new Map<string, THREE.MeshStandardMaterial>();
   /** Rail-Rohre bis zum Zusammenfassen in ein einziges Mesh (siehe unten). */
   private railGeometries: THREE.BufferGeometry[] = [];
 
@@ -59,6 +61,10 @@ export class LevelLoader {
     // Instanzierbare Boxen nach size+color bündeln (1 Draw-Call pro Gruppe)
     const instanceGroups = new Map<string, { size: [number, number, number]; color: string; items: typeof data.boxes }>();
     for (const box of data.boxes) {
+      if (box.invisible) {
+        if (box.solid !== false) this.registerBoxPhysics(box.pos, box.size, box.rotY ?? 0, 0);
+        continue;
+      }
       if (box.style) {
         const list = styleGroups.get(box.style);
         if (list) list.push(box);
@@ -89,13 +95,21 @@ export class LevelLoader {
     this.mergeRailMeshes();
     if (data.markers) this.markers.push(...data.markers);
 
+    if (data.scenery) {
+      this.group.add(buildCityScenery(data.scenery, data.rails, data.boxes));
+      for (const tree of data.scenery.trees) {
+        this.physics.addStaticBox(new THREE.Vector3(tree.x+.15,tree.palm?2.5:1.6,tree.z),new THREE.Vector3(.3,tree.palm?5:3.2,.3));
+      }
+      this.physics.addStaticBox(new THREE.Vector3(8,-.22,142),new THREE.Vector3(420,.16,44));
+    }
     this.scene.add(this.group);
   }
 
-  private material(color: string): THREE.MeshLambertMaterial {
+  private material(color: string): THREE.MeshStandardMaterial {
     let mat = this.materials.get(color);
     if (!mat) {
-      mat = new THREE.MeshLambertMaterial({ color });
+      mat = new THREE.MeshStandardMaterial({ color, roughness: 0.87 });
+      surfaceFinish(mat, color === '#343b40' ? 'asphalt' : 'concrete');
       this.materials.set(color, mat);
     }
     return mat;

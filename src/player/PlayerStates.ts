@@ -11,7 +11,6 @@ import {
   HANG_CENTER_BELOW,
   MANTLE_S,
   SHIMMY_SPEED,
-  VAULT_DURATION_S,
   WALLJUMP_NORMAL_IMPULSE,
   WALLJUMP_UP_IMPULSE,
   WALLRUN_GRAVITY_FACTOR,
@@ -282,11 +281,13 @@ class VaultState extends PlayerState {
   override enter(): void {
     const p = this.player;
     this.plan = p.pendingVault;
+    p.activeVault = this.plan;
+    p.vaultProgress = 0;
     p.pendingVault = null;
     this.t = 0;
     p.grounded = false;
     p.vaultDetector.markVaulted();
-    p.bus.emit('trick:vault', { obstacleHeight: this.plan?.obstacleHeight ?? 0 });
+    p.bus.emit('trick:vault', { obstacleHeight: this.plan?.obstacleHeight ?? 0, kind: this.plan?.kind });
   }
 
   override update(dt: number): void {
@@ -297,7 +298,8 @@ class VaultState extends PlayerState {
       return;
     }
 
-    this.t = Math.min(this.t + dt / VAULT_DURATION_S, 1);
+    this.t = Math.min(this.t + dt / plan.duration, 1);
+    p.vaultProgress = this.t;
     quadraticBezier(plan.start, plan.control, plan.end, this.t, _bezier);
     // Eingaben/Kollision ignorieren: Position direkt setzen
     p.body.setNextKinematicTranslation({ x: _bezier.x, y: _bezier.y, z: _bezier.z });
@@ -312,6 +314,7 @@ class VaultState extends PlayerState {
 
   override exit(): void {
     this.plan = null;
+    this.player.activeVault = null;
   }
 }
 
@@ -365,9 +368,6 @@ const _edge = new THREE.Vector3();
 const _out = new THREE.Vector3();
 const _edgeDir = new THREE.Vector3();
 const _hangPos = new THREE.Vector3();
-const _mantleStart = new THREE.Vector3();
-const _mantleControl = new THREE.Vector3();
-const _mantleEnd = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 
 const HANG_CENTER_OFFSET = CAPSULE_RADIUS + 0.1;
@@ -375,12 +375,15 @@ const CENTER_TO_FEET_H = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
 class HangState extends PlayerState {
   readonly name = 'HANG' as const;
+  private readonly mantleStart = new THREE.Vector3();
+  private readonly mantleEnd = new THREE.Vector3();
   private mantleT = -1; // -1 = hängend, sonst Fortschritt 0..1
   private inputLockUntil = 0;
 
   override enter(): void {
     const p = this.player;
     this.mantleT = -1;
+    p.mantleProgress = -1;
     // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
     // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
     this.inputLockUntil = simNow() + 250;
@@ -395,7 +398,13 @@ class HangState extends PlayerState {
     // --- Hochziehen läuft
     if (this.mantleT >= 0) {
       this.mantleT = Math.min(this.mantleT + dt / MANTLE_S, 1);
-      quadraticBezier(_mantleStart, _mantleControl, _mantleEnd, this.mantleT, _hangPos);
+      p.mantleProgress = this.mantleT;
+      // Pull vertically first, then transfer weight over the ledge and stand.
+      const u = this.mantleT;
+      const vertical = THREE.MathUtils.smoothstep(u,0,0.85);
+      const forward = THREE.MathUtils.smoothstep(u,0.35,1);
+      _hangPos.copy(this.mantleStart).lerp(this.mantleEnd,forward);
+      _hangPos.y = THREE.MathUtils.lerp(this.mantleStart.y,this.mantleEnd.y,vertical);
       p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
       if (this.mantleT >= 1) {
         p.velocity.set(0, 0, 0);
@@ -412,14 +421,13 @@ class HangState extends PlayerState {
 
     // --- Hochziehen starten (W oder Sprungtaste)
     if (moveY > 0.5 || (!locked && p.consumeJumpRequest())) {
-      p.getPosition(_mantleStart);
+      p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
-      _mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
-      _mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
-      _mantleControl.copy(_edge);
-      _mantleControl.y = _mantleEnd.y + 0.3;
+      this.mantleEnd.copy(_edge).addScaledVector(_out, -0.45);
+      this.mantleEnd.y = p.climb.grab!.face.y + CENTER_TO_FEET_H + 0.05;
       this.mantleT = 0;
+      p.mantleProgress = 0;
       return;
     }
 
@@ -444,6 +452,7 @@ class HangState extends PlayerState {
 
   override exit(): void {
     this.player.climb.releaseGrab();
+    this.player.mantleProgress = -1;
   }
 
   /** Kapselzentrum: knapp außerhalb der Kante, Hände auf Kantenhöhe. */

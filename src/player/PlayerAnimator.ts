@@ -1,6 +1,6 @@
-import * as THREE from 'three';
-import type { EventBus } from '../core/EventBus';
-import type { StateName } from './PlayerStates';
+import * as THREE from "three";
+import type { EventBus } from "../core/EventBus";
+import type { StateName } from "./PlayerStates";
 
 const FADE_S = 0.15;
 /** Bodenrolle knackiger abspielen als der gemächliche Mixamo-Clip. */
@@ -12,18 +12,24 @@ const ROLL_TIMESCALE = 1.5;
  */
 const CLIP_START_S: Record<string, number> = {
   jump: 0.05,
-  'running-jump': 0.05,
+  "running-jump": 0.05,
   wallclimb: 0.3,
   // Vault-Clip: 0,3 s Anlauf, eigentliche Überwindung 0,3–1,3 s
   vault: 0.3,
 };
 
 /** Clips, die einmalig durchlaufen und dann auf dem letzten Frame halten. */
-const ONE_SHOT = new Set(['jump', 'running-jump', 'land', 'wallclimb', 'vault']);
+const ONE_SHOT = new Set([
+  "jump",
+  "running-jump",
+  "land",
+  "wallclimb",
+  "vault",
+]);
 /** Abspieltempo je Clip (Beine ziehen sonst zu träge an, Spieler-Feedback). */
 const CLIP_TIMESCALE: Record<string, number> = {
   jump: 1.35,
-  'running-jump': 1.2,
+  "running-jump": 1.2,
   // 1 s Vault-Bewegung im Clip auf VAULT_DURATION_S 0,4 s gestaucht
   vault: 2.5,
 };
@@ -41,7 +47,7 @@ export class PlayerAnimator {
   private readonly mixer: THREE.AnimationMixer;
   private readonly actions = new Map<string, THREE.AnimationAction>();
   private current: THREE.AnimationAction | null = null;
-  private currentName = '';
+  private currentName = "";
   private time = 0;
   /** Bis dahin hat ein One-Shot (Rolle) Vorrang vor der Zustandslogik. */
   private lockUntil = 0;
@@ -57,68 +63,122 @@ export class PlayerAnimator {
     }
     // Falling To Roll ist laut Daniel eine Landung aus größerer Höhe —
     // flache Landungen nehmen die knackigere Sprint-Rolle
-    bus.on('player:roll', (e) => {
+    bus.on("player:roll", (e) => {
       const name =
-        e.fallHeight < 4 && this.actions.has('sprint-roll') ? 'sprint-roll' : 'roll';
+        e.fallHeight < 4 && this.actions.has("sprint-roll")
+          ? "sprint-roll"
+          : "roll";
       this.playOneShot(name, ROLL_TIMESCALE);
     });
-    bus.on('trick:diveroll', () =>
-      this.playOneShot(this.actions.has('landing-roll') ? 'landing-roll' : 'roll', ROLL_TIMESCALE),
+    bus.on("trick:diveroll", () =>
+      this.playOneShot(
+        this.actions.has("landing-roll") ? "landing-roll" : "roll",
+        ROLL_TIMESCALE,
+      ),
     );
   }
 
   /** Render-Takt: Ziel-Clip aus FSM-Zustand + Bewegung ableiten. */
-  update(dt: number, state: StateName, hSpeed: number, vy: number, climbing: boolean): void {
+  update(
+    dt: number,
+    state: StateName,
+    hSpeed: number,
+    vy: number,
+    climbing: boolean,
+    mantle = -1,
+    vault = 0,
+  ): void {
     this.time += dt;
     if (this.time >= this.lockUntil) {
-      this.play(this.pickClip(state, hSpeed, vy, climbing));
+      this.play(
+        mantle >= 0 ? "wallclimb" : this.pickClip(state, hSpeed, vy, climbing),
+      );
+    }
+    if (this.current) {
+      if (state === "VAULT" || mantle >= 0) {
+        const phase = state === "VAULT" ? vault : mantle;
+        const duration = this.current.getClip().duration;
+        this.current.paused = true;
+        this.current.time =
+          state === "VAULT"
+            ? THREE.MathUtils.lerp(0.3, Math.min(duration, 1.3), phase)
+            : THREE.MathUtils.lerp(0.3, Math.min(duration, 1.5), phase);
+      } else if (this.currentName === "run" || this.currentName === "sprint") {
+        this.current.setEffectiveTimeScale(
+          THREE.MathUtils.clamp(
+            hSpeed / (this.currentName === "run" ? 5.5 : 8.5),
+            0.35,
+            1.5,
+          ),
+        );
+      }
     }
     this.mixer.update(dt);
   }
 
-  private pickClip(state: StateName, hSpeed: number, vy: number, climbing: boolean): string {
+  private pickClip(
+    state: StateName,
+    hSpeed: number,
+    vy: number,
+    climbing: boolean,
+  ): string {
     switch (state) {
-      case 'RUN':
-        if (hSpeed > 7) return 'sprint';
-        if (hSpeed > 0.5) return 'run';
-        return 'idle';
-      case 'AIR':
+      case "RUN":
+        if (hSpeed > 7) return "sprint";
+        if (hSpeed > 0.5) return "run";
+        return "idle";
+      case "AIR":
+        if (
+          !climbing &&
+          (this.currentName === "jump" ||
+            this.currentName === "running-jump") &&
+          this.current &&
+          this.current.time < this.current.getClip().duration * 0.9
+        )
+          return this.currentName;
         // Vertikaler Wandlauf hat Vorrang (Climber wirkt im AIR-Zustand)
-        if (climbing) return 'wallclimb';
+        if (climbing) return "wallclimb";
         // Aufwärtsphase nach Absprung: Jump-Clip (mit/ohne Anlauf) halten,
         // bis der Scheitel überschritten ist; danach Falling-Loop
         if (vy > 1) {
-          if (this.currentName === 'jump' || this.currentName === 'running-jump') {
+          if (
+            this.currentName === "jump" ||
+            this.currentName === "running-jump"
+          ) {
             return this.currentName;
           }
-          if (this.currentName !== 'fall') {
-            return hSpeed > RUNNING_JUMP_MIN_SPEED ? 'running-jump' : 'jump';
+          if (this.currentName !== "fall") {
+            return hSpeed > RUNNING_JUMP_MIN_SPEED ? "running-jump" : "jump";
           }
         }
-        return 'fall';
-      case 'WALLRUN':
-        return 'wallrun';
-      case 'VAULT':
-        return 'vault';
-      case 'BAIL':
-        return 'land';
-      case 'BALANCE':
+        return "fall";
+      case "WALLRUN":
+        return "wallrun";
+      case "VAULT":
+        return "vault";
+      case "BAIL":
+        return "land";
+      case "BALANCE":
         // Catwalk-Gang beim Gehen, im Stand eingefroren wirkt Idle ruhiger
-        return hSpeed > 0.5 ? 'balance' : 'idle';
-      case 'HANG':
-      case 'SWING':
-        return 'hang';
+        return hSpeed > 0.5 ? "balance" : "idle";
+      case "HANG":
+      case "SWING":
+        return "hang";
     }
   }
 
   private play(name: string): void {
     if (this.currentName === name) return;
-    const next = this.actions.get(name) ?? this.actions.get('idle');
+    const next = this.actions.get(name) ?? this.actions.get("idle");
     if (!next || next === this.current) return;
 
     next.reset();
+    next.paused = false;
     next.time = CLIP_START_S[name] ?? 0;
-    next.setLoop(ONE_SHOT.has(name) ? THREE.LoopOnce : THREE.LoopRepeat, Infinity);
+    next.setLoop(
+      ONE_SHOT.has(name) ? THREE.LoopOnce : THREE.LoopRepeat,
+      Infinity,
+    );
     next.clampWhenFinished = true;
     next.setEffectiveTimeScale(CLIP_TIMESCALE[name] ?? 1);
     next.play();

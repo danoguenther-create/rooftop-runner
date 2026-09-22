@@ -157,7 +157,7 @@ export class HUD {
     // --- Trick-Ticker
     bus.on('trick:wallrun', () => this.tick('WALL RUN'));
     bus.on('trick:walljump', () => this.tick('WALL JUMP'));
-    bus.on('trick:vault', () => this.tick('VAULT'));
+    bus.on('trick:vault', (e) => this.tick(e.kind === 'kong' ? 'KONG VAULT' : 'SPEED VAULT'));
     bus.on('trick:gap', () => this.tick('GAP!'));
     bus.on('trick:precision', () => this.tick('PRECISION!'));
     bus.on('player:roll', () => this.tick('ROLL'));

@@ -45,7 +45,7 @@ for (const [name, query] of modes) {
     }),
   }));
   const ok =
-    info.level === 'Rooftops District' &&
+    info.level === 'Palm Quay — Coastal District' &&
     info.faces > 400 &&
     info.collectibles === 33 &&
     info.players.every((p) => p.startsWith('RUN')) &&

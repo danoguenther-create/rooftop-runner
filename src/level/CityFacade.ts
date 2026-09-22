@@ -23,6 +23,7 @@
  * allein für die Rohbauten, und jedes Stück Stadtmöblierung käme obendrauf.
  */
 import * as THREE from 'three';
+import { surfaceFinish } from './SurfaceFinish';
 import type { BoxStyle } from './levelTypes';
 
 /** Kantenlänge einer Textur-Kachel in Metern (Fassadenraster: 1 Geschoss). */
@@ -32,7 +33,7 @@ const TILE_H = 3.2;
 const CANVAS = 256;
 
 /** Fensterfarbe (dunkel) und ein paar hellere „Jalousie"-Varianten. */
-const GLASS = '#3a4552';
+const GLASS = '#456575';
 const BLINDS = ['#8d949c', '#6f757d', '#aeb4ba'];
 
 type Ctx = CanvasRenderingContext2D;
@@ -49,6 +50,12 @@ const window0 = (ctx: Ctx, x: number, y: number, w: number, h: number, r: () => 
   ctx.fillRect(x - 2, y - 2, w + 4, h + 4);
   ctx.fillStyle = GLASS;
   ctx.fillRect(x, y, w, h);
+  const reflection = ctx.createLinearGradient(x,y,x+w,y+h);
+  reflection.addColorStop(0,'rgba(177,211,220,.4)');
+  reflection.addColorStop(.5,'rgba(80,121,143,.12)');
+  reflection.addColorStop(1,'rgba(12,26,34,.6)');
+  ctx.fillStyle=reflection;ctx.fillRect(x,y,w,h);
+  ctx.fillStyle='rgba(220,234,225,.35)';ctx.fillRect(x+w*.46,y,1,h);
   const blind = r();
   if (blind < 0.35) {
     ctx.fillStyle = BLINDS[Math.floor(r() * BLINDS.length)];
@@ -123,9 +130,9 @@ const windowTexture = (style: BoxStyle): THREE.CanvasTexture => {
  * Material für einen Stadt-Batch. `plain` ist ein normales Lambert-Material,
  * die Fenster-Stile bekommen die beiden oben beschriebenen Shader-Eingriffe.
  */
-export const createStyleMaterial = (style: BoxStyle): THREE.MeshLambertMaterial => {
-  const mat = new THREE.MeshLambertMaterial({ color: 0xffffff });
-  if (style === 'plain') return mat;
+export const createStyleMaterial = (style: BoxStyle): THREE.MeshStandardMaterial => {
+  const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84, metalness: 0.02 });
+  if (style === 'plain') return surfaceFinish(mat, 'concrete');
 
   mat.map = windowTexture(style);
   mat.onBeforeCompile = (shader) => {
@@ -154,7 +161,7 @@ export const createStyleMaterial = (style: BoxStyle): THREE.MeshLambertMaterial 
   };
   // Sonst teilen sich die Stile das kompilierte Programm der ersten Variante
   mat.customProgramCacheKey = () => `city-${style}`;
-  return mat;
+  return surfaceFinish(mat, 'plaster');
 };
 
 /**

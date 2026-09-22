@@ -24,6 +24,8 @@ export interface BoxData {
   style?: BoxStyle;
   /** false = nur Deko: kein Collider, keine Deckfläche (Skyline-Kulisse) */
   solid?: boolean;
+  /** Collision proxy for detailed scenery. */
+  invisible?: boolean;
 }
 
 export interface RampData {
@@ -55,6 +57,13 @@ export interface MarkerData {
 }
 
 export interface LevelData {
+  scenery?: {
+    buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number }[];
+    cars: { x:number; z:number; color:string }[];
+    trees: { x:number; z:number; scale:number; palm:boolean }[];
+    lamps: { x:number; z:number; side:number }[];
+    signs: { x:number; y:number; z:number; text:string; color:string }[];
+  };
   name: string;
   spawn: Vec3;
   boxes: BoxData[];
