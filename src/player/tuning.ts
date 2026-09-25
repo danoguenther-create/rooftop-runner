@@ -29,7 +29,9 @@ export const CAPSULE_RADIUS = 0.35;
 /** Kapsel-Collider: halbe Zylinderhöhe (m) — Gesamthöhe = 2*(halfHeight+radius) = 1.8 */
 export const CAPSULE_HALFHEIGHT = 0.55;
 
-/** Landung: ab dieser Fallhöhe (m) ist eine Reaktion nötig */
+/** Medium drops roll automatically from this height, up to LANDING_BAIL_M. */
+export const LANDING_AUTO_ROLL_MIN_M = 2.4;
+/** Landung: ab dieser Fallhöhe (m) zählt bewusstes Roll-Timing / Dive-Risiko. */
 export const LANDING_SOFT_M = 3;
 /** Landung: ab dieser Fallhöhe (m) ohne Roll -> Bail */
 export const LANDING_BAIL_M = 6;
@@ -154,16 +156,19 @@ export const SWING_SNAP = 0.7;
 /** Pendelradius Stange -> Körperzentrum (m) */
 export const SWING_RADIUS = 1.1;
 /** Dämpfung der Pendelbewegung (1/s) */
-export const SWING_DAMPING = 0.4;
+export const SWING_DAMPING = 0.12;
 /** Pump-Stärke mit W/S nahe dem Tiefpunkt (rad/s²-Äquivalent) */
-export const SWING_PUMP = 2.5;
+export const SWING_PUMP = 8;
 /** Nur innerhalb dieses Winkels vom Tiefpunkt pumpen (°) */
-export const SWING_PUMP_PHI_DEG = 30;
+export const SWING_PUMP_PHI_DEG = 65;
 /** Kleiner Aufwärts-Bonus beim Loslassen (m/s) */
-export const SWING_RELEASE_UP = 1.5;
+export const SWING_RELEASE_UP = 2.8;
 /** Hände über dem Körperzentrum (m) */
 export const SWING_HAND_OFFSET = 0.6;
 /** Nach Loslassen: dieselbe Stange so lange nicht erneut fangen (ms) */
 export const SWING_RESNAP_MS = 300;
 /** Kein Aufschnappen, wenn schneller als so aufwärts (m/s) */
 export const SWING_MAX_VY = 2;
+
+/** Limit accumulated swing energy while allowing full giant circles. */
+export const SWING_MAX_OMEGA = 11.5;

@@ -81,7 +81,7 @@ export function keymapP2(): KeyMap {
     left: ['ArrowLeft'],
     right: ['ArrowRight'],
     jump: ['Enter', 'NumpadEnter'],
-    sprint: ['ShiftRight'],
+    sprint: ['Backslash', 'key:#'],
     roll: ['ControlRight'],
     respawn: ['Backspace'],
     pause: [],
@@ -100,6 +100,7 @@ const PREVENT_DEFAULT = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRigh
 
 export class Input {
   private keys = new Set<string>();
+  private keyLabels = new Map<string,string>();
   private jumpQueued = false;
   private pauseQueued = false;
   private respawnQueued = false;
@@ -132,6 +133,8 @@ export class Input {
       if (PREVENT_DEFAULT.has(e.code)) e.preventDefault();
       if (e.repeat) return;
       this.keys.add(e.code);
+      this.keyLabels.set(e.code, `key:${e.key}`);
+      this.keys.add(`key:${e.key}`);
       const m = this.map;
       if (m.jump.includes(e.code)) this.jumpQueued = true;
       if (m.pause.includes(e.code)) this.pauseQueued = true;
@@ -145,7 +148,11 @@ export class Input {
       if (m.spinL.includes(e.code)) this.spinQueued = -1;
       if (m.spinR.includes(e.code)) this.spinQueued = 1;
     });
-    window.addEventListener('keyup', (e) => this.keys.delete(e.code));
+    window.addEventListener('keyup', (e) => {
+      this.keys.delete(e.code);
+      this.keys.delete(this.keyLabels.get(e.code) ?? '');
+      this.keyLabels.delete(e.code);
+    });
 
     if (this.map.mouse && canvas) {
       canvas.addEventListener('click', () => {
@@ -161,7 +168,7 @@ export class Input {
       });
     }
     // Bei Fokusverlust hängende Tasten lösen
-    window.addEventListener('blur', () => this.keys.clear());
+    window.addEventListener('blur', () => { this.keys.clear(); this.keyLabels.clear(); });
   }
 
   get isPointerLocked(): boolean {

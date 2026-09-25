@@ -1,5 +1,7 @@
 # Fabrik und Bewegungskorrekturen
 
+Weiterentwicklung vom 23.09.2026: [größeres Gelände, verriegelte Türen und neue Bewegungen](FLOW_FACTORY_EXPANSION.md). Die folgende Bestandsaufnahme beschreibt den ersten Fabrik-Pass.
+
 Stand: 22.09.2026, Branch `feat/factory-parkour-polish`.
 
 ## Änderungen

@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import type { EventBus } from "../core/EventBus";
 import type { StateName } from "./PlayerStates";
+import { LANDING_BAIL_M } from "./tuning";
 
 const FADE_S = 0.15;
 /** Bodenrolle knackiger abspielen als der gemächliche Mixamo-Clip. */
@@ -65,7 +66,7 @@ export class PlayerAnimator {
     // flache Landungen nehmen die knackigere Sprint-Rolle
     bus.on("player:roll", (e) => {
       const name =
-        e.fallHeight < 4 && this.actions.has("sprint-roll")
+        e.fallHeight <= LANDING_BAIL_M && this.actions.has("sprint-roll")
           ? "sprint-roll"
           : "roll";
       this.playOneShot(name, ROLL_TIMESCALE);

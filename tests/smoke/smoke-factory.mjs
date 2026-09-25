@@ -15,7 +15,7 @@ try {
  const walk=async(n,jump=false)=>{await page.keyboard.down('w');if(jump)await page.keyboard.press('Space');await page.evaluate(n=>window.game.stepFixed(n),n);await page.keyboard.up('w');return page.evaluate(()=>({state:window.game.player.fsm.current,...window.game.player.body.translation()}));};
  await prepare([122,.95,-8],-Math.PI/2);let state=await walk(110);assert(state.x<125.6,JSON.stringify(state));console.log('OK locked factory gate blocks passage',state);
  await prepare([122,.95,27.6],-Math.PI/2);state=await walk(100);assert(state.x>130,JSON.stringify(state));console.log('OK broken fence is a usable entrance',state);
- await prepare([196,.95,-21],Math.PI/2);state=await walk(90);assert(state.x<190,JSON.stringify(state));console.log('OK open factory door leads into the hall',state);
+ await prepare([196,.95,-21],Math.PI/2);state=await walk(90);assert(state.x>192,JSON.stringify(state));console.log('OK boarded factory door blocks passage',state);
  await prepare([164,2.05,12.5],0);state=await walk(70,true);assert(state.z<9,JSON.stringify(state));console.log('OK running jump through open factory window',state);
  // Real generated windowsill: both grips and a collision-free top-out.
  const sill=await page.evaluate(()=>{

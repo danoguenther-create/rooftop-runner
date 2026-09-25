@@ -166,7 +166,7 @@ export class Game {
     this.hintEl = document.createElement('div');
     this.hintEl.textContent =
       'Click to play — W/S laufen · A/D drehen · Space Sprung · Shift Sprint · ' +
-      'C Roll · Luft: W/A/S/D erneut = Flip, Q/E Spin · R Respawn · Maus optional';
+      'C Roll · Luft: W/A/S/D erneut = Flip, Q/E Spin · Stange: W aufschaukeln, S bremsen · R Respawn';
     this.hintEl.style.cssText =
       'position:absolute;bottom:28px;left:50%;transform:translateX(-50%);width:max-content;max-width:85vw;' +
       'padding:14px 22px;background:rgba(0,0,0,.65);color:#fff;font:15px system-ui;' +
@@ -180,6 +180,10 @@ export class Game {
         'position:absolute;left:50%;top:0;bottom:0;width:2px;' +
         'background:rgba(0,0,0,.6);transform:translateX(-50%);';
       hud.appendChild(divider);
+      const controls=document.createElement('div');
+      controls.textContent='P1: Shift Sprint · P2: # Sprint · Stange: Vorwärts aufschaukeln, Rückwärts bremsen';
+      controls.style.cssText='position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font:12px system-ui;color:white;background:#172126bb;padding:4px 10px;border-radius:5px;pointer-events:none;white-space:nowrap';
+      hud.appendChild(controls);
     }
 
     this.buildEnvironment();

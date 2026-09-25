@@ -6,6 +6,7 @@ import {
   SWING_DAMPING,
   SWING_HAND_OFFSET,
   SWING_MAX_VY,
+  SWING_MAX_OMEGA,
   SWING_PUMP,
   SWING_PUMP_PHI_DEG,
   SWING_RADIUS,
@@ -137,10 +138,11 @@ export class Swinger {
 
     // Pumpen nahe dem Tiefpunkt: W verstärkt, S bremst
     const moveY = p.currentInput?.moveY ?? 0;
-    if (moveY !== 0 && Math.abs(a.phi) < PUMP_PHI) {
+    if (moveY !== 0 && Math.abs(Math.atan2(Math.sin(a.phi), Math.cos(a.phi))) < PUMP_PHI) {
       const dir = a.omega >= 0 ? 1 : -1;
-      a.omega += moveY * SWING_PUMP * dir * dt;
+      a.omega = dir * Math.max(0, Math.abs(a.omega) + moveY * SWING_PUMP * dt);
     }
+    a.omega = THREE.MathUtils.clamp(a.omega, -SWING_MAX_OMEGA, SWING_MAX_OMEGA);
     a.phi += a.omega * dt;
 
     // Träge Restbewegung entlang der Stange
@@ -171,6 +173,7 @@ export class Swinger {
   /** Loslassen: Pendelgeschwindigkeit wird Fluggeschwindigkeit. */
   release(): number {
     const a = this.active!;
+    this.player.velocity.multiplyScalar(1.08);
     this.player.velocity.y += SWING_RELEASE_UP;
     this.cooldownRail = a.rail;
     this.cooldownUntil = simNow() + SWING_RESNAP_MS;

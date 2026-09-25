@@ -27,6 +27,7 @@ import {
   JUMP_BUFFER_MS,
   JUMP_VELOCITY,
   LANDING_BAIL_M,
+  LANDING_AUTO_ROLL_MIN_M,
   LANDING_SOFT_M,
   ROLL_AFTER_MS,
   ROLL_BEFORE_MS,
@@ -402,6 +403,12 @@ export class PlayerController {
       if (fallHeight > LANDING_SOFT_M) return true;
     }
 
+    // Medium drops automatically flow into a roll; high drops still need timing.
+    if (fallHeight >= LANDING_AUTO_ROLL_MIN_M && fallHeight <= LANDING_BAIL_M) {
+      this.pendingLanding = null;
+      this.doRoll(fallHeight);
+      return false;
+    }
     if (fallHeight <= LANDING_SOFT_M) return false;
 
     const now = simNow();

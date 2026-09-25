@@ -23,6 +23,8 @@ const TESTS = [
   'smoke-16d',
   'smoke-city',
   'smoke-factory',
+  'smoke-factory-routes',
+  'smoke-flow-upgrades',
   'smoke-geometry',
   'smoke-m4',
   'smoke-char',

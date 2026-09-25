@@ -85,6 +85,10 @@ await teleport(-16, 2.1, 8.3, 0, 0, 1);
 await step(page, 12);
 console.log("SWING", JSON.stringify(await state()));
 await shot("swing");
+await page.keyboard.down("w");
+await page.evaluate(()=>{const g=window.game,p=g.player;for(let i=0;i<1200;i++){g.stepFixed(1);const a=p.swinger.visual;if(a&&Math.abs(a.phi)>2.6&&p.body.translation().y>4)break;}});
+await page.keyboard.up("w");
+await shot("giant-swing");
 await page.keyboard.press("r");
 await stepMs(page, 800);
 // Print level obstacles to derive a real vault test from schema.
@@ -115,5 +119,9 @@ console.log(
     ),
   ),
 );
+await page.keyboard.press("r");await stepMs(page,800);
+await page.keyboard.down("w");await step(page,2);
+await page.evaluate(()=>{const g=window.game,p=g.player;p.body.setTranslation({x:0,y:5.4,z:-20},true);p.body.setNextKinematicTranslation({x:0,y:5.4,z:-20});p.velocity.set(0,0,6);p.fsm.transition('AIR');p.beginAirborne();p.grounded=false;g.physics.step();for(let i=0;i<90;i++){g.stepFixed(1);if(p.animator.currentName.includes('roll'))break;}g.stepFixed(24);console.log("ROLL_FRAME",p.animator.currentName,p.animator.current.time);});
+await page.keyboard.up("w");await shot("medium-landing-roll");
 console.log("ERRORS", JSON.stringify(errors));
 await browser.close();

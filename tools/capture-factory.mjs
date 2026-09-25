@@ -10,7 +10,10 @@ try{
  mkdirSync('artifacts/factory',{recursive:true});
  for(const [name,pos,look] of [
   ['baggy',[-5,13.8,-21],[-8.5,13,-24]],
-  ['factory-yard',[121,18,52],[170,3,0]],
+  ['factory-yard',[111,39,88],[196,3,0]],
+  ['factory-crane',[105,12,-25],[128,4,-40]],
+  ['factory-extension',[213,16,62],[243,3,-10]],
+  ['factory-boarded-door',[198,2.5,-15],[192,1.5,-21]],
   ['factory-hole',[119,2.2,31],[130,1.5,27.6]],
   ['factory-window',[156,4,18],[164,2.5,9]],
   ['factory-interior',[165,4,5],[169,3,-19]],
