@@ -16,7 +16,7 @@ try {
  await prepare([122,.95,-8],-Math.PI/2);let state=await walk(110);assert(state.x<125.6,JSON.stringify(state));console.log('OK locked factory gate blocks passage',state);
  await prepare([122,.95,27.6],-Math.PI/2);state=await walk(100);assert(state.x>130,JSON.stringify(state));console.log('OK broken fence is a usable entrance',state);
  await prepare([196,.95,-21],Math.PI/2);state=await walk(90);assert(state.x>192,JSON.stringify(state));console.log('OK boarded factory door blocks passage',state);
- await prepare([164,2.05,12.5],0);state=await walk(70,true);assert(state.z<9,JSON.stringify(state));console.log('OK running jump through open factory window',state);
+ await prepare([164,2.95,13],0);state=await walk(70,true);assert(state.z<9,JSON.stringify(state));console.log('OK running jump through open factory window',state);
  // Real generated windowsill: both grips and a collision-free top-out.
  const sill=await page.evaluate(()=>{
   const g=window.game;const f=g.level.topFaces.find(f=>Math.abs(f.halfX-.95)<.001&&Math.abs(f.halfZ-.575)<.001&&Math.abs(f.y-3.81)<.001&&f.cz>-54&&f.cz<-40);return f;

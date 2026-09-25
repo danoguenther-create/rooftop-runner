@@ -448,6 +448,22 @@ export function buildCityScenery(
       for (const h of [.08,.32,.78,1.03]) add(new THREE.TorusGeometry(.423,.025,5,16),dark,x,y+h,z,Math.PI/2);
       add(new THREE.CylinderGeometry(.38,.38,.025,16),dark,x,y+1.11,z);
       physics?.box([x,y+.55,z],[.84,1.1,.84]);
+    } else if (prop.kind === "compressor") {
+      const enamel=material("#536963",.35,.68);
+      const gauge=material("#d1cbb3",.15,.55);
+      box(x,y+.16,z,3.8,.32,2.2,dark,.08);
+      add(new THREE.CylinderGeometry(.68,.68,2.6,20),enamel,x,y+1.35,z,0,0,Math.PI/2);
+      for(const dx of [-1.3,1.3]){
+        add(new THREE.SphereGeometry(.68,16,10),enamel,x+dx,y+1.35,z,0,0,0);
+        box(x+dx,y+.6,z,.3,.9,1.2,rust,.05);
+      }
+      add(new THREE.TorusGeometry(.24,.035,8,20),rust,x+.7,y+2.15,z+.35,Math.PI/2);
+      rod(new THREE.Vector3(x+.7,y+1.8,z+.35),new THREE.Vector3(x+.7,y+2.15,z+.35),.045,chrome);
+      add(new THREE.CylinderGeometry(.18,.18,.1,16),gauge,x-.65,y+2.03,z+.55,Math.PI/2);
+      box(x-.65,y+2.07,z+.615,.025,.17,.015,dark);
+      box(x,y+.55,z+.85,1.2,.45,.6,enamel,.04);
+      for(let k=0;k<7;k++)box(x-.5+k*.16,y+.55,z+1.17,.045,.4,.07,dark);
+      physics?.box([x,y+1.1,z],[4,2.2,2.3]);
     } else {
       const length=prop.length??5;
       add(new THREE.CylinderGeometry(.34,.34,length,16,1,true),rust,x,y,z,0,0,Math.PI/2);

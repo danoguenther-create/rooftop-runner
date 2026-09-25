@@ -24,8 +24,8 @@ try{
   const r=await route(target,target[0]<128);assert(r.reached&&!r.states.includes('BAIL'),JSON.stringify(r));
  }
  console.log('OK continuous container/crane route crosses the perimeter');
- // Window-only access for every building, including both expanded halls.
- for(const [name,x,z,y,inside] of [['main',164,12.5,2,6],['workshop',186.5,40.2,1.72,35],['turbine',237.5,-2.8,2.02,-9],['boiler',236.5,53.2,2.02,47]]){
+ // Ground-window routes; roof and upper-floor access are covered by smoke-factory-storeys.
+ for(const [name,x,z,y,inside] of [['main',164,13,2.95,6],['turbine',237.5,-2.8,2.02,-9]]){
   await prepare([x,y,z],0);await page.keyboard.down('w');await page.keyboard.press('Space');
   const r=await page.evaluate(inside=>{const g=window.game,p=g.player;const states=new Set();for(let i=0;i<180;i++){g.stepFixed(1);states.add(p.fsm.current);if(p.body.translation().z<inside)break;}return{...p.body.translation(),states:[...states]};},inside);
   await page.keyboard.up('w');assert(r.z<inside,`${name}: ${JSON.stringify(r)}`);console.log('OK accessible window',name,r);

@@ -60,7 +60,7 @@ export interface MarkerData {
 
 export interface LevelData {
   scenery?: {
-    industrial?: { kind: "barrel" | "pipe"; pos: Vec3; length?: number }[];
+    industrial?: { kind: "barrel" | "pipe" | "compressor"; pos: Vec3; length?: number }[];
     buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number }[];
     cars: { x:number; z:number; color:string }[];
     trees: { x:number; z:number; scale:number; palm:boolean }[];

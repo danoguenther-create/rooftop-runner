@@ -10,14 +10,17 @@ try{
  mkdirSync('artifacts/factory',{recursive:true});
  for(const [name,pos,look] of [
   ['baggy',[-5,13.8,-21],[-8.5,13,-24]],
-  ['factory-yard',[111,39,88],[196,3,0]],
+  ['factory-yard',[111,49,88],[196,12,0]],
   ['factory-crane',[105,12,-25],[128,4,-40]],
   ['factory-extension',[213,16,62],[243,3,-10]],
   ['factory-boarded-door',[198,2.5,-15],[192,1.5,-21]],
   ['factory-hole',[119,2.2,31],[130,1.5,27.6]],
-  ['factory-window',[156,4,18],[164,2.5,9]],
+  ['factory-window',[156,6,20],[164,4.5,9]],
   ['factory-interior',[165,4,5],[169,3,-19]],
-  ['factory-upper',[182,8,-19],[153,4,-9]],
+  ['factory-upper',[178,25,-24],[153,23,-9]],
+  ['factory-stairwell',[187,20,-11],[185,13,-24]],
+  ['factory-workshop-roof',[181,14,43],[190,6,31]],
+  ['factory-boiler-window',[219,13,64],[237,8,48]],
   ['marina',[-34,2,-40],[-29,1.3,-44]],
  ]){
   await page.evaluate(({pos,look})=>{const g=window.game;g.camera.position.set(...pos);g.camera.lookAt(...look);g.reviewRender(0);g.hintEl.style.display='none';},{pos,look});
