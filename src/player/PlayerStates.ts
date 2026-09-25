@@ -101,6 +101,7 @@ class RunState extends PlayerState {
   override update(dt: number): void {
     const p = this.player;
     p.tickLandingWindow(dt);
+    if(p.tryDiveJump()){p.fsm.transition("AIR");p.applyMovement(dt);return;}
     // Solid rails can be reached by a grounded step, not only by falling.
     if (p.balancer.trySnap()) { p.fsm.transition('BALANCE'); return; }
     p.groundMove(dt);

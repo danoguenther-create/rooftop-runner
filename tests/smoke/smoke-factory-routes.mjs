@@ -7,10 +7,11 @@ try{
  await page.waitForFunction(()=>window.game?.player?.contactPose,null,{timeout:120000});
  await page.evaluate(()=>{const g=window.game;g.renderFrame(0);g.renderFrame=()=>{};});
  const prepare=async(pos,yaw)=>page.evaluate(({pos,yaw})=>{
-  const g=window.game,p=g.player;p.respawn();g.stepFixed(70);g.followCamera.yaw=yaw;p.cameraYaw=yaw;
+  const g=window.game,p=g.player;window.dispatchEvent(new Event('blur'));p.respawn();g.stepFixed(70);g.followCamera.yaw=yaw;p.cameraYaw=yaw;
   p.body.setTranslation({x:pos[0],y:pos[1],z:pos[2]},true);p.body.setNextKinematicTranslation({x:pos[0],y:pos[1],z:pos[2]});p.velocity.set(0,0,0);p.grounded=false;p.fsm.transition('AIR');p.beginAirborne();g.physics.step();g.stepFixed(15);
  },{pos,yaw});
  const route=async(target,jump=false,max=180)=>{
+  await page.waitForTimeout(320); // Separate deliberate jumps from the new double-tap dive.
   await page.keyboard.down('w');if(jump)await page.keyboard.press('Space');
   const result=await page.evaluate(({target,max})=>{const g=window.game,p=g.player;const states=new Set();let reached=false;
    for(let i=0;i<max;i++){g.stepFixed(1);states.add(p.fsm.current);const v=p.body.translation();if(p.fsm.current==='RUN'&&Math.abs(v.x-target[0])<1.35&&Math.abs(v.z-target[2])<.65&&Math.abs(v.y-target[1])<.35){reached=true;break;}}

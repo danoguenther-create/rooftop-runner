@@ -209,7 +209,21 @@ export class ContactPose {
     if (head) head.scale.setScalar(0.82);
     if (state === "BALANCE") this.model.position.y -= 0.12;
     p.mesh.updateMatrixWorld(true);
-    if (state === "AIR" && p.airTricks.tuckWeight > 0) {
+    if(state === "AIR" && p.diveJumpActive){
+      const extend=ease(p.diveJumpTime,.05,.35);
+      // Push-off -> long flight with hands leading -> soft shoulder-roll entry.
+      for(let i=0;i<2;i++){
+        const side=i===0?1:-1,arm=this.arms[i],leg=this.legs[i];
+        if(arm){
+          this.local(side*.24,.35+.65*extend,.35+.1*extend,this.target);
+          this.local(side*.55,.55,.6,this.pole);this.solve(arm,this.target,this.pole);
+        }
+        if(leg){
+          this.local(side*.16,-.7,-.1-.16*extend,this.target);
+          this.local(side*.24,-.3,.4,this.pole);this.solve(leg,this.target,this.pole);
+        }
+      }
+    } else if (state === "AIR" && p.airTricks.tuckWeight > 0) {
       const weight = p.airTricks.tuckWeight;
       const hips = this.bones.get("Hips");
       if (hips) {

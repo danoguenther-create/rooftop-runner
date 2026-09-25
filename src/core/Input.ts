@@ -13,6 +13,7 @@ export interface InputState {
   /** true nur in dem Frame, in dem Sprung gedrückt wurde */
   jumpPressed: boolean;
   jumpHeld: boolean;
+  divePressed: boolean;
   sprintHeld: boolean;
   rollHeld: boolean;
   pausePressed: boolean;
@@ -102,6 +103,8 @@ export class Input {
   private keys = new Set<string>();
   private keyLabels = new Map<string,string>();
   private jumpQueued = false;
+  private diveQueued = false;
+  private lastForwardTap = -Infinity;
   private pauseQueued = false;
   private respawnQueued = false;
   private flipQueued: 'front' | 'back' | 'left' | 'right' | null = null;
@@ -116,6 +119,7 @@ export class Input {
     lookDX: 0,
     lookDY: 0,
     jumpPressed: false,
+    divePressed: false,
     jumpHeld: false,
     sprintHeld: false,
     rollHeld: false,
@@ -136,9 +140,14 @@ export class Input {
       this.keyLabels.set(e.code, `key:${e.key}`);
       this.keys.add(`key:${e.key}`);
       const m = this.map;
+      if (m.fwd.includes(e.code)) {
+        const now=performance.now();
+        if(now-this.lastForwardTap<=300){this.diveQueued=true;this.lastForwardTap=-Infinity;}
+        else this.lastForwardTap=now;
+      }
       if (m.jump.includes(e.code)) this.jumpQueued = true;
       if (m.pause.includes(e.code)) this.pauseQueued = true;
-      if (m.respawn.includes(e.code)) this.respawnQueued = true;
+      if (m.respawn.includes(e.code)) { this.respawnQueued = true; this.lastForwardTap=-Infinity; this.diveQueued=false; }
       // Flips: erneuter Druck einer Bewegungstaste in der Luft (Edge hier,
       // Kontext entscheidet der Controller — am Boden verfällt das Flag)
       if (m.flipFront.includes(e.code)) this.flipQueued = 'front';
@@ -168,7 +177,7 @@ export class Input {
       });
     }
     // Bei Fokusverlust hängende Tasten lösen
-    window.addEventListener('blur', () => { this.keys.clear(); this.keyLabels.clear(); });
+    window.addEventListener('blur', () => { this.keys.clear(); this.keyLabels.clear(); this.lastForwardTap=-Infinity; this.diveQueued=false; });
   }
 
   get isPointerLocked(): boolean {
@@ -190,6 +199,8 @@ export class Input {
     s.lookDY = this.accDY;
     this.accDX = 0;
     this.accDY = 0;
+    s.divePressed=this.diveQueued;
+    this.diveQueued=false;
     s.jumpPressed = this.jumpQueued;
     this.jumpQueued = false;
     s.pausePressed = this.pauseQueued;

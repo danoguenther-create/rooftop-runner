@@ -34,7 +34,7 @@ export const LANDING_AUTO_ROLL_MIN_M = 2.4;
 /** Landung: ab dieser Fallhöhe (m) zählt bewusstes Roll-Timing / Dive-Risiko. */
 export const LANDING_SOFT_M = 3;
 /** Landung: ab dieser Fallhöhe (m) ohne Roll -> Bail */
-export const LANDING_BAIL_M = 6;
+export const LANDING_BAIL_M = 12;
 /** Roll-Taste zählt, wenn max. so viele ms VOR der Landung gedrückt */
 export const ROLL_BEFORE_MS = 200;
 /** ... oder so viele ms NACH der Landung */
@@ -172,3 +172,7 @@ export const SWING_MAX_VY = 2;
 
 /** Limit accumulated swing energy while allowing full giant circles. */
 export const SWING_MAX_OMEGA = 11.5;
+
+/** Double-tap dive: enough capsule clearance for a two-metre crate. */
+export const DIVE_JUMP_SPEED = 12;
+export const DIVE_FORWARD_SPEED = 8.5;

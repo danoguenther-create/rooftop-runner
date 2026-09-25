@@ -22,6 +22,8 @@ import {
   COYOTE_MS,
   DECEL,
   DIVE_GRAVITY_FACTOR,
+  DIVE_JUMP_SPEED,
+  DIVE_FORWARD_SPEED,
   GRAVITY,
   HARD_LANDING_LOCK_S,
   JUMP_BUFFER_MS,
@@ -103,6 +105,10 @@ export class PlayerController {
    */
   private everGrounded = false;
   private jumpRequestedAt = -Infinity;
+  diveJumpActive = false;
+  diveJumpTime = 0;
+  private diveRequested = false;
+
   private lastRollPressAt = -Infinity;
   private prevRollHeld = false;
 
@@ -194,6 +200,7 @@ export class PlayerController {
   handleFrameInput(input: InputState): void {
     this.input = input;
     const now = simNow();
+    this.diveRequested = input.divePressed && this.fsm.current === 'RUN' && this.grounded;
     if (input.jumpPressed) this.jumpRequestedAt = now;
     if (input.rollHeld && !this.prevRollHeld) this.lastRollPressAt = now;
     this.prevRollHeld = input.rollHeld;
@@ -201,7 +208,7 @@ export class PlayerController {
     // Flips liegen auf den Bewegungstasten — in Kantennähe zählt ein
     // Richtungsdruck als Grab-Absicht, nicht als Flip (sonst bailt man
     // beim Zugreifen aus einer halben Drehung).
-    if (this.fsm.current === 'AIR' && this.everGrounded) {
+    if (this.fsm.current === 'AIR' && this.everGrounded && !this.diveJumpActive) {
       if (input.flipPressed && !this.climb.ledgeInReach(this)) {
         this.airTricks.queueFlip(input.flipPressed);
       }
@@ -212,6 +219,7 @@ export class PlayerController {
   }
 
   cancelAirPose(): void {
+    this.diveJumpActive = false;
     this.airTricks.cancel();
     this.diving = false;
   }
@@ -246,6 +254,11 @@ export class PlayerController {
     if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
       this.mesh.rotation.x = 0.7;
     }
+    if(this.diveJumpActive) {
+      const extend=THREE.MathUtils.smoothstep(this.diveJumpTime,.08,.4);
+      this.mesh.rotation.x=extend*(1.05+.3*THREE.MathUtils.smoothstep(-this.velocity.y,0,7));
+      this.mesh.rotation.z=.08*extend;
+    }
     // Bar-Swing: Körper um die Stange mitneigen, damit die Hände dran bleiben
     if (this.fsm.current === 'SWING' && this.swinger.visual) {
       const { phi, u } = this.swinger.visual;
@@ -256,7 +269,7 @@ export class PlayerController {
     if (this.characterModel) {
       this.characterModel.position.set(0, -CENTER_TO_FEET + (this.fsm.current === 'SWING' ? 0.15 : 0), 0);
     }
-    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing, this.mantleProgress, this.vaultProgress);
+    this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing, this.mantleProgress, this.vaultProgress, this.diveJumpActive);
     this.contactPose?.update(dt);
   }
 
@@ -264,6 +277,7 @@ export class PlayerController {
 
   fixedUpdate(dt: number): void {
     if (!this.input) return;
+    if(this.diveJumpActive)this.diveJumpTime+=dt;
 
     this.timeSinceGroundedS = this.grounded ? 0 : this.timeSinceGroundedS + dt;
     if (this.grounded) this.everGrounded = true;
@@ -276,6 +290,7 @@ export class PlayerController {
     else if (this.fsm.current !== 'RUN') {
       if (this.airTricks.active) this.airTricks.cancel();
       this.diving = false;
+      this.diveJumpActive = false;
     }
 
     this.climb.tick(this); // Wand-Push nach abgelaufenem Wandlauf
@@ -293,7 +308,8 @@ export class PlayerController {
 
   /** Luftbewegung: reduzierte Steuerwirkung + Gravitation. */
   airMove(dt: number): void {
-    this.accelerateHorizontal(dt, AIR_CONTROL);
+    // A double tap launches the whole dive; releasing W must not kill its flight.
+    if(!this.diveJumpActive || this.input?.moveY!==0) this.accelerateHorizontal(dt, AIR_CONTROL);
     // Gehaltener Dive streckt den Steigflug: flachere, weitere Flugbahn
     const diveFloat = this.diving && this.velocity.y > 0 && (this.input?.rollHeld ?? false);
     this.velocity.y -= GRAVITY * (diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
@@ -312,6 +328,7 @@ export class PlayerController {
     if (wishLen > 0) _wish.normalize();
 
     let maxSpeed = input.sprintHeld ? SPRINT_SPEED : RUN_SPEED;
+    if (this.diveJumpActive) maxSpeed=Math.max(maxSpeed,DIVE_FORWARD_SPEED);
     if (this.boostRemaining > 0) maxSpeed *= this.boostFactor;
 
     const targetX = _wish.x * maxSpeed * wishLen;
@@ -323,6 +340,16 @@ export class PlayerController {
 
     this.velocity.x = moveToward(this.velocity.x, accelBlocked ? 0 : targetX, rate);
     this.velocity.z = moveToward(this.velocity.z, accelBlocked ? 0 : targetZ, rate);
+  }
+
+  tryDiveJump(): boolean {
+    if(!this.diveRequested || !this.grounded || this.fsm.current!=="RUN" || this.pendingLanding)return false;
+    this.diveRequested=false;this.diveJumpActive=true;this.diveJumpTime=0;
+    this.airTricks.cancel();this.diving=false;this.jumpRequestedAt=-Infinity;
+    this.pendingLanding=null;
+    this.velocity.set(-Math.sin(this.cameraYaw)*DIVE_FORWARD_SPEED,DIVE_JUMP_SPEED,-Math.cos(this.cameraYaw)*DIVE_FORWARD_SPEED);
+    this.grounded=false;this.timeSinceGroundedS=1;
+    return true;
   }
 
   /** Sprung, wenn gepuffert + (grounded oder Coyote-Fenster). */
@@ -389,6 +416,13 @@ export class PlayerController {
       return true;
     }
 
+    if(this.diveJumpActive){
+      this.diveJumpActive=false;
+      if(fallHeight<=LANDING_BAIL_M){
+        this.boostRemaining=ROLL_BOOST_S;this.boostFactor=ROLL_BOOST_DIVE;
+        this.bus.emit('trick:diveroll',{fallHeight});return false;
+      }
+    }
     // Diveroll (Task 15c): Dive angesetzt?
     if (this.diving) {
       this.diving = false;
@@ -472,6 +506,7 @@ export class PlayerController {
     this.peakY = y;
     this.pendingLanding = null;
     this.pendingVault = null;
+    this.diveJumpActive=false;this.diveRequested=false;
     this.boostRemaining = 0;
     this.noAccelRemaining = 0;
     this.airTricks.cancel();

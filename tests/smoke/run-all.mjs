@@ -25,6 +25,7 @@ const TESTS = [
   'smoke-factory',
   'smoke-factory-routes',
   'smoke-flow-upgrades',
+  'smoke-dive-jump',
   'smoke-geometry',
   'smoke-m4',
   'smoke-char',

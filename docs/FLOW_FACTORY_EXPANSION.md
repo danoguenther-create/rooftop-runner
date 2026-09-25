@@ -2,6 +2,8 @@
 
 Stand: 23.09.2026. Auf Wunsch direkt auf `main` umgesetzt.
 
+Aktualisierung: Die automatische Abrollgrenze beträgt inzwischen 12 m; siehe [Dive Roll](DIVE_ROLL.md) für die neue Doppeltipp-Bewegung und aktuelle Landeregeln. Die folgenden Angaben dokumentieren den ursprünglichen Ausbau.
+
 ## Steuerung und Bewegung
 
 - **Mittelhohe Landung:** Bei 2,4 bis einschließlich 6 Metern Fallhöhe rollt die Figur automatisch ab. Die kurze Laufrolle erhält das Tempo; gehaltene Lauftasten wirken weiter. Normale Sprünge lösen keine Rolle aus. Für höhere Stürze bleibt die rechtzeitig ausgelöste Rolle nötig. Unfertige Flips und abgebrochene Dives behalten ihre bisherigen Konsequenzen.

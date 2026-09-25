@@ -88,13 +88,14 @@ export class PlayerAnimator {
     climbing: boolean,
     mantle = -1,
     vault = 0,
+    diveJump = false,
   ): void {
     this.time += dt;
-    const contact = state === "HANG" || state === "SWING" || state === "VAULT" || state === "WALLRUN";
+    const contact = diveJump || state === "HANG" || state === "SWING" || state === "VAULT" || state === "WALLRUN";
     if (contact) this.lockUntil = 0; // an earlier roll cannot delay a new grip pose
     if (this.time >= this.lockUntil) {
       this.play(
-        mantle >= 0 ? "wallclimb" : this.pickClip(state, hSpeed, vy, climbing),
+        diveJump ? "idle" : mantle >= 0 ? "wallclimb" : this.pickClip(state, hSpeed, vy, climbing),
       );
     }
     if (this.current) {

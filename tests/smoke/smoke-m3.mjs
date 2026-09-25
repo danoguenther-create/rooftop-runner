@@ -57,7 +57,7 @@ await stepMs(page, 600);
 await teleport(7.8, 3.6, 0, 8, 0.5, 0); // Gap-Zone airborne durchfliegen
 await stepMs(page, 700);
 results.gapCombo = await hudState();
-await teleport(0, 12, -20, 0, 0, 0); // 12 m Sturz auf den Boden -> BAIL
+await teleport(0, 16, -20, 0, 0, 0); // 16 m Sturz auf den Boden -> BAIL
 await stepMs(page, 1600); // Sturz ~1.1s bis zum Aufschlag
 // Das Ausblenden der Combo hängt an einem window.setTimeout (HUD: Wackeln,
 // dann verstecken) — reine Anzeige, läuft in Echtzeit und nicht im Physiktakt.

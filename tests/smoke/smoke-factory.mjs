@@ -9,7 +9,7 @@ try {
  await page.waitForFunction(()=>window.game?.player?.contactPose,null,{timeout:120000});
  await page.evaluate(()=>{const g=window.game;g.renderFrame(0);g.renderFrame=()=>{};});
  const prepare=async(pos,yaw=0)=>page.evaluate(({pos,yaw})=>{
-  const g=window.game,p=g.player;p.respawn();g.stepFixed(70);g.followCamera.yaw=yaw;p.cameraYaw=yaw;
+  const g=window.game,p=g.player;window.dispatchEvent(new Event("blur"));p.respawn();g.stepFixed(70);g.followCamera.yaw=yaw;p.cameraYaw=yaw;
   p.body.setTranslation({x:pos[0],y:pos[1],z:pos[2]},true);p.body.setNextKinematicTranslation({x:pos[0],y:pos[1],z:pos[2]});p.velocity.set(0,-.1,0);p.grounded=false;g.physics.step();g.stepFixed(3);
  },{pos,yaw});
  const walk=async(n,jump=false)=>{await page.keyboard.down('w');if(jump)await page.keyboard.press('Space');await page.evaluate(n=>window.game.stepFixed(n),n);await page.keyboard.up('w');return page.evaluate(()=>({state:window.game.player.fsm.current,...window.game.player.body.translation()}));};

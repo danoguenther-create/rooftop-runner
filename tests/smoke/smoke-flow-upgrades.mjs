@@ -30,7 +30,7 @@ try{
   },i);await page.keyboard.up(key);
   assert.equal(roll.rolls,1,JSON.stringify(roll));assert.equal(roll.hard,0);assert(roll.clip&&roll.speed>4&&roll.distance>3);assert.equal(roll.state,'RUN');console.log('OK medium landing rolls and continues running',i,roll);
  }
- for(const [height,expected] of [[1.5,'RUN'],[8,'BAIL']]){
+ for(const [height,expected] of [[1.5,'RUN'],[14,'BAIL']]){
   const boundary=await page.evaluate(height=>{const g=window.game,p=g.player;p.respawn();g.stepFixed(80);p.body.setTranslation({x:35,y:height+.91,z:-20},true);p.body.setNextKinematicTranslation({x:35,y:height+.91,z:-20});p.velocity.set(0,0,0);p.fsm.transition('AIR');p.beginAirborne();p.grounded=false;g.physics.step();let rolls=0;p.bus.on('player:roll',()=>rolls++);g.stepFixed(90);return{state:p.fsm.current,rolls};},height);
   assert.equal(boundary.state,expected,JSON.stringify(boundary));assert.equal(boundary.rolls,0);console.log('OK landing boundary',height,boundary);
  }
