@@ -30,6 +30,7 @@
  */
 import { writeFileSync } from 'node:fs';
 import { addFactoryDistrict } from './factory-district.mjs';
+import { addFactorySewers } from './factory-sewers.mjs';
 
 // ============================================================ Raster
 const PITCH = 20.5; // Abstand der Gebäudezentren in x
@@ -814,6 +815,7 @@ for (const xc of [bx(0) - 85, TOWER_X + 245]) {
 }
 
 addFactoryDistrict({boxes,rails,scenery});
+addFactorySewers({boxes,scenery});
 
 const level = {
   name: 'Palm Quay — Coastal District',

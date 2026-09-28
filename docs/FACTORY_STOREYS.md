@@ -1,5 +1,7 @@
 # Ironworks: schwierigere Zugänge und vier Geschosse
 
+Aktualisierung: Die [Kanalisation](FACTORY_SEWERS.md) bietet inzwischen zusätzliche unterirdische Zugänge zu allen vier Gebäuden. Die folgenden Zugangsbeschränkungen beziehen sich auf die oberirdischen Wege.
+
 Die Haupthalle besitzt Erdgeschoss plus drei Obergeschosse auf 0, 7, 14 und 21 m. Das Dach liegt bei 28 m; die 35 cm starken Zwischendecken lassen etwa 6,65 m lichte Höhe. Drei Meter breite, gegenläufige Treppen mit Zwischenpodesten verbinden alle Ebenen. Die Decken sparen das Treppenhaus aus; obere Maschinen, Kompressoren, Schwingstangen und breite Laufwege verteilen die Parkour-Spots über das Gebäude. Das bestehende Eingangsfenster liegt höher (Fensterbank 3,4 m) und wird über versetzte Frachtstücke erreicht.
 
 Die Werkstatt ist ausschließlich durch den offenen Dachzugang erreichbar und verlassbar. Außen führen fünf versetzte Frachtstapel aufs etwa 7 m hohe Dach. Unter der Dachöffnung führt eine begehbare Treppe ins Gebäude und wieder hinaus. Frühere Fenster und Türen sind physisch geschlossen.

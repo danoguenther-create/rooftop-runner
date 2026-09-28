@@ -328,8 +328,8 @@ export class PlayerController {
     if (wishLen > 0) _wish.normalize();
 
     let maxSpeed = input.sprintHeld ? SPRINT_SPEED : RUN_SPEED;
-    if (this.diveJumpActive) maxSpeed=Math.max(maxSpeed,DIVE_FORWARD_SPEED);
-    if (this.boostRemaining > 0) maxSpeed *= this.boostFactor;
+    if (this.diveJumpActive) maxSpeed=DIVE_FORWARD_SPEED;
+    if (this.boostRemaining > 0 && !this.diveJumpActive) maxSpeed *= this.boostFactor;
 
     const targetX = _wish.x * maxSpeed * wishLen;
     const targetZ = _wish.z * maxSpeed * wishLen;

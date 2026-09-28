@@ -448,6 +448,12 @@ export function buildCityScenery(
       for (const h of [.08,.32,.78,1.03]) add(new THREE.TorusGeometry(.423,.025,5,16),dark,x,y+h,z,Math.PI/2);
       add(new THREE.CylinderGeometry(.38,.38,.025,16),dark,x,y+1.11,z);
       physics?.box([x,y+.55,z],[.84,1.1,.84]);
+    } else if (prop.kind === "sewer-light") {
+      const glow=material("#d3ddac",.05,.45);
+      glow.emissive.set("#bfd8a1");glow.emissiveIntensity=.9;
+      box(x,y,z,1.2,.16,.5,dark,.04);
+      box(x,y-.1,z,1,.08,.3,glow,.025);
+      for(const dx of [-.4,0,.4])box(x+dx,y-.15,z,.035,.04,.38,dark);
     } else if (prop.kind === "compressor") {
       const enamel=material("#536963",.35,.68);
       const gauge=material("#d1cbb3",.15,.55);

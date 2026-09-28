@@ -21,6 +21,9 @@ try{
   ['factory-stairwell',[187,20,-11],[185,13,-24]],
   ['factory-workshop-roof',[181,14,43],[190,6,31]],
   ['factory-boiler-window',[219,13,64],[237,8,48]],
+  ['sewer-corridor',[180,-3.4,17],[210,-3.8,17]],
+  ['sewer-stairs',[155.1,-3.5,-27],[158,-2,-17]],
+  ['sewer-yard-entry',[199,7,58],[207,-2,46]],
   ['marina',[-34,2,-40],[-29,1.3,-44]],
  ]){
   await page.evaluate(({pos,look})=>{const g=window.game;g.camera.position.set(...pos);g.camera.lookAt(...look);g.reviewRender(0);g.hintEl.style.display='none';},{pos,look});

@@ -73,7 +73,8 @@ export class PlayerAnimator {
     });
     bus.on("trick:diveroll", () =>
       this.playOneShot(
-        this.actions.has("landing-roll") ? "landing-roll" : "roll",
+        // landing-roll is a landing recovery, without a full shoulder rotation.
+        this.actions.has("sprint-roll") ? "sprint-roll" : "roll",
         ROLL_TIMESCALE,
       ),
     );
@@ -196,6 +197,8 @@ export class PlayerAnimator {
     const action = this.actions.get(name);
     if (!action) return;
     action.reset();
+    action.paused = false;
+    action.setEffectiveWeight(1);
     action.setLoop(THREE.LoopOnce, 1);
     action.clampWhenFinished = true;
     action.setEffectiveTimeScale(timeScale);

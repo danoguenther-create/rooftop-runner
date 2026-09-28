@@ -175,4 +175,4 @@ export const SWING_MAX_OMEGA = 11.5;
 
 /** Double-tap dive: enough capsule clearance for a two-metre crate. */
 export const DIVE_JUMP_SPEED = 12;
-export const DIVE_FORWARD_SPEED = 8.5;
+export const DIVE_FORWARD_SPEED = 4.25;
