@@ -241,8 +241,8 @@ export class ContactPose {
       }
     }
     if(state === "AIR" && p.diveJumpActive){
-      const extend=ease(p.diveJumpTime,.05,.35);
-      // Push-off -> long flight with hands leading -> soft shoulder-roll entry.
+      const extend=ease(p.diveJumpTime,.03,.22);
+      // Push-off -> compact flight with hands leading -> soft shoulder-roll entry.
       for(let i=0;i<2;i++){
         const side=i===0?1:-1,arm=this.arms[i],leg=this.legs[i];
         if(arm){

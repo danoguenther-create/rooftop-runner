@@ -10,7 +10,7 @@ try{
   const r=await page.evaluate(i=>{
    const g=window.game,p=g.players[i],code=i?'ArrowUp':'KeyW',key=i?'ArrowUp':'w',x=35+i*5;
    const event=(type,repeat=false)=>window.dispatchEvent(new KeyboardEvent(type,{code,key,repeat}));
-   p.respawn();g.stepFixed(80);g.level.registerBoxPhysics([x,-.5,-10],[4,1,60],0,0);g.level.registerBoxPhysics([x,1,-17.4],[2,2,2],0,0);
+   p.respawn();g.stepFixed(80);g.level.registerBoxPhysics([x,-.5,-10],[4,1,60],0,0);g.level.registerBoxPhysics([x,1,-18.3],[2,2,.8],0,0);
    p.body.setTranslation({x,y:.95,z:-20},true);p.body.setNextKinematicTranslation({x,y:.95,z:-20});p.velocity.set(0,0,0);p.fsm.transition('AIR');p.beginAirborne();g.physics.step();g.stepFixed(20);
    if(i===0)window.dispatchEvent(new KeyboardEvent('keydown',{code:'ShiftLeft',key:'Shift'}));
    event('keydown');g.stepFixed(1);event('keydown',true);g.stepFixed(1);const single=p.diveJumpActive;
@@ -21,14 +21,14 @@ try{
    p.bus.on('trick:diveroll',()=>rolls++);
    for(let k=0;k<150;k++){
     g.stepFixed(1);const at=p.body.translation();peak=Math.max(peak,at.y-.9);
-    if(at.z>-18.7&&at.z<-16.1)minClear=Math.min(minClear,at.y-.9);
+    if(at.z>-18.85&&at.z<-17.75)minClear=Math.min(minClear,at.y-.9);
     if(p.diveJumpActive&&p.mesh.rotation.x>.8)pose=true;
-    if(rolls&&!landed)landed={...at,clip:p.animator.currentName};
+    if(rolls&&!landed)landed={...at,clip:p.animator.currentName,timeScale:p.animator.current.getEffectiveTimeScale(),flightSeconds:(k+2)/60};
     if(rolls){const q=p.contactPose.bones.get('Hips').quaternion;minHipUp=Math.min(minHipUp,1-2*(q.x*q.x+q.z*q.z));}
    }
    event('keyup');window.dispatchEvent(new KeyboardEvent('keyup',{code:'ShiftLeft',key:'Shift'}));return{single,started,launch,other,rolls,peak,minClear,pose,landed,minHipUp,state:p.fsm.current,end:p.body.translation(),flip:p.airTricks.active};
   },i);
-  console.log('dive',i,r);assert(!r.single&&r.started&&!r.other);assert(r.launch>11&&r.peak>3&&r.minClear>2);assert(r.pose);assert.equal(r.rolls,1);assert(r.landed.z>-15.9);assert(r.landed.z+20>4.9&&r.landed.z+20<5.5,JSON.stringify(r));assert.equal(r.landed.clip,'sprint-roll');assert(r.minHipUp<-.5,`Actual roll rotation missing: ${r.minHipUp}`);assert.equal(r.state,'RUN');assert(!r.flip);
+  console.log('dive',i,r);assert(!r.single&&r.started&&!r.other);assert(r.launch>11&&r.peak>3&&r.minClear>2);assert(r.pose);assert.equal(r.rolls,1);assert(r.landed.z+20>3.1&&r.landed.z+20<3.6,JSON.stringify(r));assert(r.landed.flightSeconds<.9);assert.equal(r.landed.timeScale,2);assert.equal(r.landed.clip,'sprint-roll');assert(r.minHipUp<-.5,`Actual roll rotation missing: ${r.minHipUp}`);assert.equal(r.state,'RUN');assert(!r.flip);
  }
  for(const height of [6,9,11.9,13]){
   const r=await page.evaluate(height=>{const g=window.game,p=g.player;p.respawn();g.stepFixed(80);p.body.setTranslation({x:35,y:height+.91,z:-20},true);p.body.setNextKinematicTranslation({x:35,y:height+.91,z:-20});p.velocity.set(0,0,0);p.fsm.transition('AIR');p.beginAirborne();p.grounded=false;g.physics.step();let rolls=0;p.bus.on('player:roll',()=>rolls++);g.stepFixed(85);return{rolls,state:p.fsm.current};},height);

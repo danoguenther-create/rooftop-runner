@@ -32,6 +32,7 @@ const TESTS = [
   'smoke-m4',
   'smoke-char',
   'smoke-visual-character',
+  'smoke-shadow-stability',
   'smoke-contacts',
   'smoke-motion-flow',
   'smoke-split',

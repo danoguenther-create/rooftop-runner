@@ -174,5 +174,7 @@ export const SWING_MAX_VY = 2;
 export const SWING_MAX_OMEGA = 11.5;
 
 /** Double-tap dive: enough capsule clearance for a two-metre crate. */
-export const DIVE_JUMP_SPEED = 12;
+export const DIVE_JUMP_SPEED = 18;
+/** Faster dive arc, retaining crate clearance: ~0.8 s flight instead of 1.2 s. */
+export const DIVE_JUMP_GRAVITY_FACTOR = 2.25;
 export const DIVE_FORWARD_SPEED = 4.25;

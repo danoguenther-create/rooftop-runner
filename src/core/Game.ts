@@ -24,6 +24,12 @@ import { SaveGame } from '../save/SaveGame';
 
 const FIXED_DT = 1 / 60;
 const MAX_STEPS = 3;
+// Keep the directional shadow projection aligned with world-space texels.
+const SUN_OFFSET = new THREE.Vector3(55, 70, -45);
+const SUN_BASIS = new THREE.Matrix4().lookAt(SUN_OFFSET, new THREE.Vector3(), THREE.Object3D.DEFAULT_UP);
+const SUN_AXES = [0, 1, 2].map(i => new THREE.Vector3().setFromMatrixColumn(SUN_BASIS, i));
+const shadowFocus = new THREE.Vector3();
+const shadowCenter = new THREE.Vector3();
 /** Kräftiger Blaustich für das Charaktermodell von Spieler 2 */
 const P2_TINT = new THREE.Color(0.35, 0.65, 2.2);
 
@@ -215,6 +221,7 @@ export class Game {
     sun.shadow.normalBias = 0.035;
     sun.castShadow = true;
     sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.autoUpdate = false;
     sun.shadow.camera.left = -40;
     sun.shadow.camera.right = 40;
     sun.shadow.camera.top = 40;
@@ -486,8 +493,16 @@ export class Game {
   private renderFrame(dt: number): void {
     if (this.player) {
       const at=this.player.body.translation();
-      this.sun.position.set(at.x+55,at.y+70,at.z-45);
-      this.sun.target.position.set(at.x,at.y,at.z);
+      shadowFocus.set(at.x, at.y, at.z);
+      const texel = (this.sun.shadow.camera.right - this.sun.shadow.camera.left) / this.sun.shadow.mapSize.x;
+      shadowCenter.set(0, 0, 0);
+      for (const axis of SUN_AXES) {
+        shadowCenter.addScaledVector(axis, Math.round(shadowFocus.dot(axis) / texel) * texel);
+      }
+      this.sun.position.copy(shadowCenter).add(SUN_OFFSET);
+      this.sun.target.position.copy(shadowCenter);
+      // One shared map for both viewports; dynamic characters still update each frame.
+      this.sun.shadow.needsUpdate = true;
       this.sun.target.updateMatrixWorld();
     }
     if (this.mode === 'split') {

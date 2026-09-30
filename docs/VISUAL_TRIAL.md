@@ -35,3 +35,7 @@ Bei 1280 × 800 Pixeln am Direkteinstieg: Einzelspieler 58 → 76 Zeichenaufrufe
 Assets reproduzieren: `blender -b --python tools/blender/build_factory_preview.py`. Nur das Maschinenmodell neu erzeugen: zusätzlich `-- --kit-only`.
 
 Validierung am 30.09.2026: Produktionsbuild und alle sechs oben genannten Smoke-Tests bestanden. Die öffentliche Vorschau wurde zusätzlich im Browser geprüft: zwei Spieler, Blender-Maschinen und Stoffmaterialien für beide Figuren geladen, keine Browserfehler.
+
+Nachbesserung: Sonnen-Schatten werden im Lichtkoordinatensystem an ganze Schatten-Texel gebunden und pro Bild nur einmal für beide Ansichten berechnet. Der Hallenboden liegt optisch 2 cm über dem zuvor deckungsgleichen Hofuntergrund; Kollisionen bleiben unverändert. `smoke-shadow-stability` prüft Subpixel-Bewegung, Rasterstabilität, gemeinsame Schattenkarte und die getrennten Bodenflächen. Die Dive-Roll benötigt jetzt etwa 0,82 s für 3,5 m Flugweite, mit schnellerem Abrollen und ohne automatische Griff-/Vault-Unterbrechung.
+
+Validierung der Nachbesserung: Build und sieben gezielte Smoke-Tests bestanden (`smoke-shadow-stability`, `smoke-dive-jump`, `smoke-15c`, `smoke-contacts`, `smoke-motion-flow`, `smoke-split`, `smoke-visual-character`). Die Schattenprüfung besteht auch über den öffentlichen Splitscreen-Testlink.

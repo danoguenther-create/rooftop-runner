@@ -76,7 +76,7 @@ export class PlayerAnimator {
       this.playOneShot(
         // landing-roll is a landing recovery, without a full shoulder rotation.
         this.actions.has("sprint-roll") ? "sprint-roll" : "roll",
-        ROLL_TIMESCALE,
+        2.0,
       ),
     );
   }

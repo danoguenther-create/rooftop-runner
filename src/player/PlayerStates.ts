@@ -133,43 +133,47 @@ class AirState extends PlayerState {
     const p = this.player;
     p.airMove(dt);
 
-    // Rail von oben fangen? (spezifischster Move zuerst) -> Balancieren
-    if (p.balancer.trySnap()) {
-      p.fsm.transition('BALANCE');
-      return;
-    }
-
-    // Stange von unten? -> SWING
-    if (p.swinger.trySnap()) {
-      p.fsm.transition('SWING');
-      return;
-    }
-
-    // Frontaler Wandlauf (Boost) + Kante in Griffweite? -> HANG
-    p.climb.tryWallClimb(p);
-    if (p.climb.tryGrab(p)) {
-      p.fsm.transition('HANG');
-      return;
-    }
-
-    // Wand seitlich? -> Wall-Run (Task 10: Erkennung, Task 11: Bewegung)
-    p.wallHit = p.wallDetector.check(p);
-    if (p.wallHit) {
-      p.fsm.transition('WALLRUN');
-      return;
-    }
-
-    // Flaches Anfliegen eines kniehohen Hindernisses -> Vault
-    if (p.velocity.y > -2) {
-      const plan = p.vaultDetector.tryPlan(p);
-      if (plan) {
-        p.pendingVault = plan;
-        p.fsm.transition('VAULT');
+    // Commit to the double-tap dive until contact with the ground. Automatic
+    // grabs/vaults otherwise steal its short arc as a nearby crate enters range.
+    if (!p.diveJumpActive) {
+      // Rail von oben fangen? (spezifischster Move zuerst) -> Balancieren
+      if (p.balancer.trySnap()) {
+        p.fsm.transition('BALANCE');
         return;
       }
-    }
 
-    p.tryJump(); // Coyote-Sprung kurz nach Kantenverlust
+      // Stange von unten? -> SWING
+      if (p.swinger.trySnap()) {
+        p.fsm.transition('SWING');
+        return;
+      }
+
+      // Frontaler Wandlauf (Boost) + Kante in Griffweite? -> HANG
+      p.climb.tryWallClimb(p);
+      if (p.climb.tryGrab(p)) {
+        p.fsm.transition('HANG');
+        return;
+      }
+
+      // Wand seitlich? -> Wall-Run (Task 10: Erkennung, Task 11: Bewegung)
+      p.wallHit = p.wallDetector.check(p);
+      if (p.wallHit) {
+        p.fsm.transition('WALLRUN');
+        return;
+      }
+
+      // Flaches Anfliegen eines kniehohen Hindernisses -> Vault
+      if (p.velocity.y > -2) {
+        const plan = p.vaultDetector.tryPlan(p);
+        if (plan) {
+          p.pendingVault = plan;
+          p.fsm.transition('VAULT');
+          return;
+        }
+      }
+
+      p.tryJump(); // Coyote-Sprung kurz nach Kantenverlust
+    }
     p.applyMovement(dt);
     if (p.grounded && p.velocity.y <= 0) {
       // Unfertiger Flip bei der Landung -> direkt BAIL statt RUN

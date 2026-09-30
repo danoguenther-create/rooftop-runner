@@ -23,6 +23,7 @@ import {
   DECEL,
   DIVE_GRAVITY_FACTOR,
   DIVE_JUMP_SPEED,
+  DIVE_JUMP_GRAVITY_FACTOR,
   DIVE_FORWARD_SPEED,
   GRAVITY,
   HARD_LANDING_LOCK_S,
@@ -259,7 +260,7 @@ export class PlayerController {
       this.mesh.rotation.x = 0.7;
     }
     if(this.diveJumpActive) {
-      const extend=THREE.MathUtils.smoothstep(this.diveJumpTime,.08,.4);
+      const extend=THREE.MathUtils.smoothstep(this.diveJumpTime,.04,.24);
       this.mesh.rotation.x=extend*(1.05+.3*THREE.MathUtils.smoothstep(-this.velocity.y,0,7));
       this.mesh.rotation.z=.08*extend;
     }
@@ -316,7 +317,7 @@ export class PlayerController {
     if(!this.diveJumpActive || this.input?.moveY!==0) this.accelerateHorizontal(dt, AIR_CONTROL);
     // Gehaltener Dive streckt den Steigflug: flachere, weitere Flugbahn
     const diveFloat = this.diving && this.velocity.y > 0 && (this.input?.rollHeld ?? false);
-    this.velocity.y -= GRAVITY * (diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
+    this.velocity.y -= GRAVITY * (this.diveJumpActive ? DIVE_JUMP_GRAVITY_FACTOR : diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
     const y = this.body.translation().y;
     if (y > this.peakY) this.peakY = y;
   }

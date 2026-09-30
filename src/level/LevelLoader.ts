@@ -207,7 +207,11 @@ export class LevelLoader {
     for (let i = 0; i < items.length; i++) {
       const box = items[i];
       q.setFromEuler(e.set(0, box.rotY ?? 0, 0, 'YXZ'));
-      m.compose(p.fromArray(box.pos), q, s.fromArray(box.size));
+      p.fromArray(box.pos);
+      // The mill slab and yard both end at y=0. Separate only their rendered
+      // surfaces to prevent z-fighting; retain original collider/ledge heights.
+      if (box.tag === 'factory-floor') p.y += 0.02;
+      m.compose(p, q, s.fromArray(box.size));
       mesh.setMatrixAt(i, m);
       sizes.set(box.size, i * 3);
 
