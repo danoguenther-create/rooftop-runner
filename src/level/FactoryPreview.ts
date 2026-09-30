@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import type { LevelData } from './levelTypes';
+import { cityBakedTexture } from './CityPBR';
 
 export const visualTrial = new URLSearchParams(location.search).get('look') !== 'original';
 const textures = new Map<string, THREE.Texture>();
@@ -45,7 +46,7 @@ export async function prepareFactoryPreview(data: LevelData): Promise<THREE.Grou
   const [kit]=await Promise.all([
     new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/factory-preview/mill-kit.glb`),
     ...['brick','concrete'].flatMap(kind=>['color','normal','roughness'].map(async channel=>{
-      const name=`${kind}-${channel}`,t=await loader.loadAsync(`${base}${name}.png`);
+      const name=`${kind}-${channel}`,t=cityBakedTexture(name)??await loader.loadAsync(`${base}${name}.png`);
       t.wrapS=t.wrapT=THREE.RepeatWrapping;t.anisotropy=4;
       t.colorSpace=channel==='color'?THREE.SRGBColorSpace:THREE.NoColorSpace;textures.set(name,t);
     })),

@@ -1,5 +1,6 @@
 import * as THREE from "three";
 import { surfaceFinish } from "./SurfaceFinish";
+import { cityPBRReady, type CitySurface } from "./CityPBR";
 import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import { RoundedBoxGeometry } from "three/examples/jsm/geometries/RoundedBoxGeometry.js";
 import type { LevelData, BoxData, RailData } from "./levelTypes";
@@ -31,7 +32,12 @@ export function buildCityScenery(
         metalness: metal,
         roughness: rough,
       });
-      if (metal < 0.2) surfaceFinish(m, "plaster");
+      if (cityPBRReady()) {
+        const foliage=['#42725a','#557a48','#68864d','#42654e','#5b7b50','#698454'].includes(color);
+        const kind: CitySurface=foliage?'foliage':color==='#896f50'||color==='#625945'?'wood':color==='#cbbb95'?'sand':metal>=.2?'metal':'plaster';
+        // Glazing and polished car paint keep their clean reflection response.
+        if (rough >= .4 || metal < .2) surfaceFinish(m,kind);
+      } else if (metal < 0.2) surfaceFinish(m, "plaster");
       materials.set(key, m);
     }
     return m;
@@ -54,7 +60,7 @@ export function buildCityScenery(
     rz = 0,
   ) {
     // Merge requires a consistent attribute layout (all primitives include these).
-    g.deleteAttribute("uv");
+    if (!g.getAttribute('uv')) g.setAttribute('uv',new THREE.Float32BufferAttribute(new Float32Array(g.getAttribute('position').count*2),2));
     if (!g.index)
       g.setIndex(
         Array.from({ length: g.getAttribute("position").count }, (_, i) => i),
@@ -667,6 +673,10 @@ export function buildCityScenery(
       metalness: 0.45,
     }),
   );
+  if (cityPBRReady()) {
+    surfaceFinish(water.material,'water');
+    water.material.normalScale.set(.65,.65);
+  }
   water.rotation.x = -Math.PI / 2;
   water.position.set(8, -0.32, 804);
   root.add(water);

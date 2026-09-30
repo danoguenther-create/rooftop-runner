@@ -25,6 +25,7 @@
 import * as THREE from 'three';
 import { millMaterial } from './FactoryPreview';
 import { surfaceFinish } from './SurfaceFinish';
+import type { CitySurface } from './CityPBR';
 import type { BoxStyle } from './levelTypes';
 
 /** Kantenlänge einer Textur-Kachel in Metern (Fassadenraster: 1 Geschoss). */
@@ -134,9 +135,18 @@ const windowTexture = (style: BoxStyle): THREE.CanvasTexture => {
 export const createStyleMaterial = (style: BoxStyle): THREE.MeshStandardMaterial => {
   if(style.startsWith('mill-'))return millMaterial(style);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84, metalness: 0.02 });
+  if (style === 'city-glass') return new THREE.MeshStandardMaterial({color:'#ffffff',roughness:.23,metalness:.45});
+  if (style.startsWith('city-')) {
+    const kind=style.slice(5) as CitySurface;
+    mat.userData.cityBuilding=kind==='plaster';
+    mat.roughness=kind==='metal'?.78:kind==='damp'?.68:1;
+    mat.metalness=kind==='metal'?.65:0;
+    return surfaceFinish(mat,kind);
+  }
   if (style === 'brick') return surfaceFinish(mat, 'brick');
   if (style === 'plain') return surfaceFinish(mat, 'concrete');
 
+  mat.userData.cityBuilding=true;
   mat.map = windowTexture(style);
   mat.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader

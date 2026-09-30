@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { prepareFactoryPreview, visualTrial } from './FactoryPreview';
 import { surfaceFinish } from './SurfaceFinish';
+import { cityBoxStyle, prepareCityLook } from './CityLook';
+import { cityPBRReady } from './CityPBR';
 import { buildCityScenery } from './CityScenery';
 import type { BoxData, BoxStyle, LevelData, MarkerData } from './levelTypes';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -54,6 +56,8 @@ export class LevelLoader {
     const data = (await res.json()) as LevelData;
 
     if(levelName==='city01' && visualTrial) {
+      try { this.group.add(await prepareCityLook(data)); }
+      catch(error) { console.warn('Stadtmaterialien nicht verfügbar; verwende bisherigen Look.',error); }
       try { this.group.add(await prepareFactoryPreview(data)); }
       catch(error) { console.warn('Grafikprobe konnte nicht geladen werden; verwende die vorhandenen Modelle.',error); }
     }
@@ -82,10 +86,11 @@ export class LevelLoader {
         if (box.solid !== false) this.registerBoxPhysics(box.pos, box.size, box.rotY ?? 0, 0);
         continue;
       }
-      if (box.style) {
-        const list = styleGroups.get(box.style);
+      const style=cityBoxStyle(box);
+      if (style) {
+        const list = styleGroups.get(style);
         if (list) list.push(box);
-        else styleGroups.set(box.style, [box]);
+        else styleGroups.set(style, [box]);
         continue;
       }
       if (!box.instanced) {
@@ -129,7 +134,9 @@ export class LevelLoader {
     let mat = this.materials.get(color);
     if (!mat) {
       mat = new THREE.MeshStandardMaterial({ color, roughness: 0.87 });
-      surfaceFinish(mat, color === '#343b40' ? 'asphalt' : 'concrete');
+      const steel=cityPBRReady() && color==='#3a3d42';
+      if(steel){mat.metalness=.65;mat.roughness=.72;}
+      surfaceFinish(mat, steel ? 'metal' : color === '#343b40' ? 'asphalt' : 'concrete');
       this.materials.set(color, mat);
     }
     return mat;

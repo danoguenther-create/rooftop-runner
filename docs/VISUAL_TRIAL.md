@@ -2,6 +2,8 @@
 
 Branch: `feat/factory-visual-character-preview`. Die Produktionsversion auf `main` bleibt unverändert.
 
+Die Grafikprobe ist inzwischen auf die gesamte Karte erweitert; Umfang, Assets und aktuelle Messwerte stehen in [CITY_GRAPHICS.md](CITY_GRAPHICS.md). Die folgenden Angaben beschreiben den ursprünglichen Hallen-Prototyp.
+
 Direkteinstieg in die Haupthalle:
 
 - Splitscreen: `/rooftop-runner/?level=city01&showcase=mill&mode=split&play=1`

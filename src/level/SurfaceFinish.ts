@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { cityFinish, cityPBRReady, type CitySurface } from "./CityPBR";
 let noiseTexture: THREE.DataTexture | undefined;
 function finishTexture(): THREE.DataTexture {
   if (noiseTexture) return noiseTexture;
@@ -20,8 +21,9 @@ function finishTexture(): THREE.DataTexture {
 /** World-space material grain with mipmaps: consistent scale and no procedural shader noise cost. */
 export function surfaceFinish(
   mat: THREE.MeshStandardMaterial,
-  kind: "plaster" | "concrete" | "asphalt" | "metal" | "brick" = "concrete",
+  kind: CitySurface = "concrete",
 ): THREE.MeshStandardMaterial {
+  if (cityPBRReady()) return cityFinish(mat, kind);
   const previous = mat.onBeforeCompile.bind(mat);
   const key = mat.customProgramCacheKey();
   mat.onBeforeCompile = (shader, renderer) => {
