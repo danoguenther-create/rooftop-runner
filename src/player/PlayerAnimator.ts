@@ -76,10 +76,12 @@ export class PlayerAnimator {
       this.playOneShot(
         // landing-roll is a landing recovery, without a full shoulder rotation.
         this.actions.has("sprint-roll") ? "sprint-roll" : "roll",
-        2.0,
+        1.75,
       ),
     );
   }
+
+  get isRolling(): boolean { return this.time<this.lockUntil && ["sprint-roll","roll"].includes(this.currentName); }
 
   get clipName(): string { return this.currentName; }
 

@@ -173,8 +173,10 @@ export const SWING_MAX_VY = 2;
 /** Limit accumulated swing energy while allowing full giant circles. */
 export const SWING_MAX_OMEGA = 11.5;
 
-/** Double-tap dive: enough capsule clearance for a two-metre crate. */
-export const DIVE_JUMP_SPEED = 18;
-/** Faster dive arc, retaining crate clearance: ~0.8 s flight instead of 1.2 s. */
-export const DIVE_JUMP_GRAVITY_FACTOR = 2.25;
-export const DIVE_FORWARD_SPEED = 4.25;
+/** Flat dive by default; nearby low obstacles may raise the arc within this cap. */
+export const DIVE_JUMP_SPEED = 8.2;
+/** Gravity remains constant throughout the dive, including its apex. */
+export const DIVE_JUMP_GRAVITY_FACTOR = 1.7;
+export const DIVE_FORWARD_SPEED = 4.6;
+
+export const DIVE_MAX_JUMP_SPEED = 12.4;

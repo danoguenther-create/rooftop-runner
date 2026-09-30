@@ -13,6 +13,10 @@ interface Chain {
 /** Two-bone world-space IK on top of the sampled clip. Physics owns all anchors. */
 export class ContactPose {
   private stride = 0;
+  private diveWasActive = false;
+  private diveRolling = false;
+  private diveBlendAge = 1;
+  private readonly identity = new THREE.Quaternion();
   private previousState = "RUN";
   private landingAge = 1;
   private runLean = 0;
@@ -23,6 +27,11 @@ export class ContactPose {
   private sampled: {
     bone: THREE.Bone;
     rotation: THREE.Quaternion;
+    position: THREE.Vector3;
+    lastRotation: THREE.Quaternion;
+    lastPosition: THREE.Vector3;
+    rotationOffset: THREE.Quaternion;
+    positionOffset: THREE.Vector3;
     scale: THREE.Vector3;
   }[] = [];
   private arms: (Chain | null)[] = [];
@@ -60,6 +69,11 @@ export class ContactPose {
     this.sampled = Array.from(this.bones.values()).map((bone) => ({
       bone,
       rotation: bone.quaternion.clone(),
+      position: bone.position.clone(),
+      lastRotation: bone.quaternion.clone(),
+      lastPosition: bone.position.clone(),
+      rotationOffset: new THREE.Quaternion(),
+      positionOffset: new THREE.Vector3(),
       scale: bone.scale.clone(),
     }));
     for (const side of ["Left", "Right"]) {
@@ -70,6 +84,7 @@ export class ContactPose {
   restore(): void {
     for (const s of this.sampled) {
       s.bone.quaternion.copy(s.rotation);
+      s.bone.position.copy(s.position);
       s.bone.scale.copy(s.scale);
     }
   }
@@ -204,6 +219,7 @@ export class ContactPose {
   update(_dt: number) {
     for (const s of this.sampled) {
       s.rotation.copy(s.bone.quaternion);
+      s.position.copy(s.bone.position);
       s.scale.copy(s.bone.scale);
     }
     const p = this.p,
@@ -241,17 +257,26 @@ export class ContactPose {
       }
     }
     if(state === "AIR" && p.diveJumpActive){
-      const extend=ease(p.diveJumpTime,.03,.22);
-      // Push-off -> compact flight with hands leading -> soft shoulder-roll entry.
+      const weight=ease(p.diveJumpTime,0,.14);
+      const tuck=ease(-p.velocity.y,0,7);
+      const hips=this.bones.get('Hips');
+      // Rotate the skeleton around its pelvis, not the capsule/root. The same
+      // pivot survives touchdown and avoids snapping the whole model upright.
+      if(hips)hips.rotateX((.95+.22*tuck)*weight);
+      p.mesh.updateMatrixWorld(true);
       for(let i=0;i<2;i++){
         const side=i===0?1:-1,arm=this.arms[i],leg=this.legs[i];
         if(arm){
-          this.local(side*.24,.35+.65*extend,.35+.1*extend,this.target);
-          this.local(side*.55,.55,.6,this.pole);this.solve(arm,this.target,this.pole);
+          arm.end.getWorldPosition(this.endpoint);
+          this.local(side*(.25-.06*tuck),.10-.15*tuck,.9-.34*tuck,this.target);
+          this.target.lerp(this.endpoint,1-weight);
+          this.local(side*.48,-.08,.5,this.pole);this.solve(arm,this.target,this.pole);
         }
         if(leg){
-          this.local(side*.16,-.7,-.1-.16*extend,this.target);
-          this.local(side*.24,-.3,.4,this.pole);this.solve(leg,this.target,this.pole);
+          leg.end.getWorldPosition(this.endpoint);
+          this.local(side*.16,-.42+.15*tuck,-.50+.27*tuck,this.target);
+          this.target.lerp(this.endpoint,1-weight);
+          this.local(side*.25,-.55,.28,this.pole);this.solve(leg,this.target,this.pole);
         }
       }
     } else if (state === "AIR" && p.airTricks.tuckWeight > 0) {
@@ -403,7 +428,7 @@ export class ContactPose {
         this.local(i === 0 ? 0.5 : -0.5, 0.0, -0.4, this.pole);
         this.solve(chain, this.target, this.pole);
       }
-    } else if (state === "RUN" && p.grounded) {
+    } else if (state === "RUN" && p.grounded && !["sprint-roll","roll"].includes(p.animationName)) {
       // Ground adaptation preserves the clip's stride; only the planted foot is corrected.
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
@@ -429,5 +454,33 @@ export class ContactPose {
         this.solve(chain, this.target, this.pole);
       }
     }
+    const rolling=['sprint-roll','roll'].includes(p.animationName);
+    const touchdown=this.diveWasActive&&!p.diveJumpActive&&state==='RUN'&&rolling;
+    const runOut=this.diveRolling&&!rolling&&state==='RUN';
+    if(touchdown||runOut){
+      this.diveBlendAge=0;
+      for(const pose of this.sampled){
+        pose.rotationOffset.copy(pose.bone.quaternion).invert().premultiply(pose.lastRotation);
+        pose.positionOffset.copy(pose.lastPosition).sub(pose.bone.position);
+      }
+    }
+    if(p.diveJumpActive&&!this.diveWasActive)this.diveBlendAge=1;
+    if(state!=='RUN'&&!p.diveJumpActive)this.diveBlendAge=1;
+    if(this.diveBlendAge<.14){
+      const decay=1-ease(this.diveBlendAge,0,.14);
+      for(const pose of this.sampled){
+        this.q.copy(this.identity).slerp(pose.rotationOffset,decay);
+        pose.bone.quaternion.premultiply(this.q);
+        pose.bone.position.addScaledVector(pose.positionOffset,decay);
+      }
+      this.diveBlendAge+=_dt;
+    }
+    this.diveWasActive=p.diveJumpActive;
+    this.diveRolling=touchdown||(this.diveRolling&&rolling&&state==='RUN');
+    for(const pose of this.sampled){
+      pose.lastRotation.copy(pose.bone.quaternion);
+      pose.lastPosition.copy(pose.bone.position);
+    }
+    p.mesh.updateMatrixWorld(true);
   }
 }

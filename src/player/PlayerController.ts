@@ -23,6 +23,7 @@ import {
   DECEL,
   DIVE_GRAVITY_FACTOR,
   DIVE_JUMP_SPEED,
+  DIVE_MAX_JUMP_SPEED,
   DIVE_JUMP_GRAVITY_FACTOR,
   DIVE_FORWARD_SPEED,
   GRAVITY,
@@ -108,6 +109,7 @@ export class PlayerController {
   private jumpRequestedAt = -Infinity;
   diveJumpActive = false;
   diveJumpTime = 0;
+  private diveRecoveryTime = 0;
   private diveRequested = false;
 
   private lastRollPressAt = -Infinity;
@@ -259,11 +261,6 @@ export class PlayerController {
     if (this.diving && !this.airTricks.active && this.fsm.current === 'AIR') {
       this.mesh.rotation.x = 0.7;
     }
-    if(this.diveJumpActive) {
-      const extend=THREE.MathUtils.smoothstep(this.diveJumpTime,.04,.24);
-      this.mesh.rotation.x=extend*(1.05+.3*THREE.MathUtils.smoothstep(-this.velocity.y,0,7));
-      this.mesh.rotation.z=.08*extend;
-    }
     // Bar-Swing: Körper um die Stange mitneigen, damit die Hände dran bleiben
     if (this.fsm.current === 'SWING' && this.swinger.visual) {
       const { phi, u } = this.swinger.visual;
@@ -283,6 +280,7 @@ export class PlayerController {
   fixedUpdate(dt: number): void {
     if (!this.input) return;
     if(this.diveJumpActive)this.diveJumpTime+=dt;
+    this.diveRecoveryTime=Math.max(0,this.diveRecoveryTime-dt);
 
     this.timeSinceGroundedS = this.grounded ? 0 : this.timeSinceGroundedS + dt;
     if (this.grounded) this.everGrounded = true;
@@ -307,14 +305,18 @@ export class PlayerController {
 
   /** Bodenbewegung: Beschleunigen/Bremsen Richtung Wunschgeschwindigkeit. */
   groundMove(dt: number): void {
-    this.accelerateHorizontal(dt, 1);
+    this.accelerateHorizontal(dt, this.diveRecoveryTime>0?.3:1);
     if (this.grounded && this.velocity.y < 0) this.velocity.y = -2; // Boden-Haftung
   }
 
   /** Luftbewegung: reduzierte Steuerwirkung + Gravitation. */
   airMove(dt: number): void {
-    // A double tap launches the whole dive; releasing W must not kill its flight.
-    if(!this.diveJumpActive || this.input?.moveY!==0) this.accelerateHorizontal(dt, AIR_CONTROL);
+    // Carry running momentum into the dive, then ease towards its compact
+    // cruise speed. Releasing/turning the camera cannot jerk the flight vector.
+    if(this.diveJumpActive){
+      const speed=this.horizontalSpeed;
+      if(speed>0){const next=moveToward(speed,DIVE_FORWARD_SPEED,18*dt);this.velocity.x*=next/speed;this.velocity.z*=next/speed;}
+    }else this.accelerateHorizontal(dt, AIR_CONTROL);
     // Gehaltener Dive streckt den Steigflug: flachere, weitere Flugbahn
     const diveFloat = this.diving && this.velocity.y > 0 && (this.input?.rollHeld ?? false);
     this.velocity.y -= GRAVITY * (this.diveJumpActive ? DIVE_JUMP_GRAVITY_FACTOR : diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
@@ -348,13 +350,34 @@ export class PlayerController {
   }
 
   tryDiveJump(): boolean {
-    if(!this.diveRequested || !this.grounded || this.fsm.current!=="RUN" || this.pendingLanding)return false;
+    if(!this.diveRequested || !this.grounded || this.fsm.current!=="RUN" || this.pendingLanding || this.animator?.isRolling)return false;
     this.diveRequested=false;this.diveJumpActive=true;this.diveJumpTime=0;
     this.airTricks.cancel();this.diving=false;this.jumpRequestedAt=-Infinity;
     this.pendingLanding=null;
-    this.velocity.set(-Math.sin(this.cameraYaw)*DIVE_FORWARD_SPEED,DIVE_JUMP_SPEED,-Math.cos(this.cameraYaw)*DIVE_FORWARD_SPEED);
+    const speed=Math.max(DIVE_FORWARD_SPEED,Math.min(this.horizontalSpeed,SPRINT_SPEED));
+    this.velocity.set(-Math.sin(this.cameraYaw)*speed,this.diveLaunchSpeed(speed),-Math.cos(this.cameraYaw)*speed);
     this.grounded=false;this.timeSinceGroundedS=1;
     return true;
+  }
+
+  /** Raise only for reachable low obstacles, never for a wall or open ground. */
+  private diveLaunchSpeed(forwardSpeed: number): number {
+    const at=this.body.translation(), feet=at.y-CENTER_TO_FEET;
+    const dx=-Math.sin(this.cameraYaw), dz=-Math.cos(this.cameraYaw);
+    let speed=DIVE_JUMP_SPEED;
+    for(const face of this.level.topFaces){
+      const height=face.y-feet;
+      if(height<.15 || height>2.05)continue;
+      if(Math.hypot(face.cx-at.x,face.cz-at.z)>4+Math.hypot(face.halfX,face.halfZ))continue;
+      const c=Math.cos(face.rotY),s=Math.sin(face.rotY);
+      for(let distance=.6;distance<=3.1;distance+=.1){
+        const x=at.x+dx*distance-face.cx,z=at.z+dz*distance-face.cz;
+        if(Math.abs(c*x-s*z)>face.halfX+CAPSULE_RADIUS || Math.abs(s*x+c*z)>face.halfZ+CAPSULE_RADIUS)continue;
+        const time=distance/Math.max(DIVE_FORWARD_SPEED,forwardSpeed-2);
+        speed=Math.max(speed,(height+.08+.5*GRAVITY*DIVE_JUMP_GRAVITY_FACTOR*time*time)/time);
+      }
+    }
+    return Math.min(speed,DIVE_MAX_JUMP_SPEED);
   }
 
   /** Sprung, wenn gepuffert + (grounded oder Coyote-Fenster). */
@@ -424,7 +447,7 @@ export class PlayerController {
     if(this.diveJumpActive){
       this.diveJumpActive=false;
       if(fallHeight<=LANDING_BAIL_M){
-        this.boostRemaining=ROLL_BOOST_S;this.boostFactor=ROLL_BOOST_DIVE;
+        this.boostRemaining=0;this.diveRecoveryTime=.4;
         this.bus.emit('trick:diveroll',{fallHeight});return false;
       }
     }
@@ -511,7 +534,7 @@ export class PlayerController {
     this.peakY = y;
     this.pendingLanding = null;
     this.pendingVault = null;
-    this.diveJumpActive=false;this.diveRequested=false;
+    this.diveJumpActive=false;this.diveRequested=false;this.diveRecoveryTime=0;
     this.boostRemaining = 0;
     this.noAccelRemaining = 0;
     this.airTricks.cancel();

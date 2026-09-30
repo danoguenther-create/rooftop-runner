@@ -1,17 +1,29 @@
 # Dive Roll per Doppeltipp
 
-Spieler 1 tippt **W zweimal**, Spieler 2 **Pfeil hoch zweimal**, innerhalb von 300 ms. Auf dem Boden startet das einen kräftigen Hechtsprung; keine zusätzliche Sprung- oder Rolltaste erforderlich. Gedrückthalten und Tastatur-Autorepeat zählen nicht als zweiter Tipp. Auch wenn der zweite Tipp sofort losgelassen wird, bleibt das Flugmomentum erhalten. Die bisherigen Luft-Flips bleiben außerhalb der neuen Dive-Roll-Sequenz verfügbar.
+Spieler 1 tippt **W zweimal**, Spieler 2 **Pfeil hoch zweimal**, innerhalb von 300 ms. Gedrückthalten und Tastatur-Autorepeat zählen nicht als zweiter Tipp. Nach dem Absprung darf die Taste losgelassen werden. Eine laufende Rolle kann nicht durch einen weiteren Doppeltipp abgebrochen werden.
 
-Die neue prozedurale Flugbewegung streckt beide Arme nach vorne, kippt den Körper in eine längliche Flugpose und führt bei der Landung in die echte Sprint-Rollenanimation. Während der kurzen Flugphase übernehmen automatische Kantengriffe, Vaults oder Wallruns nicht; die Bodenkollision leitet die Rolle ein. Die Bewegung gilt für beide unabhängig animierten Spieler.
+## Flache Flugbahn und Hindernisse
 
-Als Bewegungsreferenz dient die Beschreibung von [Ann Kaczka / Howcast: Dive & Landing Roll](https://howcast.com/videos/474714-how-to-do-a-dive-landing-roll-parkour/): ein Hindernis im Flug überwinden und anschließend diagonal von der Schulter zur gegenüberliegenden Hüfte rollen. Die Spielbewegung ist bewusst auf die Parkour-Hindernisse abgestimmt; das Tutorial wird nicht als Asset eingebunden.
+Auf freier Strecke erreicht die Kapsel-Fußhöhe etwa **1,07 m statt 3,8 m**. Der Flug dauert etwa **0,5 s**, die Strecke ohne Sprint-Anlauf etwa **2,3 m**. Die Figur streckt die Arme vor, kippt um das Becken in die Fluglage und zieht beim Sinkflug Arme und Beine zur Schulterrolle an.
 
-Die Flugweite beträgt jetzt etwa 3,5 statt zuletzt 5,2 m. Die Flugzeit sinkt von etwa 1,2 auf 0,82 s durch einen kräftigeren Absprung und stärkere Gravitation ausschließlich während der Doppeltipp-Dive-Roll. Die Abrollanimation läuft mit zweifachem statt 1,5-fachem Cliptempo. Gehaltenes Sprinten erhöht sie nicht. Der Sprung erreicht auf ebenem Boden etwa 3,8 m Fußhöhe und überwindet im Physiktest eine 2 m hohe Kiste einschließlich deren hinterer Kante. Nach dem Sprung erfolgt die Dive Roll automatisch. Die bestehende C-Dive-Steuerung bleibt verfügbar.
+Nur bei niedrigen Hindernissen im Flugkorridor wird der Absprung angehoben. Die vorhandenen Deckflächen werden einschließlich ihrer Drehung und der Kapselbreite geprüft. Die Höhe ist begrenzt: Eine 2 m hohe, 0,8 m tiefe Testkiste wird mit etwa **2,38 m Fußhöhe und 0,75 s Flugzeit** überquert. Wände erhöhen den Sprung nicht. Sehr breite oder unmittelbar vor der Figur stehende Hindernisse sind damit nicht automatisch überwindbar; die Kollision bleibt maßgeblich.
 
-Die obere Grenze für automatisches Abrollen ist von **6 auf 12 m** Fallhöhe verdoppelt; die untere Grenze bleibt 2,4 m. Oberhalb von 12 m bleibt rechtzeitiges manuelles Abrollen nötig. Unvollendete Flips werden nicht automatisch gerettet.
+Sprintmomentum bleibt beim Absprung erhalten und wird während des Fluges gleichmäßig zur kompakten Dive-Geschwindigkeit abgebaut. Loslassen oder Kameradrehen ändern die Flugrichtung nicht abrupt. Bei der Landung gibt es keinen zusätzlichen Geschwindigkeitsboost; die Laufsteuerung übernimmt während der ersten 0,4 s sanft.
 
-`smoke-dive-jump` prüft Einzel-/Doppeltipp, Autorepeat, beide Spieler, eine echte 2-m-Kollision, Freiflugpose, Loslassen nach dem Doppeltipp, tatsächliche Körperrotation beim Abrollen sowie Fallhöhen 6/9/11,9/13 m. Bilder der Bewegungsphasen erzeugt `tools/capture-dive.mjs` unter `artifacts/dive/`.
+## Durchgehende Bewegung
 
-Validierung des vorherigen Stands: TypeScript-/Produktionsbuild erfolgreich; alle 20 Smoke-Tests bestanden, einschließlich beider Dive-Roll-Spieler, Fabrikrouten, Kontaktanimationen, sämtlicher Spielmodi und aller vier Außentreppen. Flugpose anhand der erzeugten Aufnahme visuell geprüft.
+Die Flugneigung wird im Skelett um das Becken erzeugt. Die gesamte Modellwurzel wird beim Aufsetzen nicht mehr schlagartig aufgerichtet. Die zuletzt sichtbaren Knochenpositionen und -rotationen gehen über 0,14 s in die Schulterrolle über; dieselbe Übergangskorrektur verbindet die Rolle mit dem Weiterlaufen. Procedurale Korrekturen werden vor jedem neuen Animationssample zurückgesetzt.
 
-Nachbesserung geprüft: Produktionsbuild, Dive-Roll für beide Spieler, bisherige C-Dive-Steuerung, Kontaktbewegungen, Bewegungsübergänge, Splitscreen und Charakterdarstellung bestanden. Die schnellere Schulterrolle wurde zusätzlich anhand einer Aufnahme geprüft.
+Die Sprint-Rolle läuft mit 1,75-fachem Cliptempo. Während der Rolle erzwingt die normale Boden-IK keinen Fußkontakt – das hatte die angezogenen Beine gegen die Rollanimation verzogen. Automatische Griffe, Wallruns und Vaults übernehmen weiterhin nicht mitten im Hechtsprung.
+
+Die bisherige C-Dive-Steuerung und das automatische Abrollen aus 2,4 bis 12 m Fallhöhe bleiben erhalten. Unvollendete Luft-Flips werden nicht automatisch gerettet.
+
+## Prüfung
+
+`smoke-dive-jump` prüft beide Spieler, freie Strecke, die 2-m-Kiste, Einzel-/Doppeltipp, Autorepeat, Loslassen, vollständige Körperrotation, kontinuierliche Hüft-/Handpose beim Aufsetzen, Sprintmomentum und Simulation bei 30/60/120 Hz. Die bisherigen Fallhöhen 6/9/11,9/13 m werden ebenfalls geprüft.
+
+`tools/capture-dive.mjs` erzeugt Bilder von Absprung, Flug, Sinkflug, Rolle und Weiterlaufen, jeweils auf freier Strecke und über der Kiste. Ausgabe: `artifacts/dive/flat-*.jpg` und `crate-*.jpg`.
+
+Weitere Regressionen: `smoke-15c`, `smoke-contacts`, `smoke-motion-flow`, `smoke-visual-character` und `smoke-split`. Der Stand bleibt auf `feat/factory-visual-character-preview`; kein Merge nach `main`.
+
+Validierung: Produktionsbuild und alle sechs genannten Smoke-Tests bestanden. Die erweiterte Dive-Prüfung besteht auch über die öffentliche Vorschau. Aufnahmen von Flug und Schulterrolle wurden visuell geprüft; die Hüftorientierung bleibt im ersten Landeframe kontinuierlich. Das beschreibt die geprüfte Bewegungssequenz, keine allgemeine FPS-Zusage für die gesamte Karte.
