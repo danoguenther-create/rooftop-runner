@@ -35,6 +35,8 @@ export class FollowCamera {
     private readonly player: PlayerController,
   ) {}
 
+  setYaw(yaw: number): void { this.yaw=yaw;this.initialized=false; }
+
   getYaw(): number {
     return this.yaw;
   }

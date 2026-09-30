@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { visualTrial } from "../level/FactoryPreview";
 import type { EventBus } from "../core/EventBus";
 import type { StateName } from "./PlayerStates";
 import { LANDING_BAIL_M } from "./tuning";
@@ -79,6 +80,8 @@ export class PlayerAnimator {
       ),
     );
   }
+
+  get clipName(): string { return this.currentName; }
 
   /** Render-Takt: Ziel-Clip aus FSM-Zustand + Bewegung ableiten. */
   update(
@@ -177,6 +180,8 @@ export class PlayerAnimator {
     const next = this.actions.get(name) ?? this.actions.get("idle");
     if (!next || next === this.current) return;
 
+    const locomotion=visualTrial && ["run","sprint"].includes(name) && ["run","sprint"].includes(this.currentName);
+    const phase=locomotion&&this.current ? (this.current.time/this.current.getClip().duration)%1 : 0;
     next.reset();
     next.paused = false;
     next.time = CLIP_START_S[name] ?? 0;
@@ -186,8 +191,10 @@ export class PlayerAnimator {
     );
     next.clampWhenFinished = true;
     next.setEffectiveTimeScale(CLIP_TIMESCALE[name] ?? 1);
+    if(locomotion) next.time=phase*next.getClip().duration;
     next.play();
-    if (this.current) next.crossFadeFrom(this.current, FADE_S, false);
+    const fade=visualTrial ? (locomotion?.22:(["fall","jump","running-jump"].includes(name)?.19:FADE_S)) : FADE_S;
+    if (this.current) next.crossFadeFrom(this.current, fade, false);
     this.current = next;
     this.currentName = name;
   }

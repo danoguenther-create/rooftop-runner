@@ -1,4 +1,5 @@
 import * as THREE from "three";
+import { visualTrial } from "../level/FactoryPreview";
 import RAPIER from "@dimforge/rapier3d-compat";
 import type { PlayerController } from "./PlayerController";
 
@@ -12,6 +13,12 @@ interface Chain {
 /** Two-bone world-space IK on top of the sampled clip. Physics owns all anchors. */
 export class ContactPose {
   private stride = 0;
+  private previousState = "RUN";
+  private landingAge = 1;
+  private runLean = 0;
+  private turnLean = 0;
+  private previousYaw = 0;
+  private landingFeet = [new THREE.Vector3(),new THREE.Vector3()];
   private bones = new Map<string, THREE.Bone>();
   private sampled: {
     bone: THREE.Bone;
@@ -209,6 +216,30 @@ export class ContactPose {
     if (head) head.scale.setScalar(0.82);
     if (state === "BALANCE") this.model.position.y -= 0.12;
     p.mesh.updateMatrixWorld(true);
+    if(visualTrial){
+      const locomotion=state==='RUN' && ['run','sprint','idle'].includes(p.animationName);
+      if(state==='RUN'&&this.previousState==='AIR')this.landingAge=0;
+      this.landingAge+=_dt;
+      const yawDelta=THREE.MathUtils.euclideanModulo(p.mesh.rotation.y-this.previousYaw+Math.PI,Math.PI*2)-Math.PI;
+      this.previousYaw=p.mesh.rotation.y;this.previousState=state;
+      const mix=1-Math.exp(-10*_dt);
+      this.runLean=THREE.MathUtils.lerp(this.runLean,locomotion?THREE.MathUtils.clamp(p.horizontalSpeed/9,0,1)*.10:0,mix);
+      this.turnLean=THREE.MathUtils.lerp(this.turnLean,locomotion?THREE.MathUtils.clamp(yawDelta/Math.max(_dt,.001)*-.025,-.08,.08):0,mix);
+      if(locomotion){
+        const spine=this.bones.get('Spine');
+        if(spine){spine.rotateX(this.runLean);spine.rotateZ(this.turnLean);}
+        // Absorb small landings with bent knees while retaining each foot's anchor.
+        if(this.landingAge<.24 && p.lastFallHeight<2.4){
+          for(let i=0;i<2;i++)this.legs[i]?.end.getWorldPosition(this.landingFeet[i]);
+          const compression=Math.sin(this.landingAge/.24*Math.PI)*Math.min(.10,.035+p.lastFallHeight*.025);
+          this.model.position.y-=compression;p.mesh.updateMatrixWorld(true);
+          for(let i=0;i<2;i++)if(this.legs[i]){
+            this.local(i===0?.25:-.25,-.35,.5,this.pole);
+            this.solve(this.legs[i]!,this.landingFeet[i],this.pole);
+          }
+        }
+      }
+    }
     if(state === "AIR" && p.diveJumpActive){
       const extend=ease(p.diveJumpTime,.05,.35);
       // Push-off -> long flight with hands leading -> soft shoulder-roll entry.

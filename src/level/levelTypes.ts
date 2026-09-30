@@ -11,7 +11,7 @@ export type Vec3 = [number, number, number];
  * - `plain`: keine Textur, nur Farbe (Bordsteine, Autos, Mobiliar, Sockel)
  * - `windows-*`: Fensterraster auf den Seitenflächen, Dach/Boden bleiben glatt
  */
-export type BoxStyle = 'plain' | 'brick' | 'windows-grid' | 'windows-strip' | 'windows-mixed';
+export type BoxStyle = 'mill-brick' | 'mill-concrete' | 'mill-metal' | 'mill-glass' | 'plain' | 'brick' | 'windows-grid' | 'windows-strip' | 'windows-mixed';
 
 export interface BoxData {
   tag?: string;

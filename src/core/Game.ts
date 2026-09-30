@@ -10,6 +10,7 @@ import { PhysicsWorld } from '../physics/PhysicsWorld';
 import { LevelLoader } from '../level/LevelLoader';
 import { PlayerController } from '../player/PlayerController';
 import { FollowCamera } from '../camera/FollowCamera';
+import { visualTrial } from '../level/FactoryPreview';
 import { Markers } from '../gameplay/Markers';
 import { Collectibles } from '../gameplay/Collectibles';
 import { TimeTrial } from '../gameplay/TimeTrial';
@@ -231,6 +232,8 @@ export class Game {
     const levelName = params.get('level') ?? 'testlevel';
     await this.level.load(levelName);
 
+    if(levelName==='city01' && params.get('showcase')==='mill') this.level.spawn.set(165,0,3);
+
     // Spieler anlegen — jeder mit eigenem EventBus, damit Score/HUD
     // getrennt bleiben; Bus von Spieler 1 ist zugleich this.bus
     this.buses = [this.bus];
@@ -245,6 +248,9 @@ export class Game {
       }
       this.players.push(p);
       this.followCameras.push(new FollowCamera(this.cameras[i], p));
+      if(levelName==='city01' && params.get('showcase')==='mill') {
+        this.followCameras[i].setYaw(0);p.cameraYaw=0;p.faceYaw(Math.PI);
+      }
       this.edges.push(new EdgePrecision(this.level.topFaces, p, this.buses[i]));
       this.scores.push(new ScoreSystem(this.buses[i]));
     }
@@ -263,7 +269,10 @@ export class Game {
             const mesh = obj as THREE.Mesh;
             if (mesh.isMesh && mesh.material && !mesh.userData.preserveColor) {
               const mat = (mesh.material as THREE.MeshStandardMaterial).clone();
-              mat.color.multiply(P2_TINT);
+              mat.onBeforeCompile=(mesh.material as THREE.MeshStandardMaterial).onBeforeCompile;
+              mat.customProgramCacheKey=(mesh.material as THREE.MeshStandardMaterial).customProgramCacheKey;
+              if(mat.userData.fabricPreview)mat.userData.clothTint=P2_TINT.toArray();
+              else if(!visualTrial)mat.color.multiply(P2_TINT);
               mesh.material = mat;
             }
           });
@@ -376,6 +385,7 @@ export class Game {
   /** Qualität hoch/niedrig: Schatten + Renderauflösung (Task 23). */
   setQuality(high: boolean): void {
     this.sun.castShadow = high;
+    this.scene.getObjectByName('Mill visual trial')?.traverse(o=>{if((o as THREE.Light).isLight)o.visible=high;});
     this.renderer.setPixelRatio(high ? Math.min(window.devicePixelRatio, 2) : 1);
   }
 

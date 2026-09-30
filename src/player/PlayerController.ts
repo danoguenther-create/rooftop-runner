@@ -185,6 +185,10 @@ export class PlayerController {
     this.setPlaceholderVisible(false);
   }
 
+  faceYaw(yaw: number): void { this.meshYaw=yaw; }
+
+  get animationName(): string { return this.animator?.clipName ?? ''; }
+
   /** F4-Debug: Platzhalter-Kapsel über dem Charakter ein-/ausblenden. */
   togglePlaceholder(): void {
     this.setPlaceholderVisible(!this.placeholder[0].visible);

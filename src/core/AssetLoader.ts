@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { finishCharacter } from '../player/CharacterFinish';
 import { fitClassicSneakers } from '../player/ClassicSneakers';
 import { tailorBaggyPants } from '../player/BaggyPants';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
@@ -139,6 +140,7 @@ export async function loadCharacter(): Promise<CharacterAssets> {
     const gltf=await new GLTFLoader().loadAsync(`${import.meta.env.BASE_URL}models/optimized/runner.glb`);
     tailorBaggyPants(gltf.scene);
     fitClassicSneakers(gltf.scene);
+    finishCharacter(gltf.scene);
     gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=true;o.frustumCulled=false;}});
     return {model:gltf.scene,clips:new Map(gltf.animations.map(c=>[c.name,c]))};
   } catch(error) {
@@ -146,6 +148,7 @@ export async function loadCharacter(): Promise<CharacterAssets> {
     const assets = await loadFBXCharacter();
     tailorBaggyPants(assets.model);
     fitClassicSneakers(assets.model);
+    finishCharacter(assets.model);
     return assets;
   } finally {overlay.remove();}
 }

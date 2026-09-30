@@ -23,6 +23,7 @@
  * allein für die Rohbauten, und jedes Stück Stadtmöblierung käme obendrauf.
  */
 import * as THREE from 'three';
+import { millMaterial } from './FactoryPreview';
 import { surfaceFinish } from './SurfaceFinish';
 import type { BoxStyle } from './levelTypes';
 
@@ -131,6 +132,7 @@ const windowTexture = (style: BoxStyle): THREE.CanvasTexture => {
  * die Fenster-Stile bekommen die beiden oben beschriebenen Shader-Eingriffe.
  */
 export const createStyleMaterial = (style: BoxStyle): THREE.MeshStandardMaterial => {
+  if(style.startsWith('mill-'))return millMaterial(style);
   const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.84, metalness: 0.02 });
   if (style === 'brick') return surfaceFinish(mat, 'brick');
   if (style === 'plain') return surfaceFinish(mat, 'concrete');

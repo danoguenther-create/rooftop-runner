@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { prepareFactoryPreview, visualTrial } from './FactoryPreview';
 import { surfaceFinish } from './SurfaceFinish';
 import { buildCityScenery } from './CityScenery';
 import type { BoxData, BoxStyle, LevelData, MarkerData } from './levelTypes';
@@ -52,6 +53,10 @@ export class LevelLoader {
     }
     const data = (await res.json()) as LevelData;
 
+    if(levelName==='city01' && visualTrial) {
+      try { this.group.add(await prepareFactoryPreview(data)); }
+      catch(error) { console.warn('Grafikprobe konnte nicht geladen werden; verwende die vorhandenen Modelle.',error); }
+    }
     this.name = data.name;
     this.spawn.fromArray(data.spawn);
     this.trialTimes = data.trialTimes ?? null;
