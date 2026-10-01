@@ -11,7 +11,7 @@ try{
   g.players.forEach((p,i)=>{p.fixedUpdate=()=>{};const at={x:i?123:140,y:8,z:35};p.body.setTranslation(at,true);p.body.setNextKinematicTranslation(at);});
   s.lineOfSight=()=>true;s.savedPath=s.navigation.path.bind(s.navigation);s.navigation.path=()=>[];g.physics.step();
  });
- const snapshot=n=>page.evaluate(n=>{const g=window.game;g.stepFixed(n);const s=g.police;return{time:s.pursuitTime,wanted:[...s.wanted],count:s.pursuingCount,patrols:s.patrols.map(p=>({phase:p.phase,at:p.pos.toArray(),visible:p.officers.filter(o=>!o.boarded).length})),hud:[...document.querySelectorAll('.police-status')].map(e=>e.textContent)};},n);
+ const snapshot=n=>page.evaluate(n=>{const g=window.game;g.stepFixed(n);const s=g.police;return{time:s.pursuitTime,wanted:[...s.wanted],count:s.pursuingCount,patrols:s.patrols.map(p=>({phase:p.phase,at:p.pos.toArray(),visible:p.officers.filter(o=>!o.boarded).length,officers:p.officers.filter(o=>!o.boarded).map(o=>({at:o.body.translation(),path:o.path.slice(0,2),yieldTo:o.yieldTo,action:o.action,stuck:o.stuck}))})),hud:[...document.querySelectorAll('.police-status')].map(e=>e.textContent)};},n);
  let r=await snapshot(5402);assert.deepEqual(r.wanted,[0,1],'One intruder must alarm both players, including the player outside the factory');assert.equal(r.count,2);
  r=await snapshot(60*119);assert.equal(r.patrols.length,1);assert(r.hud.every(t=>t.includes('Verfolgung 1:59')&&t.includes('2 Polizisten')));
  const paused=await page.evaluate(()=>{const g=window.game,t=g.police.pursuitTime;g.pause();g.stepFixed(600);const frozen=g.police.pursuitTime===t;g.resume();return frozen;});assert(paused);
@@ -19,7 +19,10 @@ try{
  r=await snapshot(60*18);assert.equal(r.patrols[1].phase,'chasing');assert.equal(r.patrols[1].visible,2);assert(r.patrols[1].at[2]>r.patrols[0].at[2]+6,'Separate vehicle parking bays');
  r=await snapshot(60*102);assert.equal(r.count,6);assert.equal(r.patrols.length,3);assert(r.hud.every(t=>t.includes('6 Polizisten')));
  r=await snapshot(60*480);assert.equal(r.count,12);assert.equal(r.patrols.length,6,'Reinforcement cap bounds browser resource use');console.log('maximum patrols',JSON.stringify(r));
- await page.evaluate(()=>{const g=window.game,s=g.police;s.navigation.path=s.savedPath;g.players.forEach((p,i)=>{const at={x:40+i*3,y:.9,z:-70};p.body.setTranslation(at,true);p.body.setNextKinematicTranslation(at);});g.physics.step();});
+ // Real captures are covered by smoke-police; isolate the multi-car operation lifecycle here.
+ await page.evaluate(()=>{const g=window.game,s=g.police;s.navigation.path=s.savedPath;g.players[0].detain(s.carPos.clone());s.wanted.delete(0);});
+ r=await snapshot(60*7);assert.deepEqual(r.wanted,[1]);assert.equal(r.count,12);assert(r.patrols.every(p=>p.phase==='chasing'),'All units stay active after the first arrest');
+ await page.evaluate(()=>{const g=window.game,s=g.police;g.players[1].detain(s.carPos.clone());s.wanted.delete(1);});
  for(let i=0;i<150;i++){r=await snapshot(60);if(r.patrols.every(p=>p.phase==='idle'))break;}
  console.log('all patrols returned',JSON.stringify(r));assert(r.patrols.every(p=>p.phase==='idle'));assert.equal(r.count,0);assert.deepEqual(r.wanted,[]);assert.deepEqual(errors,[]);
  console.log('SHARED ALARM, HUD, PAUSE, REINFORCEMENTS, TWELVE-OFFICER CAP AND CONVOY RETURN OK');

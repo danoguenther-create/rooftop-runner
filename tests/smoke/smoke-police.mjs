@@ -12,15 +12,15 @@ try{
  await teleport(0,140,27.65);await teleport(1,140,35);r=await state(60*89);console.log('before alarm',r);assert.equal(r.phase,'idle');r=await state(70);console.log('alarm',r);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
  for(let i=0;i<20&&r.phase!=='chasing';i++)r=await state(60);
  console.log('arrival',JSON.stringify(r));assert.equal(r.phase,'chasing');assert(r.officers.every(o=>o.visible));assert(Math.abs(r.car[2]-27.65)<.2);
- await teleport(0,92,-40);
- for(let i=0;i<75;i++){r=await state(60);if(i%10===0)console.log('pursuit',JSON.stringify(r));if(r.phase==='idle')break;}
- console.log('returned',r);assert.equal(r.arrests[0],0);assert.equal(r.arrests[1],1);assert.equal(r.phase,'idle');assert(r.officers.every(o=>!o.visible));assert(Math.abs(r.car[0]-112)<.2&&Math.abs(r.car[2]-77)<.2);assert(Math.abs(r.players[1].at.x-105)<1&&Math.abs(r.players[1].at.z-79)<1);assert.deepEqual(errors,[]);
- // A completed arrest must not suppress later alarms for the same player.
- await teleport(1,140,35);r=await state(60*5);assert.equal(r.phase,'idle');assert.equal(r.exposure[1],0,'Station cooldown suppresses a new countdown');
+ await teleport(0,-90,-70);
+ for(let i=0;i<45&&!r.arrests[1];i++)r=await state(60);
+ assert.deepEqual(r.arrests,[0,1]);assert.equal(r.phase,'chasing');assert.deepEqual(r.wanted,[0]);
+ r=await state(60*7);assert.equal(r.phase,'chasing');assert.deepEqual(r.wanted,[0],'Distance must not end the search for the remaining player');
+ assert(!r.players[1].detained,'First caught player is released while the search continues');
+ await teleport(0,140,35);
+ for(let i=0;i<100&&r.phase!=='idle';i++)r=await state(60);
+ console.log('both caught and returned',JSON.stringify(r));assert.deepEqual(r.arrests,[1,1]);assert.equal(r.phase,'idle');assert(r.officers.every(o=>!o.visible));assert(Math.abs(r.car[0]-112)<.2&&Math.abs(r.car[2]-77)<.2);assert(Math.abs(r.players[1].at.x-105)<1&&Math.abs(r.players[1].at.z-79)<1);
+ await teleport(1,140,35);r=await state(60*5);assert.equal(r.phase,'idle');assert.equal(r.exposure[1],0);
  r=await state(60*85);assert.equal(r.phase,'idle');r=await state(60*16);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
- for(let i=0;i<20&&r.phase!=='chasing';i++)r=await state(60);
- assert.equal(r.phase,'chasing');await teleport(1,92,-40);
- for(let i=0;i<45&&r.phase!=='idle';i++)r=await state(60);
- assert.equal(r.phase,'idle');assert.deepEqual(r.arrests,[0,1]);assert.deepEqual(errors,[]);
- console.log('POLICE: 90 S, RESET, DRIVE, TWO PLAYERS, ARREST, ESCAPE, RETURN AND REPEAT PATROL OK');
+ assert.deepEqual(errors,[]);console.log('POLICE: SHARED ALARM, KEEP CHASING AFTER FIRST CATCH, BOTH ARRESTED, RETURN AND REPEAT OK');
 }finally{await browser.close();}

@@ -79,7 +79,14 @@ export class PoliceNavigation {
  }
  canWalk(a:THREE.Vector3,b:THREE.Vector3):boolean {
   const floor=this.nearest(b.clone().add(new THREE.Vector3(0,-.85,0)));
-  return !!floor&&Math.abs(floor.y+.85-b.y)<.45&&this.clearMotion(a,b);
+  if(!floor||Math.abs(floor.y+.85-b.y)>=.45||!this.clearMotion(a,b))return false;
+  // A clear capsule sweep alone also accepts empty air over a gap.
+  const samples=Math.max(1,Math.ceil(a.distanceTo(b)/.4));
+  for(let i=0;i<=samples;i++){
+   const p=a.clone().lerp(b,i/samples);p.y-=.5;
+   if(!this.physics.world.castRay(new RAPIER.Ray(p,{x:0,y:-1,z:0}),.7,true,RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC|RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC))return false;
+  }
+  return true;
  }
  private edge(a:Node,b:Node,gap:boolean):Traversal|null {
   const key=`${a.key}>${b.key}`;if(this.edges.has(key))return this.edges.get(key)!;

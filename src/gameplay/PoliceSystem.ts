@@ -3,11 +3,12 @@ import RAPIER from '@dimforge/rapier3d-compat';
 import type {PhysicsWorld} from '../physics/PhysicsWorld';
 import type {LevelLoader} from '../level/LevelLoader';
 import type {PlayerController} from '../player/PlayerController';
+import {RUN_SPEED,SPRINT_SPEED} from '../player/tuning';
 import {PoliceNavigation,traversalPosition,POLICE_QUERY_GROUPS,OFFICER_COLLISION_GROUPS,type PoliceWaypoint,type Traversal} from './PoliceNavigation';
 import {buildStation,buildPatrolCar,buildOfficer} from './PoliceModels';
 
 export const POLICE_DELAY=90;
-export const POLICE_ESCAPE_DISTANCE=45;
+export const POLICE_REINFORCEMENT_SPEED=SPRINT_SPEED*1.2;
 export const REINFORCEMENT_INTERVAL=120;
 export const MAX_PATROLS=6;
 type Phase='idle'|'driving'|'exiting'|'chasing'|'boarding'|'returning';
@@ -33,8 +34,6 @@ export class PoliceSystem {
  private carShape=new RAPIER.Cuboid(.92,.64,2.18);
  private time=0;
  private cooldown=0;
- private escape:number[];
- private unseen:number[];
  private notice:string[];
  private noticeTime:number[];
  private labels:HTMLDivElement[]=[];
@@ -50,7 +49,7 @@ export class PoliceSystem {
  get pursuingCount():number {return this.patrols.filter(p=>['driving','exiting','chasing'].includes(p.phase)).length*2;}
  constructor(private physics:PhysicsWorld,level:LevelLoader,private scene:THREE.Scene,private players:PlayerController[],hudRoots:HTMLElement[]){
   scene.add(buildStation(level));
-  this.exposure=players.map(()=>0);this.escape=players.map(()=>0);this.unseen=players.map(()=>0);this.notice=players.map(()=>'');this.noticeTime=players.map(()=>0);
+  this.exposure=players.map(()=>0);this.notice=players.map(()=>'');this.noticeTime=players.map(()=>0);
   this.createPatrol();this.navigation=new PoliceNavigation(physics,()=>this.patrols.map(p=>p.collider));
   hudRoots.forEach(root=>{const label=document.createElement('div');label.className='police-status';label.style.cssText='position:absolute;left:12px;top:116px;max-width:calc(100% - 24px);padding:7px 10px;border-radius:5px;background:#102333dd;color:#eaf3ff;font:600 13px sans-serif;white-space:pre-line;display:none;';root.appendChild(label);this.labels.push(label);});
   this.update(0);
@@ -90,28 +89,23 @@ export class PoliceSystem {
    this.players.forEach((p,i)=>{this.exposure[i]=this.inside(p)&&!p.isDetained&&this.cooldown===0?this.exposure[i]+dt:0;});
    if(this.exposure.some(t=>t>=POLICE_DELAY)){
     this.players.forEach((p,i)=>{if(!p.isDetained)this.wanted.add(i);});
-    this.pursuitTime=0;this.nextReinforcement=REINFORCEMENT_INTERVAL;this.escape.fill(0);this.unseen.fill(0);this.dispatch();
+    this.pursuitTime=0;this.nextReinforcement=REINFORCEMENT_INTERVAL;this.dispatch();
    }
   }
   if(this.wanted.size){
    this.pursuitTime+=dt;
    if(this.pursuitTime>=this.nextReinforcement){this.nextReinforcement+=REINFORCEMENT_INTERVAL;this.dispatch();}
-   const active=this.officers.filter(o=>!o.boarded&&this.patrols[o.patrol].phase==='chasing');
-   if(active.length)for(const i of [...this.wanted]){
-    const p=this.players[i];let distance=Infinity,visible=false;
-    for(const o of active){this.position.copy(o.body.translation());distance=Math.min(distance,this.position.distanceTo(p.body.translation()));visible ||= this.lineOfSight(this.position,p);}
-    this.escape[i]=distance>POLICE_ESCAPE_DISTANCE?this.escape[i]+dt:0;this.unseen[i]=visible?0:this.unseen[i]+dt;
-    if(p.isDetained||this.escape[i]>=6||this.unseen[i]>=25){this.wanted.delete(i);this.exposure[i]=0;if(!p.isDetained)this.message(i,'Entkommen – die Suche nach dir ist beendet.');}
-   }
   }
   const wasActive=this.phase!=='idle';
   for(const patrol of this.patrols){
    patrol.age+=dt;
    if(!this.wanted.size&&['driving','exiting','chasing'].includes(patrol.phase)){
     if(patrol.officers.every(o=>o.boarded)){patrol.routeIndex=Math.max(0,patrol.routeIndex-1);this.change(patrol,'returning');}
-    else{patrol.officers.forEach(o=>{o.goal.set(Infinity,Infinity,Infinity);});this.change(patrol,'boarding');}
+    else{patrol.officers.forEach(o=>{o.goal.set(Infinity,Infinity,Infinity);o.path=[];o.yieldTo=null;o.yieldFor=null;o.repath=0;});this.navigation.reset();this.change(patrol,'boarding');}
    }
-   if(patrol.phase==='driving'||patrol.phase==='returning')this.drive(patrol,dt);
+   // Keep the convoy parked until every officer has boarded, so moving
+   // cars cannot cut across another unit's walk back to its door.
+   if(patrol.phase==='driving'||patrol.phase==='returning'&&this.officers.every(o=>o.boarded))this.drive(patrol,dt);
    else if(patrol.phase==='exiting'){
     patrol.officers.forEach((o,i)=>{
      if(!o.boarded||patrol.age<.7+i*.4)return;
@@ -137,7 +131,7 @@ export class PoliceSystem {
     if(patrol.officers.every(o=>o.boarded)){patrol.routeIndex=patrol.route.length-2;patrol.speed=0;this.change(patrol,'returning');}
    }
   }
-  if(wasActive&&this.patrols.every(p=>p.phase==='idle')){this.cooldown=15;this.exposure.fill(0);this.escape.fill(0);this.unseen.fill(0);this.navigation.reset();}
+  if(wasActive&&this.patrols.every(p=>p.phase==='idle')){this.cooldown=15;this.exposure.fill(0);this.navigation.reset();}
  }
  private drive(p:Patrol,dt:number){
   const destination=p.route[p.routeIndex],delta=destination.clone().sub(p.pos);delta.y=0;const distance=delta.length();
@@ -192,6 +186,25 @@ export class PoliceSystem {
   if(!o.yieldTo&&o.repath<=0&&(o.goal.distanceTo(target)>1.5||!o.path.length&&(o.goal.distanceTo(target)>.2||at.distanceTo(o.planStart)>.8))){
    o.path=this.navigation.path(at.clone().add(new THREE.Vector3(0,-.85,0)),target);o.goal.copy(target);o.planStart.copy(at);o.repath=1.2;
   }
+  // Follow a nearby runner continuously instead of stopping at their stale
+  // last grid position; the swept capsule still checks walls and parked cars.
+  const nearby=target.clone().add(new THREE.Vector3(0,.85,0));
+  if(!o.yieldTo&&o.path.length>0&&o.path.every(p=>p.traversal==='walk')&&at.distanceTo(nearby)<16&&Math.abs(at.y-nearby.y)<.4&&this.navigation.canWalk(at,nearby)){
+   o.path=[Object.assign(target.clone(),{traversal:'walk' as Traversal})];o.goal.copy(target);o.planStart.copy(at);
+  }
+  const speed=o.yieldTo?RUN_SPEED*.65:this.patrols[o.patrol].phase==='boarding'?RUN_SPEED:o.patrol===0?SPRINT_SPEED:POLICE_REINFORCEMENT_SPEED;
+  // Do not spend a frame stopping at every metre of the walking grid. Only
+  // look through collinear, level waypoints; corners and actions remain exact.
+  while(!o.yieldTo&&o.path.length){
+   const a=o.path[0],distance=Math.hypot(a.x-at.x,a.z-at.z);
+   if(a.traversal!=='walk'||Math.abs(a.y+.85-at.y)>.35)break;
+   if(distance<.04){o.path.shift();continue;}
+   const b=o.path[1];
+   if(distance>=speed*dt||!b||b.traversal!=='walk'||Math.abs(b.y-a.y)>.03)break;
+   const bx=b.x-a.x,bz=b.z-a.z;
+   if(((a.x-at.x)*bx+(a.z-at.z)*bz)/(distance*Math.hypot(bx,bz))<.999)break;
+   o.path.shift();
+  }
   const next=o.yieldTo?Object.assign(o.yieldTo.clone().add(new THREE.Vector3(0,-.85,0)),{traversal:'walk' as Traversal}):o.path[0];
   let dx=0,dz=0;
   if(next){
@@ -215,23 +228,23 @@ export class PoliceSystem {
     }
     o.action={from:at,to:landing,mode:next.traversal,age:0,duration:next.traversal==='climb'?1.05:next.traversal==='drop'?.4+Math.sqrt(Math.abs(landing.y-at.y)/10):.65};
     o.model.root.rotation.y=Math.atan2(next.x-at.x,next.z-at.z);return;
-   }else if(distance){const step=Math.min(distance,4.7*dt);dx=(next.x-at.x)/distance*step;dz=(next.z-at.z)/distance*step;}
+   }else if(distance){const step=Math.min(distance,speed*dt);dx=(next.x-at.x)/distance*step;dz=(next.z-at.z)/distance*step;}
   }
   const dy=next&&next.y+.85>at.y+.03?Math.min(.08,next.y+.85-at.y):-.08;
   const desired=this.avoid(o,new THREE.Vector3(dx,0,dz));desired.y=dy;
   o.controller.computeColliderMovement(o.collider,desired,undefined,POLICE_QUERY_GROUPS,this.navigation.obstacle);
   const m=o.controller.computedMovement();o.planned.copy(at).add(m);o.body.setNextKinematicTranslation(o.planned);o.motion.copy(m);
-  const travelled=Math.hypot(m.x,m.z);o.stride+=travelled*6;
+  const travelled=Math.hypot(m.x,m.z);o.stride+=travelled*1.65;
   if(travelled>.001)o.model.root.rotation.y=Math.atan2(m.x,m.z);
   o.stuck=next&&Math.hypot(dx,dz)>.01&&travelled<.002?o.stuck+dt:0;
-  if(o.stuck>1.5){o.goal.set(Infinity,Infinity,Infinity);o.path=[];o.repath=0;o.stuck=0;}
-  this.pose(o,travelled>.001?'walk':'idle',0);
+  if(o.stuck>1.5){o.goal.set(Infinity,Infinity,Infinity);o.path=[];o.yieldTo=null;o.yieldFor=null;o.repath=0;o.stuck=0;this.navigation.reset();}
+  this.pose(o,travelled/dt>RUN_SPEED+.25?'run':travelled>.001?'walk':'idle',0);
  }
- private pose(o:Officer,mode:Traversal|'idle',t:number){
-  o.model.joints.forEach((joint,i)=>{joint.rotation.x=i%2===0?(mode==='walk'?Math.max(0,Math.sin(o.stride+(i===0?0:Math.PI)))*.8:mode==='idle'?.06:1.05):(mode==='walk'?-.65:mode==='climb'?-.45:-.25);});
+ private pose(o:Officer,mode:Traversal|'idle'|'run',t:number){
+  o.model.joints.forEach((joint,i)=>{joint.rotation.x=i%2===0?(mode==='walk'||mode==='run'?Math.max(0,Math.sin(o.stride+(i===0?0:Math.PI)))*(mode==='run'?1.15:.8):mode==='idle'?.06:1.05):(mode==='run'?-.95:mode==='walk'?-.65:mode==='climb'?-.45:-.25);});
   o.model.limbs.forEach((limb,i)=>{
    const arm=i===1||i===3;
-   limb.rotation.x=mode==='climb'?(arm?-2.4+Math.sin(t*Math.PI)*.5:.55):mode==='jump'||mode==='drop'?(arm?-1.1:.65):mode==='walk'?Math.sin(o.stride+(i===0||i===3?0:Math.PI))*.55:0;
+   limb.rotation.x=mode==='climb'?(arm?-2.4+Math.sin(t*Math.PI)*.5:.55):mode==='jump'||mode==='drop'?(arm?-1.1:.65):mode==='walk'||mode==='run'?Math.sin(o.stride+(i===0||i===3?0:Math.PI))*(mode==='run'?.8:.55):0;
   });
  }
  update(dt:number){
@@ -247,7 +260,7 @@ export class PoliceSystem {
   this.players.forEach((p,i)=>{
    let text=this.noticeTime[i]>0?this.notice[i]:'';
    if(p.isDetained)text='Festgenommen – Rückkehr zur Polizeiwache …';
-   else if(this.wanted.has(i))text=`${this.phase==='driving'||this.phase==='exiting'?'Polizeistreife unterwegs!':'Polizei verfolgt dich – gewinne Abstand!'}\nVerfolgung ${clock} · ${this.pursuingCount} Polizisten${this.pursuingCount<MAX_PATROLS*2?' · Verstärkung in '+Math.ceil(Math.max(0,this.nextReinforcement-this.pursuitTime))+' s':''}`;
+   else if(this.wanted.has(i))text=`${this.phase==='driving'||this.phase==='exiting'?'Polizeistreife unterwegs!':'Polizei verfolgt dich – Einsatz bleibt aktiv!'}\nVerfolgung ${clock} · ${this.pursuingCount} Polizisten${this.pursuingCount<MAX_PATROLS*2?' · Verstärkung in '+Math.ceil(Math.max(0,this.nextReinforcement-this.pursuitTime))+' s':''}`;
    else if(this.phase==='idle'&&this.exposure[i]>0)text=`Lost Place: ${Math.ceil(Math.max(0,POLICE_DELAY-this.exposure[i]))} s bis zum Polizeialarm`;
    this.labels[i].textContent=text;this.labels[i].style.display=text?'block':'none';
   });
