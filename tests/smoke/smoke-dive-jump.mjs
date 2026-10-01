@@ -19,22 +19,26 @@ try{
    if(i===1)event('keyup');
    const hips=p.contactPose.bones.get('Hips'),hand=p.contactPose.bones.get('LeftHand');
    let prevHip=hips.getWorldQuaternion(hips.quaternion.clone()),prevHand=hand.getWorldPosition(hand.position.clone());
-   let rolls=0,peak=0,minClear=Infinity,pose=false,landed=null,minHipUp=1,maxHipStep=0,maxRootPitch=0;
+   let approach=null,rolls=0,peak=0,minClear=Infinity,pose=false,landed=null,minHipUp=1,maxHipStep=0,maxRootPitch=0;
    p.bus.on('trick:diveroll',()=>rolls++);
    for(let k=0;k<150;k++){
     g.stepFixed(1);const at=p.body.translation();peak=Math.max(peak,at.y-.9);
     if(at.z>-18.7&&at.z<-17.9)minClear=Math.min(minClear,at.y-.9);
     const q=hips.getWorldQuaternion(hips.quaternion.clone()),h=hand.getWorldPosition(hand.position.clone());
+    if(p.diveJumpActive&&p.velocity.y<0){
+      const hip=hips.getWorldPosition(hips.position.clone()),head=p.contactPose.bones.get('Head').getWorldPosition(hips.position.clone());
+      approach={handBelow:hip.y-h.y,headBelow:hip.y-head.y};
+    }
     const delta=prevHip.angleTo(q);maxHipStep=Math.max(maxHipStep,delta);maxRootPitch=Math.max(maxRootPitch,Math.abs(p.mesh.rotation.x));
     if(p.diveJumpActive&&Math.abs(hips.rotation.x)>.6)pose=true;
     if(rolls&&!landed)landed={...at,clip:p.animator.currentName,timeScale:p.animator.current.getEffectiveTimeScale(),flightSeconds:(k+2)/60,hipStep:delta,handStep:h.distanceTo(prevHand)};
     if(rolls)minHipUp=Math.min(minHipUp,1-2*(q.x*q.x+q.z*q.z));
     prevHip.copy(q);prevHand.copy(h);
    }
-   event('keyup');return{single,started,launch,other,rolls,peak,minClear,pose,landed,minHipUp,maxHipStep,maxRootPitch,state:p.fsm.current,flip:p.airTricks.active};
+   event('keyup');return{approach,single,started,launch,other,rolls,peak,minClear,pose,landed,minHipUp,maxHipStep,maxRootPitch,state:p.fsm.current,flip:p.airTricks.active};
   },{i,crate});
   console.log('dive',JSON.stringify({i,crate,...r}));
-  assert(!r.single&&r.started&&!r.other);assert(r.peak<(crate?2.6:1.2));assert(r.peak>(crate?2:0.8));assert(r.pose);assert.equal(r.rolls,1);assert(r.landed.flightSeconds<(crate?.82:.6));assert.equal(r.landed.clip,'sprint-roll');assert(r.landed.hipStep<.12);assert(r.landed.handStep<.3);assert(r.maxHipStep<.65);assert(r.maxRootPitch<.01);assert(r.minHipUp<-.5);assert.equal(r.state,'RUN');assert(!r.flip);
+  assert(!r.single&&r.started&&!r.other);assert(r.peak<(crate?2.6:1.2));assert(r.peak>(crate?2:0.8));assert(r.pose);assert(r.approach.handBelow>.3&&r.approach.headBelow>.1,'Hands and head must rotate down before touchdown');assert.equal(r.rolls,1);assert(r.landed.flightSeconds<(crate?.82:.6));assert.equal(r.landed.clip,'sprint-roll');assert(r.landed.hipStep<.12);assert(r.landed.handStep<.3);assert(r.maxHipStep<.65);assert(r.maxRootPitch<.01);assert(r.minHipUp<-.5);assert.equal(r.state,'RUN');assert(!r.flip);
   if(crate)assert(r.minClear>2&&r.landed.z>-17.5);
  }
  const frameRates=[];

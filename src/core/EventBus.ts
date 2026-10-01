@@ -7,6 +7,7 @@ import type { WallSide } from '../player/WallRun';
  * erweitert dieses Interface (Task-weise wachsend).
  */
 export interface GameEvents {
+  'police:arrest': Record<string, never>;
   'player:stateChange': { from: StateName; to: StateName };
   'player:roll': { fallHeight: number };
   'player:hardLanding': { fallHeight: number };

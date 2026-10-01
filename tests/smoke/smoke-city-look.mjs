@@ -15,9 +15,9 @@ try {
    const surfaces=new Set(),invalid=[];
    g.scene.traverse(m=>{const mat=m.material;if(!mat?.userData.citySurface)return;surfaces.add(mat.userData.citySurface);if(!mat.normalMap?.image||!mat.roughnessMap?.image)invalid.push(mat.userData.citySurface);});
    g.setQuality(false);const low=g.sun.castShadow;g.setQuality(true);
-   return{players:g.players.length,faces:g.level.topFaces.length,rails:g.level.rails.length,upgrade:g.scene.getObjectByName('City material upgrade')?.userData??null,surfaces:[...surfaces],invalid,qualityRestored:!low&&g.sun.castShadow};
+   return{players:g.players.length,faces:g.level.topFaces.length,stationFaces:g.scene.getObjectByName('Polizeiwache')?.userData.surfaceCount??0,rails:g.level.rails.length,upgrade:g.scene.getObjectByName('City material upgrade')?.userData??null,surfaces:[...surfaces],invalid,qualityRestored:!low&&g.sun.castShadow};
   });
-  console.log(JSON.stringify({fallback,...result,errors}));assert.equal(result.players,2);assert.equal(result.faces,5977);assert.equal(result.rails,275);assert(result.qualityRestored);assert.deepEqual(result.invalid,[]);assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({fallback,...result,errors}));assert.equal(result.players,2);assert.equal(result.stationFaces,2);assert.equal(result.faces,5977+result.stationFaces);assert.equal(result.rails,275);assert(result.qualityRestored);assert.deepEqual(result.invalid,[]);assert.deepEqual(errors,[]);
   if(fallback)assert.equal(result.upgrade,null);else{assert.equal(result.upgrade.ventCount,30);for(const kind of ['plaster','concrete','brick','metal','wood','asphalt','damp','sand','foliage','water'])assert(result.surfaces.includes(kind));}
   await page.close();
  }

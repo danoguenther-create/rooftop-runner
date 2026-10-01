@@ -259,22 +259,23 @@ export class ContactPose {
     if(state === "AIR" && p.diveJumpActive){
       const weight=ease(p.diveJumpTime,0,.14);
       const tuck=ease(-p.velocity.y,0,7);
+      const pitch=THREE.MathUtils.clamp(Math.PI/2-Math.atan2(p.velocity.y,Math.max(p.horizontalSpeed,.1)),.25,2.45);
       const hips=this.bones.get('Hips');
       // Rotate the skeleton around its pelvis, not the capsule/root. The same
       // pivot survives touchdown and avoids snapping the whole model upright.
-      if(hips)hips.rotateX((.95+.22*tuck)*weight);
+      if(hips)hips.rotateX(pitch*weight);
       p.mesh.updateMatrixWorld(true);
       for(let i=0;i<2;i++){
         const side=i===0?1:-1,arm=this.arms[i],leg=this.legs[i];
         if(arm){
           arm.end.getWorldPosition(this.endpoint);
-          this.local(side*(.25-.06*tuck),.10-.15*tuck,.9-.34*tuck,this.target);
+          this.local(side*(.25-.04*tuck),.1+Math.cos(pitch)*.9,Math.sin(pitch)*.9,this.target);
           this.target.lerp(this.endpoint,1-weight);
-          this.local(side*.48,-.08,.5,this.pole);this.solve(arm,this.target,this.pole);
+          this.local(side*.48,-.35*tuck,.5,this.pole);this.solve(arm,this.target,this.pole);
         }
         if(leg){
           leg.end.getWorldPosition(this.endpoint);
-          this.local(side*.16,-.42+.15*tuck,-.50+.27*tuck,this.target);
+          this.local(side*.16,-.18-Math.cos(pitch)*.55,-Math.sin(pitch)*.55+.15*tuck,this.target);
           this.target.lerp(this.endpoint,1-weight);
           this.local(side*.25,-.55,.28,this.pole);this.solve(leg,this.target,this.pole);
         }

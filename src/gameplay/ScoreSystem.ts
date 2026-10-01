@@ -90,6 +90,7 @@ export class ScoreSystem {
     });
 
     bus.on('player:bail', () => this.discard());
+    bus.on('police:arrest', () => this.discard());
     bus.on('player:hardLanding', () => this.discard());
   }
 

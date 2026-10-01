@@ -110,6 +110,8 @@ export class PlayerController {
   diveJumpActive = false;
   diveJumpTime = 0;
   private diveRecoveryTime = 0;
+  private detentionRemaining = 0;
+  private releasePoint = new THREE.Vector3();
   private diveRequested = false;
 
   private lastRollPressAt = -Infinity;
@@ -188,6 +190,16 @@ export class PlayerController {
     this.setPlaceholderVisible(false);
   }
 
+  get isDetained(): boolean { return this.detentionRemaining>0; }
+
+  detain(release:THREE.Vector3):void {
+    if(this.isDetained)return;
+    this.cancelAirPose();this.fsm.transition('RUN');this.velocity.set(0,0,0);
+    this.releasePoint.copy(release);this.detentionRemaining=3;this.boostRemaining=0;
+    this.body.setNextKinematicTranslation(this.body.translation());
+    this.bus.emit('police:arrest',{});
+  }
+
   faceYaw(yaw: number): void { this.meshYaw=yaw; }
 
   get animationName(): string { return this.animator?.clipName ?? ''; }
@@ -206,6 +218,7 @@ export class PlayerController {
   /** Einmal pro Render-Frame: Edge-Trigger latchen. */
   handleFrameInput(input: InputState): void {
     this.input = input;
+    if(this.isDetained)return;
     const now = simNow();
     this.diveRequested = input.divePressed && this.fsm.current === 'RUN' && this.grounded;
     if (input.jumpPressed) this.jumpRequestedAt = now;
@@ -279,6 +292,15 @@ export class PlayerController {
 
   fixedUpdate(dt: number): void {
     if (!this.input) return;
+    if(this.detentionRemaining>0){
+      this.detentionRemaining=Math.max(0,this.detentionRemaining-dt);
+      this.velocity.set(0,0,0);
+      if(this.detentionRemaining===0){
+        this.respawn();const at={x:this.releasePoint.x,y:this.releasePoint.y+CENTER_TO_FEET+.05,z:this.releasePoint.z};
+        this.body.setTranslation(at,true);this.body.setNextKinematicTranslation(at);this.peakY=at.y;
+      }else this.body.setNextKinematicTranslation(this.body.translation());
+      return;
+    }
     if(this.diveJumpActive)this.diveJumpTime+=dt;
     this.diveRecoveryTime=Math.max(0,this.diveRecoveryTime-dt);
 

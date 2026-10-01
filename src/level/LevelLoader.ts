@@ -233,7 +233,7 @@ export class LevelLoader {
     this.group.add(mesh);
   }
 
-  private registerBoxPhysics(
+  registerBoxPhysics(
     pos: [number, number, number],
     size: [number, number, number],
     rotY: number,

@@ -17,6 +17,7 @@ import { TimeTrial } from '../gameplay/TimeTrial';
 import { Missions } from '../gameplay/Missions';
 import { EdgePrecision } from '../gameplay/EdgeDetection';
 import { ScoreSystem } from '../gameplay/ScoreSystem';
+import { PoliceSystem } from '../gameplay/PoliceSystem';
 import { TrickMatch } from '../gameplay/TrickMatch';
 import { HUD } from '../ui/HUD';
 import { Menus } from '../ui/Menus';
@@ -59,6 +60,7 @@ export class Game {
   missions?: Missions;
   /** „Game of PARK" — nur im Splitscreen mit ?game=park */
   trickMatch?: TrickMatch;
+  police?: PoliceSystem;
   menus!: Menus;
   save!: SaveGame;
 
@@ -304,6 +306,8 @@ export class Game {
       this.huds.push(new HUD(this.buses[i], root));
     }
 
+    if(levelName==='city01')this.police=new PoliceSystem(this.physics,this.level,this.scene,this.players,hudRoots);
+
     // Game of PARK (S.K.A.T.E.-Prinzip): nur im Splitscreen aktivierbar
     if (this.mode === 'split' && params.get('game') === 'park') {
       this.trickMatch = new TrickMatch(this.buses, hudRoots);
@@ -463,6 +467,7 @@ export class Game {
     while (this.accumulator >= FIXED_DT && steps < MAX_STEPS) {
       advanceSim(FIXED_DT); // Simulationsuhr: Zeitbasis aller Spiel-Timer
       for (const p of this.players) p.fixedUpdate(FIXED_DT);
+      this.police?.fixedUpdate(FIXED_DT);
       this.physics.step();
       this.markers?.fixedUpdate();
       this.collectibles?.fixedUpdate();
@@ -484,6 +489,7 @@ export class Game {
     this.missions?.update(dt);
     this.scores.forEach((s) => s.update(dt));
     this.trickMatch?.update(dt);
+    this.police?.update(dt);
     this.huds.forEach((h, i) =>
       h.update(dt, this.players[i].horizontalSpeed, this.players[i].balancer.sway),
     );
