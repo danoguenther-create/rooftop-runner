@@ -9,5 +9,7 @@ try{
  mkdirSync('artifacts/police',{recursive:true});await page.screenshot({path:'artifacts/police/station.jpg',type:'jpeg',quality:85});
  await page.evaluate(()=>{const g=window.game,p=g.player;p.respawn();p.body.setTranslation({x:140,y:.92,z:35},true);p.body.setNextKinematicTranslation({x:140,y:.92,z:35});g.physics.step();g.stepFixed(5500);for(let i=0;i<1200&&g.police.phase!=='chasing';i++)g.stepFixed(1);g.stepFixed(90);g.camera.position.set(111,6,36);g.camera.lookAt(120,1,28);g.reviewRender(0);});
  await page.screenshot({path:'artifacts/police/pursuit.jpg',type:'jpeg',quality:85});
- console.log('POLICE STATION AND PATROL CAPTURED');
+ await page.evaluate(()=>{const g=window.game,s=g.police;s.car.root.position.set(112,0,77);s.car.root.rotation.y=Math.PI;s.car.doors.forEach(d=>d.rotation.y=0);const o=s.officers[0];o.model.root.visible=true;o.model.root.position.set(109.8,0,76);o.model.root.rotation.y=Math.PI;o.model.limbs.forEach(l=>l.rotation.x=0);o.model.joints.forEach(j=>j.rotation.x=0);g.camera.position.set(115,2.8,71.5);g.camera.lookAt(111.2,1,77);document.querySelectorAll('#hud,.pointer-lock-hint').forEach(e=>e.style.visibility='hidden');g.reviewRender(0);});
+ await page.screenshot({path:'artifacts/police/details.jpg',type:'jpeg',quality:90});
+ console.log('POLICE STATION, PATROL AND MODEL DETAILS CAPTURED');
 }finally{await browser.close();}

@@ -1,15 +1,32 @@
-# Polizeistreife am Lost Place
+# Polizei am Lost Place
 
-Die City-Karte besitzt eine Polizeiwache südwestlich der Fabrik (103 / 89). Eine gemeinsame Streife mit zwei Beamten reagiert auf beide Spieler im Splitscreen.
+Die City-Karte besitzt eine Wache südwestlich der Fabrik (103 / 89). Sobald **ein** Spieler 90 durchgehende Sekunden im Lost Place verbringt, werden **beide Spieler** gesucht, auch wenn der andere außerhalb des Geländes steht. Vor dem Alarm setzt das Verlassen des Geländes den eigenen Countdown zurück.
 
-- Nach 90 durchgehenden Sekunden auf dem Fabrikgelände fährt der Streifenwagen von der Wache zur versteckten westlichen Zaunöffnung. Verlassen des Geländes vor dem Alarm setzt den eigenen Countdown zurück.
-- Die Beamten steigen aus und verfolgen die gesuchten Spieler zu Fuß. Bei zwei gesuchten Spielern teilen sie sich auf. Später hinzukommende Spieler auf dem Gelände werden ebenfalls verfolgt.
-- Bodenkontakt, Sichtkontakt und weniger als 1,15 m Abstand lösen eine Festnahme aus. Der Spieler wird für drei Sekunden angehalten und anschließend vor der Wache freigelassen. Die aktuelle Trick-Kombo verfällt; bereits gesicherte Punkte bleiben erhalten.
-- Wer sechs Sekunden lang mehr als 45 m Abstand zu beiden Beamten hält, entkommt. Auch 25 Sekunden ohne Sichtkontakt beenden die Suche nach diesem Spieler.
-- Sobald niemand mehr gesucht wird, laufen beide Beamten zum Auto zurück, steigen ein und fahren zur Wache. Nach 15 Sekunden Pause kann ein neuer Einsatz ausgelöst werden.
+## Einsatz und Verstärkung
 
-Die Simulation pausiert mit dem Spiel. Jeder Spieler sieht seinen eigenen Countdown und Verfolgungsstatus. Die Beamten nutzen eine gecachte Wegsuche mit Kapselprüfungen und echte Kollisionen; sie laufen um Hindernisse und durch die verwinkelte Zaunöffnung. Sie sind Bodenpatrouillen und beherrschen keine Parkourtechniken: Dach- und obere Gebäuderouten können zur Flucht genutzt werden. Der Streifenwagen folgt einer festen Zufahrtsroute und bremst bei Hindernissen. Auch die Beamten berücksichtigen das geparkte Auto in ihrer Wegsuche.
+Der erste Streifenwagen fährt zur westlichen Zaunöffnung; zwei Beamte steigen nacheinander aus. Solange mindestens ein Spieler gesucht wird, startet alle **120 Sekunden ab Alarm** ein weiterer Wagen mit zwei Beamten. Fahrzeuge nutzen getrennte Halteplätze und kehren nach Ende der Suche jeweils zu ihrem eigenen Stellplatz an der Wache zurück. Noch anfahrende Wagen brechen den Einsatz ab und fahren ebenfalls zurück.
 
-`tests/smoke/smoke-police.mjs` prüft den Timer einschließlich Zurücksetzen, Anfahrt, Aussteigen, zwei gesuchte Spieler, erfolgreiche Flucht von Spieler 1, Festnahme und Freilassung von Spieler 2 sowie Rückfahrt, Einsteigen, die Einsatzpause und einen erneuten Alarm desselben Spielers. `tools/capture-police.mjs` erzeugt Aufnahmen der Wache und der ausgestiegenen Streife unter `artifacts/police/`. Die Wache ergänzt fünf Kollisionskörper und zwei Parkour-Deckflächen; vorhandene Stadt- und Fabrikgeometrie bleibt bestehen.
+Für einen begrenzten Speicher- und Renderaufwand im Browser sind maximal **sechs Wagen / zwölf Beamte** gleichzeitig vorgesehen. Die vorhandenen Streifen werden bei späteren Einsätzen wiederverwendet. Die Splitscreen-Anzeige zeigt je gesuchtem Spieler die gemeinsame Verfolgungsdauer als `m:ss`, die Polizeistärke einschließlich anfahrender Verstärkung und den nächsten Verstärkungstermin. Alle Timer pausieren mit dem Spiel.
 
-Validierung am 01.10.2026: Produktionsbuild und alle 26 Smoke-Tests bestanden. Die Grafikprüfung wurde nach Korrektur der Deckflächen-Zählung separat erfolgreich wiederholt, einschließlich Textur-Fallback. Der vollständige Polizeitest besteht auch über die öffentliche Splitscreen-Vorschau. Wache, Streife und die neue Dive-Landepose wurden anhand von Spielaufnahmen visuell geprüft.
+Bodenkontakt, Sichtkontakt und weniger als 1,15 m Abstand lösen eine Festnahme aus. Nach drei Sekunden wird der Spieler vor der Wache freigelassen; die laufende Trick-Kombo verfällt, gesicherte Punkte bleiben erhalten. Sechs Sekunden mit mehr als 45 m Abstand zu allen aktiven Verfolgern oder 25 Sekunden ohne Sichtkontakt beenden die individuelle Suche. Nach Rückkehr sämtlicher Fahrzeuge gibt es 15 Sekunden Einsatzpause.
+
+## Bewegung und Engstellen
+
+Die Wegsuche bildet begehbare Flächen auf mehreren Höhen aus der tatsächlichen Kollisionsgeometrie ab. Sie nutzt Treppen, bis zu 2,5 m hohe erreichbare Kanten, kurze Sprünge zwischen benachbarten Plattformen und kontrollierte Absätze bis 3,5 m. Jede Verbindung wird mit einer Kapsel auf freien Raum geprüft, einschließlich Aufstieg und Flugkurve. Auch während der Bewegung werden Kollisionen geprüft. Beamte klettern damit über Hindernisse und verfolgen Spieler auf erreichbare höhere Flächen; sie können nicht beliebig hohe, glatte Wände hochlaufen.
+
+Eine feste Vorfahrtsregel und seitliches Ausweichen verhindern gegenseitiges Blockieren. Ist ein Gang zu schmal zum Ausweichen, zieht sich der nachrangige Beamte bis zu einer freien Stelle zurück. Die gesamten Sprung- und Kletterwege werden vor dem Start reserviert; wartende Beamte lassen die Bewegung erst abschließen. Positionsreservierungen halten Abstand zwischen den Beamten; ihre Physikkapseln werden nicht gegeneinander verklemmt. Bei ausbleibendem Fortschritt wird der Weg neu gesucht. Lange Teilrouten werden nach tatsächlichem Fortschritt fortgesetzt.
+
+## Darstellung
+
+Der Streifenwagen besitzt eine geneigte Fahrgastzelle, abgerundete Karosserie, Lackmaterial, Säulen, Spiegel, Türgriffe, bewegliche Türen und Räder, Felgen, Kühlergrill, Scheinwerfer, Rückleuchten, Kennzeichen, Antenne und Blaulicht. Die Beamten haben geformte Körperteile, Gesicht, Ohren, Hände, Mütze, Stoffstruktur, Schutzweste, Funkgerät, Taschen, Gürtel und Stiefel. Ellbogen und Knie bewegen sich zusätzlich zu den Schulter- und Hüftgelenken; Sprung und Klettern erhalten eigene Posen. Starre Modelldetails werden je Material zusammengefasst, bewegliche Teile bleiben getrennt. Geometrie und Materialien sind auf den bestehenden Browser-Look abgestimmt.
+
+## Prüfung
+
+- `smoke-police`: Alarm, Zurücksetzen, beide Spieler, Anfahrt, Festnahme, Flucht, Rückfahrt und erneuter Einsatz.
+- `smoke-police-ai`: zwei entgegenkommende Beamte in einem schmalen Gang, Mindestabstand, tatsächliches Erklettern einer Kiste Sprung mit Landung auf einer getrennten erhöhten Plattform, Gegenverkehr an Kletterkanten und den Aufstieg durch das echte Fabriktreppenhaus bis auf 21 m.
+- `smoke-police-reinforcements`: Alarm für einen Spieler außerhalb des Geländes, Zeit-/Stärkeanzeige, Pause, Zwei-Minuten-Verstärkung, zwölf Beamte und Rückkehr aller Fahrzeuge. Für die reine Timerprüfung werden sichtbare, nicht festnehmbare Testziele fixiert; Verfolgung und Traversierung werden in den anderen Tests real simuliert.
+- `tools/capture-police.mjs`: Spielaufnahmen der Wache, Streife und Modelldetails unter `artifacts/police/`.
+
+Die Wache hat fünf Kollisionskörper und zwei Parkour-Deckflächen. Bestehende Levelgeometrie wird nicht verändert. Der Stand bleibt auf `feat/factory-visual-character-preview`.
+
+Validierung am 01.10.2026: Produktionsbuild und neun gezielte Smoke-Tests bestanden (`smoke-police`, `smoke-police-ai`, `smoke-police-reinforcements`, `smoke-city`, `smoke-split`, `smoke-shadow-stability`, `smoke-city-look`, `smoke-contacts`, `smoke-modes`). Die beiden Bewegungs-/Einsatztests wurden nach der abschließenden Korrektur der Kollisionsgruppen erneut erfolgreich ausgeführt. Der Belastungstest umfasst zwölf Minuten simulierte Verfolgung, sechs Wagen, zwölf Beamte und die Rückkehr aller Fahrzeuge. Die neuen Modelle wurden anhand von Spielaufnahmen visuell geprüft.

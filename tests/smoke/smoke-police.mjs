@@ -17,7 +17,7 @@ try{
  console.log('returned',r);assert.equal(r.arrests[0],0);assert.equal(r.arrests[1],1);assert.equal(r.phase,'idle');assert(r.officers.every(o=>!o.visible));assert(Math.abs(r.car[0]-112)<.2&&Math.abs(r.car[2]-77)<.2);assert(Math.abs(r.players[1].at.x-105)<1&&Math.abs(r.players[1].at.z-79)<1);assert.deepEqual(errors,[]);
  // A completed arrest must not suppress later alarms for the same player.
  await teleport(1,140,35);r=await state(60*5);assert.equal(r.phase,'idle');assert.equal(r.exposure[1],0,'Station cooldown suppresses a new countdown');
- r=await state(60*85);assert.equal(r.phase,'idle');r=await state(60*16);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[1]);
+ r=await state(60*85);assert.equal(r.phase,'idle');r=await state(60*16);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
  for(let i=0;i<20&&r.phase!=='chasing';i++)r=await state(60);
  assert.equal(r.phase,'chasing');await teleport(1,92,-40);
  for(let i=0;i<45&&r.phase!=='idle';i++)r=await state(60);
