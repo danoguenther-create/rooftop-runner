@@ -796,6 +796,8 @@ scenery.signs.push({ x:-40, y:2.8, z:83, text:'PALM QUAY  /  FREERUN PARK', colo
 // daraus eine Stadt, die weitergeht. Kostet einen Bruchteil eines Draw-Calls,
 // weil alles im selben Stadt-Batch steckt.
 const skyline = (pos, size, seed) => {
+  // Keep the sea-facing horizon clear; skyline buildings need dry ground.
+  if (pos[2] + size[2] / 2 > 120) return;
   const f = FACADES[Math.floor(hash(seed * 7, seed * 13 + 2) * FACADES.length)];
   boxes.push({ pos, size, color: f.color, style: f.style, solid: false });
 };

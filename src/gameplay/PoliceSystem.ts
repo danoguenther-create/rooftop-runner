@@ -7,7 +7,7 @@ import {RUN_SPEED,SPRINT_SPEED} from '../player/tuning';
 import {PoliceNavigation,traversalPosition,POLICE_QUERY_GROUPS,OFFICER_COLLISION_GROUPS,type PoliceWaypoint,type Traversal} from './PoliceNavigation';
 import {buildStation,buildPatrolCar,buildOfficer} from './PoliceModels';
 
-export const POLICE_DELAY=90;
+export const POLICE_DELAY=15;
 export const POLICE_REINFORCEMENT_SPEED=SPRINT_SPEED*1.2;
 export const REINFORCEMENT_INTERVAL=120;
 export const MAX_PATROLS=6;
@@ -83,6 +83,7 @@ export class PoliceSystem {
   return !this.physics.world.castRay(new RAPIER.Ray(from,delta.divideScalar(length)),Math.max(0,length-.4),true,RAPIER.QueryFilterFlags.EXCLUDE_DYNAMIC|RAPIER.QueryFilterFlags.EXCLUDE_KINEMATIC);
  }
  fixedUpdate(dt:number):void {
+  this.navigation.beginFrame();
   this.time+=dt;this.cooldown=Math.max(0,this.cooldown-dt);this.noticeTime=this.noticeTime.map(t=>Math.max(0,t-dt));
   for(const o of this.officers){o.planned.copy(o.body.translation());o.motion.set(0,0,0);}
   if(this.phase==='idle'){
@@ -131,6 +132,7 @@ export class PoliceSystem {
     if(patrol.officers.every(o=>o.boarded)){patrol.routeIndex=patrol.route.length-2;patrol.speed=0;this.change(patrol,'returning');}
    }
   }
+  this.navigation.endFrame();
   if(wasActive&&this.patrols.every(p=>p.phase==='idle')){this.cooldown=15;this.exposure.fill(0);this.navigation.reset();}
  }
  private drive(p:Patrol,dt:number){
@@ -150,9 +152,18 @@ export class PoliceSystem {
   const at=new THREE.Vector3().copy(o.body.translation()),away=at.clone().sub(point).setY(0);
   if(away.lengthSq()<.01)away.set(1,0,0);else away.normalize();
   const side=new THREE.Vector3(-away.z,0,away.x);
-  for(const direction of [side,side.clone().negate(),away,away.clone().negate()]){
-   const candidate=at.clone().addScaledVector(direction,.95);
-   if(candidate.distanceTo(point)>.9&&this.navigation.canWalk(at,candidate)&&!this.officers.some(other=>other!==o&&!other.boarded&&candidate.distanceTo(other.planned)<.7))return candidate;
+  for(const distance of [.7,.95,1.5,2])for(const direction of [away,side,side.clone().negate(),away.clone().negate()]){
+   const candidate=at.clone().addScaledVector(direction,distance),first=at.clone().addScaledVector(direction,.06);
+   if(candidate.distanceTo(point)<.8||!this.navigation.canWalk(at,candidate))continue;
+   const blocked=this.officers.some(other=>{
+    if(other===o||other.boarded)return false;
+    // The first step must already lead out of a tight contact, not into it.
+    if(first.distanceTo(other.planned)<.66&&first.distanceTo(other.planned)<=at.distanceTo(other.planned)+.0001)return true;
+    if(candidate.distanceTo(other.planned)<.7)return true;
+    if(other.action){const a=other.action;for(let i=0;i<=10;i++)if(candidate.distanceTo(traversalPosition(a.from,a.to,a.mode,a.age/a.duration+(1-a.age/a.duration)*i/10))<.8)return true;}
+    return false;
+   });
+   if(!blocked)return candidate;
   }
   return null;
  }
@@ -161,7 +172,8 @@ export class PoliceSystem {
   for(const other of this.officers){
    if(other===o||other.boarded||Math.abs(other.planned.y-at.y)>1.4)continue;
    const distance=next.distanceTo(other.planned);
-   if(distance>=.66)continue;
+   // Let touching capsules separate; blocking outward motion locks both in place.
+   if(distance>=.66||distance>at.distanceTo(other.planned)+.0001)continue;
    // Stable right of way: the later officer steps aside or backs out of a narrow aisle.
    if((o.id>other.id||other.action)&&!o.yieldTo){o.yieldTo=this.passingPlace(o,other.planned);if(other.action)o.yieldFor=other.id;}
    return new THREE.Vector3();
@@ -183,8 +195,8 @@ export class PoliceSystem {
    this.pose(o,a.mode,a.age/a.duration);
    if(a.age>=a.duration){o.action=null;o.path.shift();}return;
   }
-  if(!o.yieldTo&&o.repath<=0&&(o.goal.distanceTo(target)>1.5||!o.path.length&&(o.goal.distanceTo(target)>.2||at.distanceTo(o.planStart)>.8))){
-   o.path=this.navigation.path(at.clone().add(new THREE.Vector3(0,-.85,0)),target);o.goal.copy(target);o.planStart.copy(at);o.repath=1.2;
+  if(!o.yieldTo&&o.repath<=0&&(o.goal.distanceTo(target)>1.5||!o.path.length&&at.distanceTo(target.clone().add(new THREE.Vector3(0,.85,0)))>.4)){
+   o.path=this.navigation.path(at.clone().add(new THREE.Vector3(0,-.85,0)),target);o.goal.copy(target);o.planStart.copy(at);o.repath=o.path.length?1.2:.1;
   }
   // Follow a nearby runner continuously instead of stopping at their stale
   // last grid position; the swept capsule still checks walls and parked cars.

@@ -193,13 +193,23 @@ export class LevelLoader {
    * kachelt. Die Farbe kommt per Instanz-Farbe — bei Fassaden mit leichter
    * ortsabhängiger Streuung, damit nicht alle Nachbarhäuser identisch wirken.
    */
-  private addStyledBatch(style: BoxStyle, items: BoxData[]): void {
+  private addStyledBatch(style: BoxStyle, items: BoxData[], castShadow = true): void {
+    // Sub-texel fence wires alias as the shadow camera moves. Posts and crossbars
+    // retain shadows; the fine wire geometry remains visible and collidable.
+    if (castShadow && items.some(box => box.tag === 'factory-fence-wire')) {
+      const wires = items.filter(box => box.tag === 'factory-fence-wire');
+      const rest = items.filter(box => box.tag !== 'factory-fence-wire');
+      this.addStyledBatch(style, wires, false);
+      if (rest.length) this.addStyledBatch(style, rest);
+      return;
+    }
     const mesh = new THREE.InstancedMesh(
       new THREE.BoxGeometry(1, 1, 1),
       createStyleMaterial(style),
       items.length,
     );
-    mesh.castShadow = true;
+    if (!castShadow) mesh.name = 'Factory fence fine wires';
+    mesh.castShadow = castShadow;
     mesh.receiveShadow = true;
 
     const sizes = new Float32Array(items.length * 3);
@@ -217,6 +227,7 @@ export class LevelLoader {
       p.fromArray(box.pos);
       // The mill slab and yard both end at y=0. Separate only their rendered
       // surfaces to prevent z-fighting; retain original collider/ledge heights.
+      if (box.tag === 'factory-ground') p.y += 0.012;
       if (box.tag === 'factory-floor') p.y += 0.02;
       m.compose(p, q, s.fromArray(box.size));
       mesh.setMatrixAt(i, m);

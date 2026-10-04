@@ -19,7 +19,16 @@ try {
    const uv=origin.clone().applyMatrix4(sun.shadow.matrix);
    snapshots.push({uv:uv.toArray(),updates});
   }
-  const floorTops=[];
+  const floorTops=[],yardTops=[],wireBatches=[];
+  g.level.group.traverse(mesh=>{
+   if(mesh.name==='Factory fence fine wires')wireBatches.push({count:mesh.count,cast:mesh.castShadow});
+   if(!mesh.isInstancedMesh)return;
+   const matrix=sun.shadow.matrix.clone();
+   for(let i=0;i<mesh.count;i++){
+    mesh.getMatrixAt(i,matrix);const e=matrix.elements;
+    if(Math.abs(e[12]-248.9)<.01&&Math.abs(e[14]-2.5)<.01&&Math.abs(e[5]-1)<.001)yardTops.push(e[13]+e[5]/2);
+   }
+  });
   g.level.group.traverse(mesh=>{
    if(!mesh.isInstancedMesh||mesh.material.customProgramCacheKey()!=='mill-concrete-blender-pbr-v1')return;
    const matrix=sun.shadow.matrix.clone();
@@ -28,9 +37,11 @@ try {
     if(Math.abs(e[13]+.03)<.001&&Math.abs(e[14]+10)<.001)floorTops.push(e[13]+e[5]/2);
    }
   });
-  return {floorTops,snapshots,mapWidth:sun.shadow.mapSize.x,players:g.players.length};
+  return {floorTops,yardTops,wireBatches,snapshots,mapWidth:sun.shadow.mapSize.x,players:g.players.length};
  });
  console.log(JSON.stringify(r));assert.equal(r.players,2);assert.equal(r.floorTops.length,2);assert(r.floorTops.every(y=>y>.019&&y<.021),'Mill floor must not overlap the yard surface');
+ assert(r.yardTops.length===1&&Math.abs(r.yardTops[0]-.012)<.0001,'Factory yard must render above the overlapping street');
+ assert(r.wireBatches.length>0&&r.wireBatches.every(b=>b.count>0&&!b.cast),'Fine fence wires must not cast sub-texel shadows');
  for(const s of r.snapshots)assert.equal(s.updates,1,'One shadow-map update shared by both views');
  for(let i=0;i<3;i++)assert(Math.abs(r.snapshots[0].uv[i]-r.snapshots[1].uv[i])<1e-7,'Subtexel movement must not move static shadows');
  const delta=(r.snapshots[2].uv[0]-r.snapshots[0].uv[0])*r.mapWidth;

@@ -5,11 +5,15 @@ import type {PhysicsWorld} from '../physics/PhysicsWorld';
 export type Traversal='walk'|'climb'|'jump'|'drop';
 export type PoliceWaypoint=THREE.Vector3 & {traversal?:Traversal};
 interface Node {key:string;x:number;y:number;z:number}
+interface Search { goal:Node; heap:{node:Node;cost:number;rank:number}[]; costs:Map<string,number>; next:Map<string,{node:Node;mode:Traversal}>; settled:Set<string>; anchor:Node }
 interface Floor {x:number;y:number;z:number;hx:number;hz:number;c:number;s:number}
 // Explicit groups also exclude stale/overlapping NPC shapes in Rapier KCC queries.
 export const POLICE_QUERY_GROUPS=0x0001fffb;
 export const OFFICER_COLLISION_GROUPS=0x0004ffff;
 const ROT={x:0,y:0,z:0,w:1};
+const NEIGHBORS = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+for(let d=2;d<=6;d++)NEIGHBORS.push([d,0],[-d,0],[0,d],[0,-d]);
+for(let d=2;d<=4;d++)NEIGHBORS.push([d,d],[d,-d],[-d,d],[-d,-d]);
 export function traversalPosition(from:THREE.Vector3,to:THREE.Vector3,mode:Traversal,t:number):THREE.Vector3 {
  const p=from.clone();
  if(mode==='climb'){
@@ -28,10 +32,14 @@ export class PoliceNavigation {
  private columns=new Map<string,Node[]>();
  private floors=new Map<string,Floor[]>();
  private edges=new Map<string,Traversal|null>();
+ private searches=new Map<string,Search>();
+ private deadline:number|undefined;
+ beginFrame():void {this.deadline=performance.now()+5;}
+ endFrame():void {this.deadline=undefined;}
  private capsule=new RAPIER.Capsule(.55,.28);
  constructor(private physics:PhysicsWorld,private cars:()=>RAPIER.Collider[]){this.indexFloors();}
  obstacle=(c:RAPIER.Collider)=>c.isEnabled()&&(!c.parent()||c.parent()!.isFixed()||this.cars().some(car=>car.handle===c.handle));
- reset():void {this.columns.clear();this.edges.clear();}
+ reset():void {this.columns.clear();this.edges.clear();this.searches.clear();}
  /** Rebuild only when static level geometry changes, never once per officer. */
  indexFloors():void {
   this.floors.clear();this.reset();
@@ -91,7 +99,7 @@ export class PoliceNavigation {
  private edge(a:Node,b:Node,gap:boolean):Traversal|null {
   const key=`${a.key}>${b.key}`;if(this.edges.has(key))return this.edges.get(key)!;
   const rise=b.y-a.y;let mode:Traversal|null=null;
-  if(rise<=2.5&&rise>=-3.5){
+  if(rise<=3.5&&rise>=-3.5){
    const from=new THREE.Vector3(a.x,a.y+.86,a.z),to=new THREE.Vector3(b.x,b.y+.86,b.z);
    if(!gap&&Math.abs(rise)<=.5){
     const high=Math.max(from.y,to.y)+.03;
@@ -106,30 +114,48 @@ export class PoliceNavigation {
   this.edges.set(key,mode);return mode;
  }
  path(from:THREE.Vector3,to:THREE.Vector3):PoliceWaypoint[]{
-  const start=this.nearest(from),goal=this.nearest(to);if(!start||!goal)return[];
-  const heap:{node:Node;cost:number;rank:number}[]=[];
+  const start=this.nearest(from),requestedGoal=this.nearest(to);if(!start||!requestedGoal)return[];
+  let goal=requestedGoal;
+  // Keep planning toward the same roof/room while its player moves around.
+  // Reuse only when a supported, unobstructed walk connects the two goal points.
+  if(!this.searches.has(goal.key))for(const candidate of this.searches.values()){
+   const a=candidate.goal;
+   if(Math.abs(a.y-goal.y)<.3&&Math.hypot(a.x-goal.x,a.z-goal.z)<40&&this.canWalk(new THREE.Vector3(a.x,a.y+.86,a.z),new THREE.Vector3(goal.x,goal.y+.86,goal.z))){goal=a;break;}
+  }
+  // Search backwards from the target's floor: this discovers its window,
+  // staircase or roof approach before exploring the much larger street network.
+  // Preserve unfinished searches so a long detour is never discarded at a budget limit.
+  let search=this.searches.get(goal.key);
+  if(!search){
+   if(this.searches.size>=4)this.searches.delete(this.searches.keys().next().value!);
+   search={goal,anchor:start,heap:[{node:goal,cost:0,rank:0}],costs:new Map([[goal.key,0]]),next:new Map(),settled:new Set()};
+   this.searches.set(goal.key,search);
+  }
+  const {heap,costs,next,settled,anchor}=search;
   const push=(v:typeof heap[number])=>{heap.push(v);let i=heap.length-1;while(i){const p=(i-1)>>1;if(heap[p].rank<=v.rank)break;heap[i]=heap[p];i=p;}heap[i]=v;};
   const pop=()=>{const first=heap[0],last=heap.pop()!;if(heap.length){let i=0;while(i*2+1<heap.length){let c=i*2+1;if(c+1<heap.length&&heap[c+1].rank<heap[c].rank)c++;if(last.rank<=heap[c].rank)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;};
-  const h=(n:Node)=>Math.hypot(n.x-goal.x,n.z-goal.z)+Math.abs(n.y-goal.y);
-  const costs=new Map([[start.key,0]]),parent=new Map<string,{node:Node;mode:Traversal}>();
-  let best=start;push({node:start,cost:0,rank:h(start)});
-  for(let visits=0;heap.length&&visits<6500;visits++){
-   const {node:a,cost}=pop();if(cost!==costs.get(a.key))continue;
-   if(h(a)<h(best))best=a;if(a.key===goal.key){best=a;break;}
-   for(const [dx,dz] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1],[2,0],[-2,0],[0,2],[0,-2]]){
-    const gap=Math.abs(dx)+Math.abs(dz)===2&&(dx===0||dz===0);
-    // Jump edges only bridge missing same-height walking support.
-    if(gap&&this.nodes(Math.round(a.x-.5)+dx/2,Math.round(a.z-.65)+dz/2).some(n=>Math.abs(n.y-a.y)<.3))continue;
+  const h=(n:Node)=>Math.hypot(n.x-anchor.x,n.z-anchor.z)+Math.abs(n.y-anchor.y);
+  const deadline=this.deadline??performance.now()+5;
+  for(let visits=0;!settled.has(start.key)&&heap.length&&visits<2500;visits++){
+   if(visits%16===0&&performance.now()>=deadline)break;
+   const {node:a,cost}=pop();if(cost!==costs.get(a.key)||settled.has(a.key))continue;
+   settled.add(a.key);
+   for(const [dx,dz] of NEIGHBORS){
+    const gap=Math.max(Math.abs(dx),Math.abs(dz))>1;
     for(const b of this.nodes(Math.round(a.x-.5)+dx,Math.round(a.z-.65)+dz)){
-     const mode=this.edge(a,b,gap);if(!mode)continue;
-     const next=cost+Math.hypot(dx,dz)+Math.abs(a.y-b.y)*1.5+(mode==='walk'?0:1.5);
-     if(next>=(costs.get(b.key)??Infinity))continue;
-     costs.set(b.key,next);parent.set(b.key,{node:a,mode});push({node:b,cost:next,rank:next+h(b)});
+     if(settled.has(b.key))continue;
+     if(gap&&this.nodes(Math.round(a.x-.5)+Math.sign(dx),Math.round(a.z-.65)+Math.sign(dz)).some(n=>Math.abs(n.y-b.y)<.3&&Math.abs(n.y-a.y)<.3))continue;
+     const mode=this.edge(b,a,gap);if(!mode)continue;
+     const costToGoal=cost+Math.hypot(dx,dz)+Math.abs(a.y-b.y)*1.5+(mode==='walk'?0:1.5);
+     if(costToGoal>=(costs.get(b.key)??Infinity))continue;
+     costs.set(b.key,costToGoal);next.set(b.key,{node:a,mode});push({node:b,cost:costToGoal,rank:costToGoal+h(b)});
     }
    }
   }
-  const result:PoliceWaypoint[]=[];
-  for(let n=best;n.key!==start.key;){const prev=parent.get(n.key);if(!prev)break;result.push(Object.assign(new THREE.Vector3(n.x,n.y,n.z),{traversal:prev.mode}));n=prev.node;}
-  result.push(Object.assign(new THREE.Vector3(start.x,start.y,start.z),{traversal:'walk' as Traversal}));return result.reverse();
+  if(!settled.has(start.key))return[];
+  const result:PoliceWaypoint[]=[Object.assign(new THREE.Vector3(start.x,start.y,start.z),{traversal:'walk' as Traversal})];
+  for(let n=start;n.key!==goal.key;){const step=next.get(n.key);if(!step)return[];n=step.node;result.push(Object.assign(new THREE.Vector3(n.x,n.y,n.z),{traversal:step.mode}));}
+  if(goal.key!==requestedGoal.key)result.push(Object.assign(new THREE.Vector3(requestedGoal.x,requestedGoal.y,requestedGoal.z),{traversal:'walk' as Traversal}));
+  return result;
  }
 }

@@ -8,8 +8,8 @@ try{
  await page.evaluate(()=>{const g=window.game;g.renderFrame(0);g.renderFrame=()=>{};g.stepFixed(30);window.arrests=[0,0];g.players.forEach((p,i)=>p.bus.on('police:arrest',()=>window.arrests[i]++));});
  const teleport=async(i,x,z)=>page.evaluate(({i,x,z})=>{const g=window.game,p=g.players[i];p.respawn();p.body.setTranslation({x,y:.91,z},true);p.body.setNextKinematicTranslation({x,y:.91,z});p.velocity.set(0,0,0);p.fsm.transition('AIR');p.beginAirborne();g.physics.step();g.stepFixed(5);},{i,x,z});
  const state=async(steps=0)=>page.evaluate(steps=>{const g=window.game;g.stepFixed(steps);return{phase:g.police.phase,exposure:g.police.exposure,wanted:[...g.police.wanted],car:g.police.car.root.position.toArray(),officers:g.police.officers.map(o=>({at:o.body.translation(),path:o.path.length,visible:o.model.root.visible})),players:g.players.map(p=>({at:p.body.translation(),detained:p.isDetained})),arrests:window.arrests};},steps);
- await teleport(0,140,27.65);await state(60*20);await teleport(0,115,15);let r=await state();assert.equal(r.exposure[0],0,'Leaving the factory resets the 90 s timer');
- await teleport(0,140,27.65);await teleport(1,140,35);r=await state(60*89);console.log('before alarm',r);assert.equal(r.phase,'idle');r=await state(70);console.log('alarm',r);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
+ await teleport(0,140,27.65);await state(60*10);await teleport(0,115,15);let r=await state();assert.equal(r.exposure[0],0,'Leaving the factory resets the 15 s timer');
+ await teleport(0,140,27.65);await teleport(1,140,35);r=await state(60*14);console.log('before alarm',r);assert.equal(r.phase,'idle');r=await state(70);console.log('alarm',r);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
  for(let i=0;i<20&&r.phase!=='chasing';i++)r=await state(60);
  console.log('arrival',JSON.stringify(r));assert.equal(r.phase,'chasing');assert(r.officers.every(o=>o.visible));assert(Math.abs(r.car[2]-27.65)<.2);
  await teleport(0,-90,-70);
@@ -21,6 +21,6 @@ try{
  for(let i=0;i<100&&r.phase!=='idle';i++)r=await state(60);
  console.log('both caught and returned',JSON.stringify(r));assert.deepEqual(r.arrests,[1,1]);assert.equal(r.phase,'idle');assert(r.officers.every(o=>!o.visible));assert(Math.abs(r.car[0]-112)<.2&&Math.abs(r.car[2]-77)<.2);assert(Math.abs(r.players[1].at.x-105)<1&&Math.abs(r.players[1].at.z-79)<1);
  await teleport(1,140,35);r=await state(60*5);assert.equal(r.phase,'idle');assert.equal(r.exposure[1],0);
- r=await state(60*85);assert.equal(r.phase,'idle');r=await state(60*16);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
+ r=await state(60*10);assert.equal(r.phase,'idle');r=await state(60*16);assert.equal(r.phase,'driving');assert.deepEqual(r.wanted,[0,1]);
  assert.deepEqual(errors,[]);console.log('POLICE: SHARED ALARM, KEEP CHASING AFTER FIRST CATCH, BOTH ARRESTED, RETURN AND REPEAT OK');
 }finally{await browser.close();}

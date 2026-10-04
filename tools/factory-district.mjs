@@ -13,14 +13,14 @@ export function addFactoryDistrict({boxes,rails,scenery}) {
     const dx=b[0]-a[0],dz=b[1]-a[1],length=Math.hypot(dx,dz),ux=dx/length,uz=dz/length;
     const middle=[(a[0]+b[0])/2,2.5,(a[1]+b[1])/2];
     box(middle,[dx?length:.12,5,dz?length:.12],colors.steel, gap?'factory-broken-fence-upper':'factory-fence',{invisible:true});
-    for(let d=0;d<=length;d+=.32) box([a[0]+ux*d,2.5,a[1]+uz*d],[.035,5,.035],d%2<1?'#575c53':'#655448');
+    for(let d=0;d<=length;d+=.32) box([a[0]+ux*d,2.5,a[1]+uz*d],[.035,5,.035],d%2<1?'#575c53':'#655448','factory-fence-wire');
     for(const y of [.15,2.5,4.95]) box([middle[0],y,middle[2]],[dx?length:.07,.07,dz?length:.07],colors.steel);
     for(let d=0;d<=length;d+=4)box([a[0]+ux*d,2.6,a[1]+uz*d],[.13,5.2,.13],colors.steel);
   }
   fence([126,-60],[270,-60]); fence([270,-60],[270,65]); fence([126,65],[270,65]);
   fence([126,-60],[126,27.1]); fence([126,28.2],[126,65]);
   box([126,3.525,27.65],[.12,2.95,1.1],colors.steel,'factory-hole-lintel',{invisible:true});
-  for(let k=0;k<4;k++)box([126,3.6,27.12+k*.32],[.035,2.8,.035],colors.steel);
+  for(let k=0;k<4;k++)box([126,3.6,27.12+k*.32],[.035,2.8,.035],colors.steel,'factory-fence-wire');
   box([125,.12,28],[2.1,.07,1.6],colors.steel,undefined,{rotY:.25});
   // Loose panels and storage obscure the opening from the main road.
   box([123.5,.65,22.3],[3.2,1.3,2.4],colors.rust,'factory-entry-crate');

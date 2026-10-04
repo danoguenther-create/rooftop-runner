@@ -24,6 +24,12 @@ try{
    separation=Math.min(separation,v(0,0,0).copy(s.officers[0].body.translation()).distanceTo(s.officers[1].body.translation()));
   }
   const passing=s.officers.map(o=>o.body.translation());
+  place(s.officers[0],53.5,.85,-100.35);place(s.officers[1],54.14,.85,-100.35);g.physics.step();
+  for(let k=0;k<240;k++){
+   s.officers.forEach(o=>o.planned.copy(o.body.translation()));
+   s.walk(s.officers[0],v(51.5,0,-100.35),1/60);s.walk(s.officers[1],v(56.5,0,-100.35),1/60);g.physics.step();
+  }
+  const separating=s.officers.map(o=>o.body.translation());
   place(s.officers[0],78.5,.85,-100.35);place(s.officers[1],79.5,2.65,-100.35);g.physics.step();
   for(let k=0;k<1200;k++){
    s.officers.forEach(o=>o.planned.copy(o.body.translation()));
@@ -42,6 +48,11 @@ try{
   s.createPatrol();s.officers.forEach(o=>{o.boarded=true;o.collider.setEnabled(false);});
   const measure=(o,moving)=>{
    place(o,20.5,.85,-106.35);o.yieldFor=null;o.stuck=0;o.repath=0;g.physics.step();
+   // Measure locomotion after the time-sliced route search has finished.
+   const goal=v(moving?26.5:95.5,0,-106.35);
+   for(let tries=0;tries<500&&!o.path.length;tries++)o.path=s.navigation.path(v(20.5,0,-106.35),goal);
+   if(!o.path.length)throw new Error('Speed fixture route must be reachable');
+   o.goal.copy(goal);o.planStart.copy(o.body.translation());o.repath=1.2;
    let caughtAt=null;
    for(let k=0;k<240;k++){
     o.planned.copy(o.body.translation());const x=moving?26.5+(k+1)*9/60:95.5;
@@ -53,10 +64,11 @@ try{
   };
   const speeds=[measure(s.officers[0],false),measure(s.officers[2],false)];
   const pursuit=[measure(s.officers[0],true),measure(s.officers[2],true)];
-  return{passing,ledgePassing,separation,climb,jump,stairs,speeds,pursuit};
+  return{passing,separating,ledgePassing,separation,climb,jump,stairs,speeds,pursuit};
  });
  console.log('movement',JSON.stringify(movement));
  assert(movement.passing[0].x>59&&movement.passing[1].x<52,'Head-on officers must pass the narrow corridor');assert(movement.separation>.55,'Officers must keep capsule separation');
+ assert(movement.separating[0].x<52&&movement.separating[1].x>56,'Touching officers must be allowed to move apart');
  assert(movement.ledgePassing[0].y>2.5&&movement.ledgePassing[1].x<78,'Opposite climbing directions must reserve the ledge and yield');
  assert(movement.climb.modes.includes('climb')&&movement.climb.at.y>2.5&&movement.climb.at.x>80,'Climb must reach the crate top');
  assert(movement.jump.modes.includes('jump')&&movement.jump.peak>5.3&&movement.jump.at.x>68&&movement.jump.at.y>4.7,'Jump must cross the gap and land on the raised platform');
