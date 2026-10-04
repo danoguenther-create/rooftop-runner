@@ -22,6 +22,7 @@ const TESTS = [
   'smoke-16c',
   'smoke-16d',
   'smoke-city',
+  'smoke-minimap',
   'smoke-police',
   'smoke-police-ai',
   'smoke-police-routes',

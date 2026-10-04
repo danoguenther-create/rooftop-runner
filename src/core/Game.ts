@@ -1,3 +1,4 @@
+import {Minimap} from '../ui/Minimap';
 import * as THREE from 'three';
 import { Sky } from 'three/examples/jsm/objects/Sky.js';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
@@ -49,6 +50,7 @@ export class Game {
   players: PlayerController[] = [];
   followCameras: FollowCamera[] = [];
   huds: HUD[] = [];
+  minimaps: Minimap[] = [];
   scores: ScoreSystem[] = [];
   private buses: EventBus[] = [];
   private edges: EdgePrecision[] = [];
@@ -307,6 +309,7 @@ export class Game {
     }
 
     if(levelName==='city01')this.police=new PoliceSystem(this.physics,this.level,this.scene,this.players,hudRoots);
+    hudRoots.forEach((root,i)=>this.minimaps.push(new Minimap(i,this.players,this.level,this.police,root,this.minimaps[0]?.background)));
 
     // Game of PARK (S.K.A.T.E.-Prinzip): nur im Splitscreen aktivierbar
     if (this.mode === 'split' && params.get('game') === 'park') {
@@ -490,6 +493,7 @@ export class Game {
     this.scores.forEach((s) => s.update(dt));
     this.trickMatch?.update(dt);
     this.police?.update(dt);
+    this.minimaps.forEach(map=>map.update(dt));
     this.huds.forEach((h, i) =>
       h.update(dt, this.players[i].horizontalSpeed, this.players[i].balancer.sway),
     );
