@@ -32,7 +32,7 @@ export type StateName =
 
 /** Erlaubte Übergänge (Tasks 9/11/12/16b/16c/16d). */
 const ALLOWED: Record<StateName, readonly StateName[]> = {
-  RUN: ['AIR', 'VAULT', 'BAIL', 'BALANCE'],
+  RUN: ['AIR', 'VAULT', 'BAIL', 'BALANCE', 'HANG'],
   AIR: ['RUN', 'WALLRUN', 'BALANCE', 'VAULT', 'BAIL', 'HANG', 'SWING'],
   WALLRUN: ['AIR'],
   BALANCE: ['AIR'],
@@ -107,6 +107,7 @@ class RunState extends PlayerState {
     if(p.tryDiveJump()){p.fsm.transition("AIR");p.applyMovement(dt);return;}
     // Solid rails can be reached by a grounded step, not only by falling.
     if (p.balancer.trySnap()) { p.fsm.transition('BALANCE'); return; }
+    if(p.climb.tryDropToHang(p)){p.fsm.transition("HANG");return;}
     p.groundMove(dt);
     const plan = p.parkour.plan(p);
     if (plan) {
@@ -400,10 +401,12 @@ class HangState extends PlayerState {
   private readonly mantleEnd = new THREE.Vector3();
   private mantleT = -1; // -1 = hängend, sonst Fortschritt 0..1
   private inputLockUntil = 0;
+  private mantleIntent = 0;
 
   override enter(): void {
     const p = this.player;
     this.mantleT = -1;
+    this.mantleIntent = 0;
     p.mantleProgress = -1;
     // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
     // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
@@ -446,16 +449,21 @@ class HangState extends PlayerState {
 
     const input = p.currentInput;
     const locked = simNow() < this.inputLockUntil;
-    const moveY = locked ? 0 : (input?.moveY ?? 0);
+    const jump=p.consumeJumpRequest();
+    const moveY = locked&&!jump ? 0 : (input?.moveY ?? 0);
     const moveX = input?.moveX ?? 0;
 
-    const jump=!locked&&p.consumeJumpRequest();
-    if(jump&&(Math.abs(moveX)>.5||moveY>.5)){
-      _camRight.set(Math.cos(p.cameraYaw)*moveX,0,-Math.sin(p.cameraYaw)*moveX);
+    if(jump&&(Math.abs(moveX)>.5||moveY>=0)){
+      p.climb.edgeDir(_camRight);
+      const cameraRight=new THREE.Vector3(Math.cos(p.cameraYaw),0,-Math.sin(p.cameraYaw));
+      _camRight.multiplyScalar((_camRight.dot(cameraRight)>=0?1:-1)*Math.sign(moveX));
       if(p.climb.tryTransfer(p,Math.abs(moveX)>.5?0:1,Math.abs(moveX)>.5?_camRight.normalize():null))return;
+      if(Math.abs(moveX)>.5)return; // A failed sideways hop must not start an unrelated mantle.
     }
     // Existing W / jump mantle input stays available when no transfer fits.
+    if(moveY<=.5)this.mantleIntent=0;
     if (moveY > 0.5 || jump) {
+      if(!jump){this.mantleIntent+=dt;if(this.mantleIntent<.16)return;}
       p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
@@ -474,6 +482,7 @@ class HangState extends PlayerState {
       return;
     }
 
+    if(Math.abs(moveX)<=.5)p.climb.sideContinuation=null;
     // --- Hangeln (A/D, kamerarelativ entlang der Kante)
     if (Math.abs(moveX) > 0.5) {
       p.climb.edgeDir(_edgeDir);

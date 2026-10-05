@@ -130,6 +130,33 @@ export async function loadFBXCharacter(basePath = 'models/mixamo/'): Promise<Cha
   }
 }
 
+/** Reference Mixamo clips retargeted to our existing rig; physics owns root travel. */
+async function addParkourClips(model:THREE.Group,clips:Map<string,THREE.AnimationClip>):Promise<void>{
+  let prefix='mixamorig';let hipsY=100;
+  model.traverse(o=>{if((o as THREE.Bone).isBone&&o.name.endsWith('Hips')){prefix=o.name.slice(0,-4);hipsY=o.position.y;}});
+  const names=['hang-braced','hang-free','hang-hop','hang-up','hang-down','hang-drop','hang-climb','hang-shimmy'];
+  const loader=new FBXLoader();
+  await Promise.all(names.map(async name=>{
+    const group=await loader.loadAsync(`${import.meta.env.BASE_URL}models/parkour/${name}.fbx`);
+    const clip=group.animations[0];if(!clip)return;clip.name=name;
+    for(const track of clip.tracks){
+      track.name=track.name.replace(/^mixamorig\d*:?/,prefix);
+      if(track.name.endsWith('Hips.position'))for(let i=0;i<track.values.length;i+=3){track.values[i]=0;track.values[i+1]=hipsY;track.values[i+2]=0;}
+    }
+    clips.set(name,clip);
+    if(name==='hang-hop'||name==='hang-shimmy'){
+      const mirrored=clip.clone();mirrored.name=name+'-left';
+      for(const track of mirrored.tracks){
+        track.name=track.name.replace(/Left|Right/g,side=>side==='Left'?'Right':'Left');
+        const v=track.values;
+        if(track.name.endsWith('.quaternion'))for(let i=0;i<v.length;i+=4){v[i+1]*=-1;v[i+2]*=-1;}
+        if(track.name.endsWith('.position'))for(let i=0;i<v.length;i+=3)v[i]*=-1;
+      }
+      clips.set(mirrored.name,mirrored);
+    }
+  }));
+}
+
 /** Optimized runtime asset; original FBX sources remain a recoverable fallback. */
 export async function loadCharacter(): Promise<CharacterAssets> {
   const overlay=document.createElement('div');
@@ -142,7 +169,9 @@ export async function loadCharacter(): Promise<CharacterAssets> {
     fitClassicSneakers(gltf.scene);
     finishCharacter(gltf.scene);
     gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=true;o.frustumCulled=false;}});
-    return {model:gltf.scene,clips:new Map(gltf.animations.map(c=>[c.name,c]))};
+    const clips=new Map(gltf.animations.map(c=>[c.name,c]));
+    await addParkourClips(gltf.scene,clips);
+    return {model:gltf.scene,clips};
   } catch(error) {
     console.warn('Optimierter Charakter nicht verfügbar, lade FBX-Quelldaten.',error);
     const assets = await loadFBXCharacter();

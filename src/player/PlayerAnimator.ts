@@ -95,17 +95,21 @@ export class PlayerAnimator {
     mantle = -1,
     vault = 0,
     diveJump = false,
+    hangClip: string | null = null,
+    hangPhase = -1,
   ): void {
     this.time += dt;
     const contact = diveJump || state === "HANG" || state === "SWING" || state === "VAULT" || state === "WALLRUN";
     if (contact) this.lockUntil = 0; // an earlier roll cannot delay a new grip pose
     if (this.time >= this.lockUntil) {
       this.play(
-        diveJump ? "idle" : mantle >= 0 ? "wallclimb" : this.pickClip(state, hSpeed, vy, climbing),
+        diveJump ? "idle" : state==="HANG" && hangClip && this.actions.has(hangClip) ? hangClip : mantle >= 0 ? "wallclimb" : this.pickClip(state, hSpeed, vy, climbing),
       );
     }
     if (this.current) {
-      if (state === "VAULT" || mantle >= 0) {
+      if(state==='HANG'&&hangClip&&hangPhase>=0&&this.actions.has(hangClip)){
+        this.current.paused=true;this.current.time=hangPhase*this.current.getClip().duration;
+      } else if (state === "VAULT" || mantle >= 0) {
         const phase = state === "VAULT" ? vault : mantle;
         const duration = this.current.getClip().duration;
         this.current.paused = true;
@@ -113,6 +117,8 @@ export class PlayerAnimator {
           state === "VAULT"
             ? THREE.MathUtils.lerp(0.3, Math.min(duration, 1.3), phase)
             : THREE.MathUtils.lerp(0.3, Math.min(duration, 1.5), phase);
+      } else if(state==="HANG") {
+        this.current.paused=false;
       } else if (this.currentName === "run" || this.currentName === "sprint") {
         this.current.setEffectiveTimeScale(
           THREE.MathUtils.clamp(

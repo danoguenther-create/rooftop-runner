@@ -44,28 +44,37 @@ const _outward = new THREE.Vector3();
  */
 export class Climber {
   grab: Grab | null = null;
-  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number}|null=null;
+  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number;bodyPoints?:THREE.Vector3[];corner?:boolean}|null=null;
   shimmyPhase=0;
+  sideContinuation:{input:number;direction:number}|null=null;
   braced=true;
 
   hangPosition(out:THREE.Vector3):THREE.Vector3 {
+    if(this.transfer?.bodyPoints){
+      const points=this.transfer.bodyPoints,t=this.transfer.t,section=t<.2?0:t<.55?1:2;
+      const times=[0,.2,.55,1];return out.copy(points[section]).lerp(points[section+1],THREE.MathUtils.smoothstep(t,times[section],times[section+1]));
+    }
     this.edgePoint(out);const normal=this.outward(new THREE.Vector3());
     const arc=this.transfer?Math.sin(Math.PI*this.transfer.t):0;
-    return out.addScaledVector(normal,CAPSULE_RADIUS+.1+.12*arc).add(new THREE.Vector3(0,-HANG_CENTER_BELOW+.12*arc,0));
+    return out.addScaledVector(normal,CAPSULE_RADIUS+.1+(this.transfer?.corner ? .55 : .18)*arc).add(new THREE.Vector3(0,-HANG_CENTER_BELOW+(this.transfer?.corner ? .08 : .45)*arc,0));
   }
   moveAlong(p:PlayerController,delta:number):void {
     if(!this.grab||this.transfer)return;
+    const input=Math.sign(p.currentInput?.moveX??0);
+    if(this.sideContinuation&&input===this.sideContinuation.input&&input!==0)delta=Math.abs(delta)*this.sideContinuation.direction;
+    else this.sideContinuation=null;
     const original={...this.grab},at=new THREE.Vector3().copy(p.body.translation()),finished=this.shimmy(delta),to=this.hangPosition(new THREE.Vector3());
-    if(!this.validGrip(p)||!clearTraversal(p,at,to,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){this.grab=original;return;}
+    if(!this.validGrip(p)||!clearTraversal(p,at,to,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){this.grab=original;this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)),true);return;}
     this.shimmyPhase+=Math.abs(delta)*5;
-    if(!finished)this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)));
+    if(!finished)this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)),true);
   }
-  tryTransfer(p:PlayerController,vertical:number,direction:THREE.Vector3|null=null):boolean {
+  tryTransfer(p:PlayerController,vertical:number,direction:THREE.Vector3|null=null,aroundCorner=false):boolean {
     if(!this.grab||this.transfer)return false;
     const original=this.grab,from=this.edgePoint(new THREE.Vector3()),outFrom=this.outward(new THREE.Vector3());
     let best:NonNullable<Climber['transfer']>|null=null,score=Infinity;
     for(const face of p.level.topFaces){
-      const dy=face.y-from.y;if(vertical>0?(dy<.35||dy>2.2):vertical<0?(dy>-.6||dy< -3.2):Math.abs(dy)>.7)continue;
+      if(face===original.face&&!aroundCorner)continue;
+      const dy=face.y-from.y;if(vertical>0?(dy<.35||dy>2.2):vertical<0?(dy>-.6||dy< -3.2):Math.abs(dy)>1.25)continue;
       if(Math.hypot(face.cx-from.x,face.cz-from.z)>Math.hypot(face.halfX,face.halfZ)+3)continue;
       const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=from.x-face.cx,dz=from.z-face.cz,lx=dx*c-dz*s,lz=dx*s+dz*c;
       for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
@@ -73,9 +82,9 @@ export class Climber {
         const limit=(axis==='x'?face.halfZ:face.halfX)-.18;if(limit<.12)continue;
         const target:Grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
         this.grab=target;const to=this.edgePoint(new THREE.Vector3()),outTo=this.outward(new THREE.Vector3()),delta=to.clone().sub(from),horizontal=Math.hypot(delta.x,delta.z);
-        if(horizontal> (vertical?1.8:2.8)||outTo.dot(outFrom)<-.1||(!vertical&&(horizontal<(face===original.face?.1:.3)||!direction||delta.clone().setY(0).normalize().dot(direction)<.55))||!this.validGrip(p)){this.grab=original;continue;}
+        if(horizontal> (vertical?2.2:3.5)||outTo.dot(outFrom)<-.1||(!vertical&&(horizontal<(face===original.face?.1:.3)||!direction||delta.clone().setY(0).normalize().dot(direction)<.25))||!this.validGrip(p)){this.grab=original;continue;}
         const rank=horizontal+Math.abs(dy)*.5;if(rank>=score){this.grab=original;continue;}
-        const candidate={from,to,outFrom,outTo,target,t:0,duration:THREE.MathUtils.clamp(.28+delta.length()*.18,.35,.85)};
+        const candidate={from,to,outFrom,outTo,target,t:0,duration:THREE.MathUtils.clamp(.32+delta.length()*.2,.45,1),corner:outTo.dot(outFrom)<.75};
         this.grab=original;this.transfer=candidate;
         let previous=this.hangPosition(new THREE.Vector3()),clear=true;
         for(let i=1;i<=20;i++){candidate.t=i/20;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
@@ -91,8 +100,42 @@ export class Climber {
     const at=new THREE.Vector3().copy(p.body.translation()),to=this.hangPosition(new THREE.Vector3());
     if(!clearTraversal(p,at,to,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){transfer.t=old;this.transfer=null;return false;}
     p.body.setNextKinematicTranslation(to);
-    if(transfer.t===1){this.grab=transfer.target;this.transfer=null;}
+    if(transfer.t===1){
+      this.grab=transfer.target;
+      const input=Math.sign(p.currentInput?.moveX??0);
+      if(transfer.corner&&input)this.sideContinuation={input,direction:-Math.sign(transfer.target.t)};
+      this.transfer=null;
+    }
     return true;
+  }
+  /** Roll + movement towards an exposed roof edge: step out and lower into a grip. */
+  tryDropToHang(p:PlayerController):boolean {
+    if(!p.grounded||!p.currentInput?.rollHeld)return false;
+    const direction=p.getWishDir(new THREE.Vector3());if(!direction)return false;
+    const start=new THREE.Vector3().copy(p.body.translation());
+    const feet=start.y-CAPSULE_HALFHEIGHT-CAPSULE_RADIUS;
+    for(const face of p.level.topFaces){
+      if(Math.abs(face.y-feet)>.12)continue;
+      const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=start.x-face.cx,dz=start.z-face.cz,lx=dx*c-dz*s,lz=dx*s+dz*c;
+      if(Math.abs(lx)>face.halfX+.08||Math.abs(lz)>face.halfZ+.08)continue;
+      for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
+        const distance=(axis==='x'?face.halfX:face.halfZ)-sign*(axis==='x'?lx:lz);
+        if(distance<-.08||distance>1)continue;
+        const normal=this.outwardWorld(face,axis,sign,new THREE.Vector3());if(normal.dot(direction)<.5)continue;
+        const limit=(axis==='x'?face.halfZ:face.halfX)-.25;if(limit<=0)continue;
+        this.grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
+        if(!this.validGrip(p)){this.grab=null;continue;}
+        const edge=this.edgePoint(new THREE.Vector3()),end=this.hangPosition(new THREE.Vector3());
+        const lift=start.clone().add(new THREE.Vector3(0,.08,0)),outside=end.clone().setY(lift.y);
+        const candidate={from:edge.clone(),to:edge.clone(),outFrom:normal.clone(),outTo:normal.clone(),target:this.grab,t:0,duration:.85,bodyPoints:[start,lift,outside,end]};
+        this.transfer=candidate;let previous=start,clear=true;
+        for(let i=1;i<=40;i++){candidate.t=i/40;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
+        candidate.t=0;
+        if(clear)return true;
+        this.transfer=null;this.grab=null;
+      }
+    }
+    return false;
   }
   updateBracing(p:PlayerController):void {
     const at=this.hangPosition(new THREE.Vector3()),normal=this.outward(new THREE.Vector3());at.y-=.45;
@@ -196,6 +239,7 @@ export class Climber {
   releaseGrab(): void {
     this.grab = null;
     this.transfer = null;
+    this.sideContinuation=null;
     this.stopWallClimb();
     this.regrabAt = simNow() + LEDGE_REGRAB_MS;
   }

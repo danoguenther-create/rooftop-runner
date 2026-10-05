@@ -317,7 +317,21 @@ export class ContactPose {
       const release = t < 0 ? 1 : 1 - ease(t, 0.58, 0.86);
       // Hands remain planted during the pull and press, then leave the coping.
       this.edge.y += 0.065;
-      this.hands(this.edge, this.lateral, release);
+      const transfer=p.climb.transfer;
+      // Push off, release in flight, reach for the destination, then catch.
+      const flight=transfer&&!transfer.corner&&!transfer.bodyPoints ? Math.sin(Math.PI*transfer.t) : 0;
+      const dropGrip=transfer?.bodyPoints ? ease(transfer.t,.45,.85) : 1;
+      const grip=release*dropGrip*(1-ease(flight,.35,.8));
+      if(grip>0)this.hands(this.edge,this.lateral,grip);
+      if(flight>.15){
+        for(let i=0;i<2;i++){
+          const arm=this.arms[i];if(!arm)continue;
+          arm.end.getWorldPosition(this.endpoint);
+          this.target.copy(this.edge).addScaledVector(this.lateral,i===0?.23:-.23);
+          this.target.y-=.2*flight;this.target.lerp(this.endpoint,1-flight*.7);
+          this.local(i===0?.45:-.45,.15,.6,this.pole);this.solve(arm,this.target,this.pole);
+        }
+      }
       // Feet press against the wall, then step over the ledge in sequence.
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
@@ -336,6 +350,11 @@ export class ContactPose {
             THREE.MathUtils.lerp(0.12, -0.36, step),
           );
         this.target.y += THREE.MathUtils.lerp(-1.18, 0.12, step);
+        if(t<0){
+          const stride=Math.sin(p.climb.shimmyPhase*2+i*Math.PI);
+          this.target.y+=.1*stride+.3*flight;
+          this.target.addScaledVector(this.outward,.08*Math.max(0,stride)+.18*flight);
+        }
         this.local(i === 0 ? 0.22 : -0.22, -0.25, 0.9, this.pole);
         this.solve(chain, this.target, this.pole);
       }

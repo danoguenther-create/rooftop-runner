@@ -192,7 +192,7 @@ export class Game {
         'background:rgba(0,0,0,.6);transform:translateX(-50%);';
       hud.appendChild(divider);
       const controls=document.createElement('div');
-      controls.textContent='P1: Shift Sprint · P2: # Sprint · 2× Vorwärts: Dive Roll · Stange: Vorwärts aufschaukeln, Rückwärts bremsen';
+      controls.textContent='P1: Shift Sprint, C Rolle · P2: # Sprint, - Rolle · 2× Vorwärts: Dive Roll · Stange: Vorwärts aufschaukeln, Rückwärts bremsen';
       controls.style.cssText='position:absolute;bottom:10px;left:50%;transform:translateX(-50%);font:12px system-ui;color:white;background:#172126bb;padding:4px 10px;border-radius:5px;pointer-events:none;white-space:nowrap';
       hud.appendChild(controls);
     }
