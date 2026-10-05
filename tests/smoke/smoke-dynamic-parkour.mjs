@@ -33,19 +33,20 @@ try{const page=await browser.newPage({viewport:{width:800,height:600}}),errors=[
   p.climb.grab.t=.85;const cornerAt=p.climb.hangPosition(v(0,0,0));p.body.setTranslation(cornerAt,true);p.body.setNextKinematicTranslation(cornerAt);g.physics.step();p.climb.moveAlong(p,.1);const corner=!!p.climb.transfer;g.stepFixed(65);const cornerAxis=p.climb.grab?.axis;
   place(120,4.925,-85.6);p.velocity.y=8;p.parkour.predictJump(p);const jump=p.parkour.jumpTarget?.toArray()??null;p.fsm.transition('AIR');p.grounded=false;
   let landing=null;for(let k=0;k<90;k++){g.stepFixed(1);if(p.grounded){landing=p.body.translation();break;}}
-  place(120,4.925,-85.6);p.velocity.y=8;p.parkour.predictJump(p);p.fsm.transition('AIR');p.grounded=false;input.flipPressed='front';g.stepFixed(1);input.flipPressed=null;
-  const flip=p.airTricks.active,assistCancelled=p.parkour.jumpTarget===null;
+  place(120,4.925,-85.6);p.velocity.y=8;p.parkour.predictJump(p);p.fsm.transition('AIR');p.grounded=false;input.moveY=-1;input.flipPressed='back';g.stepFixed(1);input.flipPressed=null;
+  const flip=p.airTricks.active,assistRetained=p.parkour.jumpTarget!==null;
+  input.moveY=1;let flipLanding=null;for(let k=0;k<90;k++){g.stepFixed(1);if(p.grounded){flipLanding=p.body.translation();break;}}
   const p2=g.players[1];g.inputs[1].poll=()=>({...input,moveY:0,flipPressed:null});p2.respawn();g.stepFixed(50);
   p2.body.setTranslation({x:50,y:.925,z:-84.95},true);p2.body.setNextKinematicTranslation({x:50,y:.925,z:-84.95});p2.velocity.set(0,0,6);p2.cameraYaw=Math.PI;p2.fsm.transition('RUN');p2.grounded=true;p2.parkour.readyAt=0;g.physics.step();p2.handleFrameInput({...input,moveY:1,flipPressed:null,rollHeld:false});
   const secondPlan=p2.parkour.plan(p2);if(secondPlan){p2.pendingVault=secondPlan;p2.fsm.transition('VAULT');g.stepFixed(90);}
   const second={kind:secondPlan?.kind,y:p2.body.translation().y,independent:p2.parkour!==p.parkour};
-  return{blocked,second,actions,lowerBraced,up,upperY,upperBraced,side,sideX,down,downY,corner,cornerAxis,jump,landing,flip,assistCancelled,players:g.players.length};
+  return{blocked,second,actions,lowerBraced,up,upperY,upperBraced,side,sideX,down,downY,corner,cornerAxis,jump,landing,flip,assistRetained,flipLanding,players:g.players.length};
  });console.log(JSON.stringify(result));
  assert.deepEqual(result.actions.map(a=>a.kind),['speed','reach','slide',null,'drop']);
  for(const a of result.actions.filter(a=>a.kind)){assert(Math.hypot(a.at.x-a.end[0],a.at.z-a.end[2])<.8);assert(Math.abs(a.half-.55)<1e-6);assert.notEqual(a.state,'VAULT');}
  assert(result.lowerBraced&&result.up&&Math.abs(result.upperY-5.1)<.02&&!result.upperBraced);assert(result.side&&result.sideX===103);assert(result.down&&Math.abs(result.downY-3.4)<.02);
  assert.equal(result.blocked.state,'AIR');assert(result.blocked.z< -83.1);assert(Math.abs(result.blocked.half-.55)<1e-6);
  assert(result.corner&&result.cornerAxis==='x');
- assert(result.jump&&result.landing&&result.landing.y>4.8&&result.landing.z> -82.3);assert(result.flip&&result.assistCancelled);assert.equal(result.players,2);assert.equal(result.second.kind,'reach');assert(result.second.y>2.6&&result.second.independent);assert.deepEqual(errors,[]);
- console.log('DYNAMIC ACTIONS, BLOCKED SLIDE, LEDGE TRANSFERS, FREE HANG, JUMP PREDICTION AND FLIP OVERRIDE OK');
+ assert(result.jump&&result.landing&&result.landing.y>4.8&&result.landing.z> -82.3);assert(result.flip&&result.assistRetained);assert(result.flipLanding&&result.flipLanding.y>4.8&&result.flipLanding.z> -82.3);assert.equal(result.players,2);assert.equal(result.second.kind,'reach');assert(result.second.y>2.6&&result.second.independent);assert.deepEqual(errors,[]);
+ console.log('DYNAMIC ACTIONS, BLOCKED SLIDE, LEDGE TRANSFERS, FREE HANG, JUMP PREDICTION AND ASSISTED FLIP LANDING OK');
 }finally{await browser.close();}

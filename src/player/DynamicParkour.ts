@@ -108,7 +108,7 @@ export class DynamicParkour {
  guideJump(p:PlayerController,dt:number):void{
   if(!this.jumpTarget)return;this.jumpRemaining-=dt;
   const dir=p.getWishDir(new THREE.Vector3());
-  if(this.jumpRemaining<.03||p.airTricks.active||p.currentInput?.rollHeld||p.diveJumpActive||!dir||dir.dot(this.jumpDirection)<.85){this.jumpTarget=null;return;}
+  if(this.jumpRemaining<.03||p.currentInput?.rollHeld||p.diveJumpActive||(!p.airTricks.active&&(!dir||dir.dot(this.jumpDirection)<.85))){this.jumpTarget=null;return;}
   const at=p.body.translation(),target=this.jumpTarget;
   const desired=new THREE.Vector3((target.x-at.x)/this.jumpRemaining,0,(target.z-at.z)/this.jumpRemaining).clampLength(0,SPRINT_SPEED*1.1);
   const blend=Math.min(1,dt*8);p.velocity.x=THREE.MathUtils.lerp(p.velocity.x,desired.x,blend);p.velocity.z=THREE.MathUtils.lerp(p.velocity.z,desired.z,blend);

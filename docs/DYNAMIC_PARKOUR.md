@@ -32,7 +32,7 @@ Die Grundbelegung beider Spieler ist unverändert, einschließlich Sprint auf `#
 - Beim Hängen links/rechts + Sprung: auf eine seitliche Kante wechseln.
 - Beim Hängen vorwärts + Sprung: höhere Kante wählen, falls erreichbar; ansonsten hochziehen wie bisher.
 - Beim Hängen rückwärts: tiefere Kante wählen, falls erreichbar; ansonsten loslassen.
-- Flips, Dive Roll, Loslassen der Vorwärtsbewegung oder deutliches Umlenken beenden die Sprunghilfe.
+- Flips behalten die Sprunghilfe und das anvisierte Landeziel. Während eines Flips unterbrechen dessen Richtungseingaben die Hilfe nicht. Dive Roll und die Rolltaste beenden die Hilfe weiterhin; außerhalb eines Flips auch Loslassen der Vorwärtsbewegung oder deutliches Umlenken.
 
 ## Kollisionen und Grenzen
 
@@ -42,6 +42,6 @@ Das System schafft keine neuen Zugänge durch geschlossene Geometrie. Sehr schma
 
 ## Prüfung
 
-`tests/smoke/smoke-dynamic-parkour.mjs` prüft echte Rapier-Bewegungen für Speed Vault, Aufsteigen, Slide, blockierten Durchgang, kontrollierten Abstieg, Kantenwechsel oben/seitlich/unten, Außenecke, freies Hängen, Sprunglandung, Flip-Unterbrechung und Spieler 2. Der Test ist in der vollständigen Smoke-Suite registriert.
+`tests/smoke/smoke-dynamic-parkour.mjs` prüft echte Rapier-Bewegungen für Speed Vault, Aufsteigen, Slide, blockierten Durchgang, kontrollierten Abstieg, Kantenwechsel oben/seitlich/unten, Außenecke, freies Hängen, Sprunglandung, unterstützte Flip-Landung und Spieler 2. Der Test ist in der vollständigen Smoke-Suite registriert.
 
 `tools/capture-dynamic-parkour.mjs` erzeugt reproduzierbare Bilder der neuen Aufstiegs- und Slide-Posen mit dem echten Charakter. Bestehende Kontakt-, Dive-Roll-, Splitscreen- und Physiktests bleiben maßgeblich.
