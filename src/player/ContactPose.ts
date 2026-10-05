@@ -225,6 +225,7 @@ export class ContactPose {
     const p = this.p,
       state = p.fsm.current;
     this.stride += p.horizontalSpeed * _dt;
+    this.model.rotation.x=0;
     this.activeHands = 0;
     this.handErrors.fill(0);
     // Keep the imported character's identity, with less exaggerated head proportions.
@@ -321,6 +322,10 @@ export class ContactPose {
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
         if (!chain) continue;
+        if(!p.climb.braced&&t<0){
+          this.local(i===0?.17:-.17,-.8,.08+(p.climb.transfer?.15:0),this.target);
+          this.local(i===0?.3:-.3,-.25,.65,this.pole);this.solve(chain,this.target,this.pole);continue;
+        }
         const step =
           t < 0 ? 0 : ease(t, i === 0 ? 0.35 : 0.55, i === 0 ? 0.78 : 0.97);
         p.climb.edgePoint(this.target);
@@ -352,6 +357,14 @@ export class ContactPose {
         }
       }
       this.hands(this.edge, this.lateral, 1);
+    } else if (state === "VAULT" && p.activeVault?.kind==='slide') {
+      const t=p.vaultProgress,blend=ease(t,0,.23)*(1-ease(t,.72,1));
+      this.model.rotation.x=-1.2*blend;this.model.position.y+=.6*blend;p.mesh.updateMatrixWorld(true);
+      for(let i=0;i<2;i++){
+        const side=i===0?1:-1;
+        const leg=this.legs[i];if(leg){this.local(side*.17,-.33,.65+(i===0?.15:0),this.target);this.local(side*.3,.1,.65,this.pole);leg.end.getWorldPosition(this.endpoint);this.target.lerp(this.endpoint,1-blend);this.solve(leg,this.target,this.pole);}
+        const arm=this.arms[i];if(arm){this.local(side*.4,-.2,-.35,this.target);this.local(side*.6,.15,-.1,this.pole);arm.end.getWorldPosition(this.endpoint);this.target.lerp(this.endpoint,1-blend);this.solve(arm,this.target,this.pole);}
+      }
     } else if (state === "VAULT" && p.activeVault) {
       const t = p.vaultProgress,
         plan = p.activeVault;
@@ -362,12 +375,12 @@ export class ContactPose {
       this.edge.copy(plan.contact);
       this.lateral.crossVectors(UP, plan.direction).normalize();
       const contact = ease(t, 0.05, 0.2) * (1 - ease(t, 0.36, 0.55));
-      if (contact > 0) this.hands(this.edge, this.lateral, contact, false);
+      if (contact > 0 && plan.kind!=='drop') this.hands(this.edge, this.lateral, contact, plan.kind==='reach');
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];
         if (!chain) continue;
         chain.end.getWorldPosition(this.endpoint);
-        this.local((i === 0 ? 0.18 : -0.18) + (i === 0 ? 0.72 : 0.6) * tuck,
+        this.local((i === 0 ? 0.18 : -0.18) + (plan.kind==='reach'?0:(i === 0 ? 0.72 : 0.6)) * tuck,
           -0.8 + 0.36 * tuck, (i === 0 ? 0.25 : -0.2) * tuck, this.target);
         if (t > 0.2 && t < 0.72) this.target.y = Math.max(this.target.y,plan.contact.y+0.12);
         this.target.lerp(this.endpoint, 1 - tuck);

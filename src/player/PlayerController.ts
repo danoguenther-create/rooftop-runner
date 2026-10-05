@@ -1,3 +1,4 @@
+import {DynamicParkour} from './DynamicParkour';
 import * as THREE from 'three';
 import RAPIER from '@dimforge/rapier3d-compat';
 import type { PhysicsWorld } from '../physics/PhysicsWorld';
@@ -68,6 +69,8 @@ export class PlayerController {
   // Parkour-Systeme (M2)
   readonly wallDetector = new WallRunDetector();
   readonly vaultDetector = new VaultDetector();
+  readonly parkour = new DynamicParkour();
+  get diveRecoveryActive():boolean{return this.diveRecoveryTime>0;}
   readonly balancer: RailBalancer;
   /** Lufttricks (Task 15b): Flips + Spins, rein visuell bis zur Landung */
   readonly airTricks = new AirTricks();
@@ -342,6 +345,7 @@ export class PlayerController {
     // Gehaltener Dive streckt den Steigflug: flachere, weitere Flugbahn
     const diveFloat = this.diving && this.velocity.y > 0 && (this.input?.rollHeld ?? false);
     this.velocity.y -= GRAVITY * (this.diveJumpActive ? DIVE_JUMP_GRAVITY_FACTOR : diveFloat ? DIVE_GRAVITY_FACTOR : 1) * dt;
+    this.parkour.guideJump(this,dt);
     const y = this.body.translation().y;
     if (y > this.peakY) this.peakY = y;
   }
@@ -409,6 +413,7 @@ export class PlayerController {
     const canJump = this.grounded || this.timeSinceGroundedS * 1000 <= COYOTE_MS;
     if (!buffered || !canJump || this.velocity.y > 1) return false;
     this.velocity.y = JUMP_VELOCITY;
+    this.parkour.predictJump(this);
     this.jumpRequestedAt = -Infinity;
     this.grounded = false;
     this.timeSinceGroundedS = 1; // Coyote sofort verbrauchen

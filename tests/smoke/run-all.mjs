@@ -40,6 +40,7 @@ const TESTS = [
   'smoke-shadow-stability',
   'smoke-city-look',
   'smoke-contacts',
+  'smoke-dynamic-parkour',
   'smoke-motion-flow',
   'smoke-split',
   'smoke-park',

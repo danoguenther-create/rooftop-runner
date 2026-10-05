@@ -1,3 +1,5 @@
+import RAPIER from '@dimforge/rapier3d-compat';
+import {clearTraversal,traversalPoint} from './DynamicParkour';
 import * as THREE from 'three';
 import type { PlayerController } from './PlayerController';
 import type { VaultPlan } from './Vault';
@@ -6,8 +8,8 @@ import {
   BAIL_S,
   BALANCE_JUMP_VELOCITY,
   CAPSULE_RADIUS,
+  CAPSULE_HALFHEIGHT,
   GRAVITY,
-  HANG_CENTER_BELOW,
   MANTLE_S,
   SHIMMY_SPEED,
   WALLJUMP_NORMAL_IMPULSE,
@@ -83,6 +85,7 @@ export class StateMachine {
       return;
     }
     this.currentState.exit();
+    if(from==='AIR')this.player.parkour.jumpTarget=null;
     if (to !== 'AIR' && to !== 'RUN') {
       this.player.cancelAirPose();
       this.player.climb.stopWallClimb();
@@ -105,15 +108,14 @@ class RunState extends PlayerState {
     // Solid rails can be reached by a grounded step, not only by falling.
     if (p.balancer.trySnap()) { p.fsm.transition('BALANCE'); return; }
     p.groundMove(dt);
-    p.climb.tryWallClimb(p); // frontaler Wandlauf hebt ab -> AIR
-
-    const plan = p.vaultDetector.tryPlan(p);
+    const plan = p.parkour.plan(p);
     if (plan) {
       p.pendingVault = plan;
       p.fsm.transition('VAULT');
       return;
     }
 
+    p.climb.tryWallClimb(p);
     const jumped = p.tryJump();
     p.applyMovement(dt);
     if (jumped || !p.grounded) p.fsm.transition('AIR');
@@ -288,6 +290,7 @@ class VaultState extends PlayerState {
   readonly name = 'VAULT' as const;
   private plan: VaultPlan | null = null;
   private t = 0;
+  private safePosition=new THREE.Vector3();
 
   override enter(): void {
     const p = this.player;
@@ -298,6 +301,9 @@ class VaultState extends PlayerState {
     this.t = 0;
     p.grounded = false;
     p.vaultDetector.markVaulted();
+    this.safePosition.copy(p.body.translation());
+    p.collider.setShape(new RAPIER.Capsule(this.plan?.halfHeight??.16,.3));
+    if(this.plan?.kind==='drop')p.beginAirborne();
     p.bus.emit('trick:vault', { obstacleHeight: this.plan?.obstacleHeight ?? 0, kind: this.plan?.kind });
   }
 
@@ -311,14 +317,19 @@ class VaultState extends PlayerState {
 
     this.t = Math.min(this.t + dt / plan.duration, 1);
     p.vaultProgress = this.t;
-    quadraticBezier(plan.start, plan.control, plan.end, this.t, _bezier);
-    // Eingaben/Kollision ignorieren: Position direkt setzen
+    traversalPoint(plan,this.t,_bezier);
+    const from=new THREE.Vector3().copy(p.body.translation());
+    if(!clearTraversal(p,from,_bezier,plan.halfHeight??.16)){
+      p.body.setNextKinematicTranslation(this.safePosition);p.velocity.set(0,0,0);p.fsm.transition('AIR');return;
+    }
+    if(!p.physics.world.intersectionWithShape(_bezier,{x:0,y:0,z:0,w:1},new RAPIER.Capsule(CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02),undefined,undefined,p.collider,p.body))this.safePosition.copy(_bezier);
+    // Follow the obstacle-matched path only while its swept capsule stays clear.
     p.body.setNextKinematicTranslation({ x: _bezier.x, y: _bezier.y, z: _bezier.z });
 
     if (this.t >= 1) {
       // Horizontal-Momentum behalten, sanft weiter in die Luft/auf den Boden
       p.velocity.y = 0;
-      p.beginAirborne();
+      if(plan.kind!=='drop')p.beginAirborne();
       p.fsm.transition('AIR');
     }
   }
@@ -326,6 +337,7 @@ class VaultState extends PlayerState {
   override exit(): void {
     this.plan = null;
     this.player.activeVault = null;
+    this.player.collider.setShape(new RAPIER.Capsule(CAPSULE_HALFHEIGHT,CAPSULE_RADIUS));
   }
 }
 
@@ -381,7 +393,6 @@ const _edgeDir = new THREE.Vector3();
 const _hangPos = new THREE.Vector3();
 const _camRight = new THREE.Vector3();
 
-const HANG_CENTER_OFFSET = CAPSULE_RADIUS + 0.1;
 
 class HangState extends PlayerState {
   readonly name = 'HANG' as const;
@@ -405,16 +416,25 @@ class HangState extends PlayerState {
   override update(dt: number): void {
     const p = this.player;
 
+    if(p.climb.transfer){
+      if(!p.climb.tickTransfer(p,dt)){p.velocity.set(0,0,0);p.fsm.transition("AIR");}
+      return;
+    }
+    p.climb.updateBracing(p);
+
     // --- Hochziehen läuft
     if (this.mantleT >= 0) {
       this.mantleT = Math.min(this.mantleT + dt / MANTLE_S, 1);
       p.mantleProgress = this.mantleT;
       // Pull vertically first, then transfer weight over the ledge and stand.
       const u = this.mantleT;
-      const vertical = THREE.MathUtils.smoothstep(u,0,0.85);
-      const forward = THREE.MathUtils.smoothstep(u,0.35,1);
+      const vertical = THREE.MathUtils.smoothstep(u,0,0.58);
+      const forward = THREE.MathUtils.smoothstep(u,0.6,1);
       _hangPos.copy(this.mantleStart).lerp(this.mantleEnd,forward);
       _hangPos.y = THREE.MathUtils.lerp(this.mantleStart.y,this.mantleEnd.y,vertical);
+      if(!clearTraversal(p,new THREE.Vector3().copy(p.body.translation()),_hangPos,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){
+        p.velocity.set(0,0,0);p.fsm.transition('AIR');return;
+      }
       p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
       if (this.mantleT >= 1) {
         p.velocity.set(0, 0, 0);
@@ -429,8 +449,13 @@ class HangState extends PlayerState {
     const moveY = locked ? 0 : (input?.moveY ?? 0);
     const moveX = input?.moveX ?? 0;
 
-    // --- Hochziehen starten (W oder Sprungtaste)
-    if (moveY > 0.5 || (!locked && p.consumeJumpRequest())) {
+    const jump=!locked&&p.consumeJumpRequest();
+    if(jump&&(Math.abs(moveX)>.5||moveY>.5)){
+      _camRight.set(Math.cos(p.cameraYaw)*moveX,0,-Math.sin(p.cameraYaw)*moveX);
+      if(p.climb.tryTransfer(p,Math.abs(moveX)>.5?0:1,Math.abs(moveX)>.5?_camRight.normalize():null))return;
+    }
+    // Existing W / jump mantle input stays available when no transfer fits.
+    if (moveY > 0.5 || jump) {
       p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
@@ -442,6 +467,7 @@ class HangState extends PlayerState {
 
     // --- Loslassen (S)
     if (moveY < -0.5) {
+      if(p.climb.tryTransfer(p,-1))return;
       p.climb.outward(_out);
       p.velocity.set(_out.x * 1.5, 0, _out.z * 1.5); // leicht von der Wand weg
       p.fsm.transition('AIR');
@@ -453,7 +479,7 @@ class HangState extends PlayerState {
       p.climb.edgeDir(_edgeDir);
       _camRight.set(Math.cos(p.cameraYaw), 0, -Math.sin(p.cameraYaw));
       const align = _edgeDir.dot(_camRight) >= 0 ? 1 : -1;
-      p.climb.shimmy(moveX * align * SHIMMY_SPEED * dt);
+      p.climb.moveAlong(p,moveX * align * SHIMMY_SPEED * dt);
     }
 
     this.applyHangPosition();
@@ -469,24 +495,7 @@ class HangState extends PlayerState {
     const p = this.player;
     p.climb.edgePoint(_edge);
     p.climb.outward(_out);
-    _hangPos.copy(_edge).addScaledVector(_out, HANG_CENTER_OFFSET);
-    _hangPos.y = p.climb.grab!.face.y - HANG_CENTER_BELOW;
+    p.climb.hangPosition(_hangPos);
     p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
   }
-}
-
-function quadraticBezier(
-  a: THREE.Vector3,
-  c: THREE.Vector3,
-  b: THREE.Vector3,
-  t: number,
-  out: THREE.Vector3,
-): THREE.Vector3 {
-  const u = 1 - t;
-  out.set(
-    u * u * a.x + 2 * u * t * c.x + t * t * b.x,
-    u * u * a.y + 2 * u * t * c.y + t * t * b.y,
-    u * u * a.z + 2 * u * t * c.z + t * t * b.z,
-  );
-  return out;
 }

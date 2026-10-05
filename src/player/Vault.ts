@@ -21,7 +21,9 @@ export interface VaultPlan {
   contact: THREE.Vector3;
   direction: THREE.Vector3;
   duration: number;
-  kind: "speed" | "kong";
+  kind: "speed" | "kong" | "reach" | "slide" | "drop";
+  points?: THREE.Vector3[];
+  halfHeight?: number;
 }
 
 const _ray = new RAPIER.Ray({ x: 0, y: 0, z: 0 }, { x: 0, y: 0, z: 1 });
