@@ -46,3 +46,11 @@ Das System schafft keine neuen Zugänge durch geschlossene Geometrie. Sehr schma
 `tests/smoke/smoke-dynamic-parkour.mjs` prüft echte Rapier-Bewegungen für Speed Vault, Aufsteigen, Slide, blockierten Durchgang, kontrollierten Abstieg, Kantenwechsel oben/seitlich/unten, Außenecken an allen vier Seiten eines gedrehten Gebäudes, Herunterlassen vom Dach, C/Minus ohne Strg, freies Hängen, Sprunglandung, unterstützte Flip-Landung und Spieler 2. Der Test ist in der vollständigen Smoke-Suite registriert.
 
 `tools/capture-dynamic-parkour.mjs` erzeugt reproduzierbare Bilder der neuen Aufstiegs- und Slide-Posen mit dem echten Charakter. Bestehende Kontakt-, Dive-Roll-, Splitscreen- und Physiktests bleiben maßgeblich.
+
+## Fensterbänke
+
+Beim Sprung mit Bewegung zur Fassade kann eine leicht überstehende Fensterbank von unten gegriffen werden. Der Körper weicht zuerst vor den Überstand aus und steigt dann zur Griffposition; jeder Abschnitt wird gegen die Kollision geprüft. Dicke Decken und massive Wände werden dadurch nicht durchquert. Flips und Dive Rolls werden nicht durch dieses automatische Greifen unterbrochen.
+
+Die Randabstände passen sich jetzt an schmale Fensterbänke an. Die modellierten Fensterbänke der Fabrik haben 1,1 m Tiefe und einen größeren Abstand zur Wand, damit Umgreifen und Stehen auf der Bank möglich sind. Geschlossene Fenster bleiben geschlossen.
+
+`smoke-window-grips.mjs` prüft beide Spieler, Anspringen von unten, Hochziehen, vier Ecken einer nur 40 cm tiefen Bank, eine zu tiefe Decke sowie Anspringen und Eckwechsel an einer echten Fabrikfensterbank.

@@ -152,6 +152,7 @@ class AirState extends PlayerState {
       }
 
       // Frontaler Wandlauf (Boost) + Kante in Griffweite? -> HANG
+      if(p.climb.tryUnderhangGrab(p)){p.fsm.transition("HANG");return;}
       p.climb.tryWallClimb(p);
       if (p.climb.tryGrab(p)) {
         p.fsm.transition('HANG');

@@ -5,7 +5,8 @@ export function buildFactoryBuildings({box,detail,rail,sign,colors}) {
     detail([x,y,z],[w,h,.09],'#394d4c');
     for(const dx of [-w/2,0,w/2])detail([x+dx,y,z+.07],[.07,h+.1,.12],steel);
     for(const dy of [-h/2,0,h/2])detail([x,y+dy,z+.07],[w,.07,.12],steel);
-    detail([x,y-h/2-.08,z+.12],[w+.3,.16,.4],'#aca48e');
+    const outward=z===9.68?-1:1;
+    box([x,y-h/2-.08,z+outward*.47],[w+.3,.16,1.1],'#aca48e','factory-climbable-sill');
   }
   function stairs(x,z,base,rise,count,width,direction,tag){
     const tread=.45;
@@ -56,7 +57,8 @@ export function buildFactoryBuildings({box,detail,rail,sign,colors}) {
       detail([x,y+4.3,z],[.07,2.8,3.6],'#394d4c');
       for(const dz of [-1.8,0,1.8])detail([x,y+4.3,z+dz],[.12,2.9,.075],steel);
       for(const dy of [-1.4,0,1.4])detail([x,y+4.3+dy,z],[.12,.075,3.6],steel);
-      detail([x,y+2.78,z],[.35,.15,3.9],'#aaa28b');
+      const outward=x<144?-1:x<145?1:x<192?-1:1;
+      box([x+outward*.38,y+2.78,z],[1.1,.15,3.9],'#aaa28b','factory-climbable-sill');
     }
     for(const x of [150,162,174,188])if(floor||x!==162)window(x,y+4.5,9.68,3.4,2.7);
     // Leave the actual entry clear; decorative windows use the other bays.

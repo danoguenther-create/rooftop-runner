@@ -290,7 +290,7 @@ export class PlayerController {
     const transfer=this.climb.transfer;
     const hopLeft=transfer?((transfer.to.x-transfer.from.x)*Math.cos(this.meshYaw)-(transfer.to.z-transfer.from.z)*Math.sin(this.meshYaw))<0:false;
     const shimmyLeft=(this.input?.moveX??0)*Math.cos(this.cameraYaw-this.meshYaw)<0;
-    const hangClip=this.mantleProgress>=0?'hang-climb':transfer?.bodyPoints?'hang-drop':transfer&&!transfer.corner?(transfer.to.y-transfer.from.y>.35?'hang-up':transfer.to.y-transfer.from.y<-.35?'hang-down':hopLeft?'hang-hop-left':'hang-hop'):Math.abs(this.input?.moveX??0)>.5?(shimmyLeft?'hang-shimmy-left':'hang-shimmy'):this.climb.braced?'hang-braced':'hang-free';
+    const hangClip=this.mantleProgress>=0?'hang-climb':transfer?.fromBelow?'hang-up':transfer?.bodyPoints?'hang-drop':transfer&&!transfer.corner?(transfer.to.y-transfer.from.y>.35?'hang-up':transfer.to.y-transfer.from.y<-.35?'hang-down':hopLeft?'hang-hop-left':'hang-hop'):Math.abs(this.input?.moveX??0)>.5?(shimmyLeft?'hang-shimmy-left':'hang-shimmy'):this.climb.braced?'hang-braced':'hang-free';
     this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing, this.mantleProgress, this.vaultProgress, this.diveJumpActive,hangClip,this.mantleProgress>=0?this.mantleProgress:transfer?.t??-1);
     this.contactPose?.update(dt);
   }

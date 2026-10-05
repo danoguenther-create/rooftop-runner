@@ -41,6 +41,7 @@ const TESTS = [
   'smoke-city-look',
   'smoke-contacts',
   'smoke-dynamic-parkour',
+  'smoke-window-grips',
   'smoke-motion-flow',
   'smoke-split',
   'smoke-park',

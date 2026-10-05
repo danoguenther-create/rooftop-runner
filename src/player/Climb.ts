@@ -44,7 +44,7 @@ const _outward = new THREE.Vector3();
  */
 export class Climber {
   grab: Grab | null = null;
-  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number;bodyPoints?:THREE.Vector3[];corner?:boolean}|null=null;
+  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number;bodyPoints?:THREE.Vector3[];corner?:boolean;fromBelow?:boolean}|null=null;
   shimmyPhase=0;
   sideContinuation:{input:number;direction:number}|null=null;
   braced=true;
@@ -79,7 +79,8 @@ export class Climber {
       const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=from.x-face.cx,dz=from.z-face.cz,lx=dx*c-dz*s,lz=dx*s+dz*c;
       for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
         if(face===original.face&&axis===original.axis&&sign===original.sign)continue;
-        const limit=(axis==='x'?face.halfZ:face.halfX)-.18;if(limit<.12)continue;
+        const half=axis==='x'?face.halfZ:face.halfX;if(half<.06)continue;
+        const limit=half-Math.min(.18,half*.25);
         const target:Grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
         this.grab=target;const to=this.edgePoint(new THREE.Vector3()),outTo=this.outward(new THREE.Vector3()),delta=to.clone().sub(from),horizontal=Math.hypot(delta.x,delta.z);
         if(horizontal> (vertical?2.2:3.5)||outTo.dot(outFrom)<-.1||(!vertical&&(horizontal<(face===original.face?.1:.3)||!direction||delta.clone().setY(0).normalize().dot(direction)<.25))||!this.validGrip(p)){this.grab=original;continue;}
@@ -244,6 +245,37 @@ export class Climber {
     this.regrabAt = simNow() + LEDGE_REGRAB_MS;
   }
 
+  /** Catch a shallow overhang before the jumping capsule strikes its underside. */
+  tryUnderhangGrab(p:PlayerController):boolean {
+    if(p.velocity.y<=.5||p.airTricks.active||p.currentInput?.rollHeld||simNow()<this.regrabAt)return false;
+    const wish=p.getWishDir(new THREE.Vector3());if(!wish)return false;
+    const start=new THREE.Vector3().copy(p.body.translation()),feet=start.y-CENTER_TO_FEET;
+    for(const face of p.level.topFaces){
+      const height=face.y-feet;if(height<1.75||height>2.35)continue;
+      const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=start.x-face.cx,dz=start.z-face.cz,lx=dx*c-dz*s,lz=dx*s+dz*c;
+      if(Math.abs(lx)>face.halfX+.4||Math.abs(lz)>face.halfZ+.4)continue;
+      for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
+        const normal=this.outwardWorld(face,axis,sign,new THREE.Vector3());if(normal.dot(wish)>-.5)continue;
+        const distance=(axis==='x'?face.halfX:face.halfZ)-sign*(axis==='x'?lx:lz);
+        if(distance<-.4||distance>.45)continue;
+        const half=axis==='x'?face.halfZ:face.halfX;if(half<.06)continue;
+        const limit=half-Math.min(.25,half*.25);
+        this.grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
+        if(!this.validGrip(p)){this.grab=null;continue;}
+        const edge=this.edgePoint(new THREE.Vector3()),end=this.hangPosition(new THREE.Vector3());
+        // A solid wall below the rim uses ordinary wall climbing, not this overhang catch.
+        const below=edge.clone().addScaledVector(normal,-.06).setY(start.y);
+        if(p.physics.world.intersectionWithShape(below,{x:0,y:0,z:0,w:1},new RAPIER.Ball(.04),undefined,undefined,p.collider,p.body)){this.grab=null;continue;}
+        const outside=end.clone().setY(start.y);
+        const candidate={from:edge.clone(),to:edge.clone(),outFrom:normal.clone(),outTo:normal.clone(),target:this.grab,t:0,duration:.38,bodyPoints:[start,start.clone(),outside,end],fromBelow:true};
+        this.transfer=candidate;let previous=start,clear=true;
+        for(let i=1;i<=24;i++){candidate.t=i/24;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
+        candidate.t=0;if(clear)return true;
+        this.transfer=null;this.grab=null;
+      }
+    }
+    return false;
+  }
   /**
    * Kante in Griffweite? Greift während der Aufwärtsbewegung am Wandlauf
    * automatisch, im Fall nur mit Input Richtung Wand.
@@ -290,8 +322,8 @@ export class Climber {
       this.outwardWorld(face, axis, sign, _outward);
       if (wish && wish.dot(_outward) > -0.3) continue; // nicht Richtung Wand gedrückt
 
-      const margin = 0.25;
       const other = axis === 'x' ? face.halfZ : face.halfX;
+      const margin=Math.min(.25,other*.25);
       const candidate: Grab = {
         face,
         axis,
@@ -360,7 +392,8 @@ export class Climber {
   /** Entlang der Kante hangeln; false am Flächenende. */
   shimmy(delta: number): boolean {
     const g = this.grab!;
-    const margin = 0.15;
+    const half=g.axis==='x'?g.face.halfZ:g.face.halfX;
+    const margin = Math.min(0.15,half*.25);
     const limit = (g.axis === 'x' ? g.face.halfZ : g.face.halfX) - margin;
     const next = g.t + delta;
     g.t = THREE.MathUtils.clamp(next, -limit, limit);

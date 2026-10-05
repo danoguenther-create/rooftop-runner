@@ -48597,16 +48597,16 @@
    "pos": [
     150,
     3.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -48717,16 +48717,16 @@
    "pos": [
     156,
     3.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -48837,16 +48837,16 @@
    "pos": [
     174,
     3.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -48957,16 +48957,16 @@
    "pos": [
     188,
     3.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49075,18 +49075,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     2.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49195,18 +49195,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     2.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49315,18 +49315,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     2.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49435,18 +49435,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     2.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49555,18 +49555,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     2.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49675,18 +49675,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     2.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49795,18 +49795,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     2.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -49915,18 +49915,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     2.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50035,18 +50035,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     2.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50155,18 +50155,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     2.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50275,18 +50275,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     2.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50395,18 +50395,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     2.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50515,18 +50515,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     2.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50635,18 +50635,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     2.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50755,18 +50755,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     2.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50875,18 +50875,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     2.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -50997,16 +50997,16 @@
    "pos": [
     150,
     3.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -51117,16 +51117,16 @@
    "pos": [
     174,
     3.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -51237,16 +51237,16 @@
    "pos": [
     188,
     3.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53382,16 +53382,16 @@
    "pos": [
     150,
     10.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53502,16 +53502,16 @@
    "pos": [
     162,
     10.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53622,16 +53622,16 @@
    "pos": [
     174,
     10.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53742,16 +53742,16 @@
    "pos": [
     188,
     10.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53860,18 +53860,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     9.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -53980,18 +53980,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     9.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54100,18 +54100,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     9.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54220,18 +54220,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     9.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54340,18 +54340,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     9.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54460,18 +54460,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     9.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54580,18 +54580,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     9.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54700,18 +54700,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     9.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54820,18 +54820,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     9.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -54940,18 +54940,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     9.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55060,18 +55060,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     9.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55180,18 +55180,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     9.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55300,18 +55300,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     9.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55420,18 +55420,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     9.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55540,18 +55540,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     9.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55660,18 +55660,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     9.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55782,16 +55782,16 @@
    "pos": [
     150,
     10.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -55902,16 +55902,16 @@
    "pos": [
     162,
     10.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -56022,16 +56022,16 @@
    "pos": [
     174,
     10.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -56142,16 +56142,16 @@
    "pos": [
     188,
     10.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -58658,16 +58658,16 @@
    "pos": [
     150,
     17.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -58778,16 +58778,16 @@
    "pos": [
     162,
     17.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -58898,16 +58898,16 @@
    "pos": [
     174,
     17.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59018,16 +59018,16 @@
    "pos": [
     188,
     17.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59136,18 +59136,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     16.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59256,18 +59256,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     16.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59376,18 +59376,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     16.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59496,18 +59496,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     16.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59616,18 +59616,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     16.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59736,18 +59736,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     16.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59856,18 +59856,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     16.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -59976,18 +59976,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     16.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60096,18 +60096,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     16.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60216,18 +60216,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     16.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60336,18 +60336,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     16.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60456,18 +60456,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     16.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60576,18 +60576,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     16.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60696,18 +60696,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     16.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60816,18 +60816,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     16.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -60936,18 +60936,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     16.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -61058,16 +61058,16 @@
    "pos": [
     150,
     17.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -61178,16 +61178,16 @@
    "pos": [
     162,
     17.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -61298,16 +61298,16 @@
    "pos": [
     174,
     17.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -61418,16 +61418,16 @@
    "pos": [
     188,
     17.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -62704,16 +62704,16 @@
    "pos": [
     150,
     24.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -62824,16 +62824,16 @@
    "pos": [
     162,
     24.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -62944,16 +62944,16 @@
    "pos": [
     174,
     24.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63064,16 +63064,16 @@
    "pos": [
     188,
     24.07,
-    10.42
+    10.770000000000001
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63182,18 +63182,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     23.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63302,18 +63302,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     23.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63422,18 +63422,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     23.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63542,18 +63542,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     23.78,
     -24
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63662,18 +63662,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     23.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63782,18 +63782,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     23.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -63902,18 +63902,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     23.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64022,18 +64022,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     23.78,
     -14
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64142,18 +64142,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     23.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64262,18 +64262,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     23.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64382,18 +64382,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     23.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64502,18 +64502,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     23.78,
     -4
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64622,18 +64622,18 @@
   },
   {
    "pos": [
-    143.71,
+    143.33,
     23.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64742,18 +64742,18 @@
   },
   {
    "pos": [
-    144.29,
+    144.67,
     23.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64862,18 +64862,18 @@
   },
   {
    "pos": [
-    191.71,
+    191.33,
     23.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -64982,18 +64982,18 @@
   },
   {
    "pos": [
-    192.29,
+    192.67,
     23.78,
     6
    ],
    "size": [
-    0.35,
+    1.1,
     0.15,
     3.9
    ],
    "color": "#aaa28b",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -65104,16 +65104,16 @@
    "pos": [
     150,
     24.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -65224,16 +65224,16 @@
    "pos": [
     162,
     24.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -65344,16 +65344,16 @@
    "pos": [
     174,
     24.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -65464,16 +65464,16 @@
    "pos": [
     188,
     24.07,
-    9.799999999999999
+    9.209999999999999
    ],
    "size": [
     3.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -69099,16 +69099,16 @@
    "pos": [
     178,
     2.02,
-    38.4
+    38.75
    ],
    "size": [
     2.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -69219,16 +69219,16 @@
    "pos": [
     184,
     2.02,
-    38.4
+    38.75
    ],
    "size": [
     2.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -69339,16 +69339,16 @@
    "pos": [
     190,
     2.02,
-    38.4
+    38.75
    ],
    "size": [
     2.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
@@ -69459,16 +69459,16 @@
    "pos": [
     196,
     2.02,
-    38.4
+    38.75
    ],
    "size": [
     2.6999999999999997,
     0.16,
-    0.4
+    1.1
    ],
    "color": "#aca48e",
    "style": "plain",
-   "solid": false
+   "tag": "factory-climbable-sill"
   },
   {
    "pos": [
