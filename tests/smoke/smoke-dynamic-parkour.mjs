@@ -11,12 +11,13 @@ try{const page=await browser.newPage({viewport:{width:800,height:600}}),errors=[
   g.inputs[0].poll=()=>input;
   const p=g.player,v=(x,y,z)=>p.velocity.clone().set(x,y,z),box=(pos,size)=>g.level.addBox(pos,size,0,0,'#888888');
   box([80,-.5,-82],[110,1,30]);box([40,.5,-82],[3,1,1]);box([50,.9,-82],[3,1.8,4]);box([60,1.45,-82],[3,.8,1.8]);box([70,.7,-82],[3,.6,1.8]);box([80,1.3,-84],[3,2.6,4]);
+  box([90,.5,-82],[3,1,2.4]);
   box([100,1.7,-82],[2,3.4,4]);box([100,5,-82],[2,.2,4]);box([103,5,-82],[2,.2,4]);
   g.level.addBox([140,2.25,-82],[2,4.5,4],.65,0,'#888888');
   box([120,3.5,-87],[3,1,4]);box([120,3.5,-80],[3,1,4]);g.physics.step();
   const place=(x,y,z,speed=6)=>{input={...input,moveX:0,moveY:0,jumpPressed:false,rollHeld:false,flipPressed:null};p.respawn();g.stepFixed(50);p.body.setTranslation({x,y,z},true);p.body.setNextKinematicTranslation({x,y,z});p.velocity.set(0,0,speed);p.cameraYaw=Math.PI;p.fsm.transition('RUN');p.grounded=true;p.parkour.readyAt=0;g.physics.step();input.moveY=1;p.handleFrameInput(input);};
   const actions=[];
-  for(const [x,y,z,roll] of [[40,.925,-83.45,false],[50,.925,-84.95,false],[60,.925,-84,true],[70,.925,-84,true],[80,3.525,-82.7,true]]){
+  for(const [x,y,z,roll] of [[40,.925,-83.45,false],[90,.925,-84.15,false],[50,.925,-84.95,false],[60,.925,-84,true],[70,.925,-84,true],[80,3.525,-82.7,true]]){
    place(x,y,z);input.rollHeld=roll;p.handleFrameInput(input);const plan=p.parkour.plan(p);
    if(!plan){actions.push({x,kind:null});continue;}
    p.pendingVault=plan;p.fsm.transition('VAULT');input.moveY=0;input.rollHeld=false;
@@ -56,7 +57,7 @@ try{const page=await browser.newPage({viewport:{width:800,height:600}}),errors=[
   const second={kind:secondPlan?.kind,y:p2.body.translation().y,independent:p2.parkour!==p.parkour};
   return{corners,dropHang,blocked,second,actions,lowerBraced,up,upperY,upperBraced,side,sideX,down,downY,corner,cornerAxis,jump,landing,flip,assistRetained,flipLanding,players:g.players.length};
  });console.log(JSON.stringify(result));
- assert.deepEqual(result.actions.map(a=>a.kind),['speed','reach','slide',null,'drop']);
+ assert.deepEqual(result.actions.map(a=>a.kind),['speed','reach','reach','slide',null,'drop']);
  for(const a of result.actions.filter(a=>a.kind)){assert(Math.hypot(a.at.x-a.end[0],a.at.z-a.end[2])<.8);assert(Math.abs(a.half-.55)<1e-6);assert.notEqual(a.state,'VAULT');}
  assert(result.lowerBraced&&result.up&&Math.abs(result.upperY-5.1)<.02&&!result.upperBraced);assert(result.side&&result.sideX===103);assert(result.down&&Math.abs(result.downY-3.4)<.02);
  assert(result.corners.every(c=>c.started&&c.end!==c.axis&&c.state==='HANG'));

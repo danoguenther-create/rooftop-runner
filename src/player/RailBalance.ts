@@ -77,9 +77,11 @@ export class RailBalancer {
 
     const rails = p.level.rails;
     for (let r = 0; r < rails.length; r++) {
+      if(rails[r].balance===false)continue;
       if (r === this.cooldownRail && now < this.cooldownUntil) continue;
       const samples = rails[r].samples;
       for (let i = 0; i < samples.length; i++) {
+        if(rails[r].balanceSamples?.[i]===false)continue;
         const s = samples[i];
         const dy = _feet.y - s.y;
         // Füße höchstens 0.5 m über der Rail, kaum darunter

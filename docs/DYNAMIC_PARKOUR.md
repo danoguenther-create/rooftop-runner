@@ -54,3 +54,20 @@ Beim Sprung mit Bewegung zur Fassade kann eine leicht überstehende Fensterbank 
 Die Randabstände passen sich jetzt an schmale Fensterbänke an. Die modellierten Fensterbänke der Fabrik haben 1,1 m Tiefe und einen größeren Abstand zur Wand, damit Umgreifen und Stehen auf der Bank möglich sind. Geschlossene Fenster bleiben geschlossen.
 
 `smoke-window-grips.mjs` prüft beide Spieler, Anspringen von unten, Hochziehen, vier Ecken einer nur 40 cm tiefen Bank, eine zu tiefe Decke sowie Anspringen und Eckwechsel an einer echten Fabrikfensterbank.
+
+## Kletterbare Karte
+
+Jedes Gebäude der Stadt soll von allen zugänglichen Wänden aus bis aufs Dach kletterbar sein. Dafür legt `tools/climb-facades.mjs` an massiven Baukörpern umlaufende Fassadenbänder an (Abstand 1,6 m, 25 cm Überstand). Balance-Rails entstehen nur noch aus ausdrücklich angelegten Rails, nicht mehr aus Dachkanten, Kisten oder Geländern. Kartenstellen, die Kletterer einklemmten, sind im Generator behoben:
+
+- Staffelgeschosse lassen am Ende der geneigten Dach-Rails einen 1,6 m tiefen Landestreifen frei.
+- Hangel-Slabs enden über dem höheren Dach 1,2 m vor der Fassade, statt knapp darüber zu schweben.
+- Die Pfosten der Wandlauf-Tafeln stehen auf ihrem eigenen Dach, 1 m hinter der Kante.
+- An Fassaden, an denen eine Schwungstange ankommt, entfallen die Art-Deco-Lisenen.
+
+Beim Wechsel nach oben aus dem Hängen sucht `Climb.tryTransfer` den Griff auch 25 und 50 cm neben der projizierten Stelle, wenn Fensterrahmen oder Geländer den direkten Platz belegen.
+
+### Kartenprüfung
+
+`tools/audit-climb-map.mjs` lässt die echte Figur mit Rapier-Physik jede Fassade hochklettern, ohne Rendering und ohne Polizei. Mit `CLIMB_SPACING=1.4` wird jede Fassade alle 1,4 m geprüft. `CLIMB_RETRY=<report>` wiederholt nur die Fehlschläge eines Reports, `CLIMB_EVAL=<js>` wertet bei Fehlschlägen einen Diagnoseausdruck im Spielzustand aus. Startpunkte in zu engen Spalten werden nach außen verschoben. Stellen ohne Anlaufboden (Schacht, Rinne) werden als übersprungen gezählt. Offene Fabrikfenster gelten als Eingänge, nicht als Fassade.
+
+Stand 6. Oktober 2026 (Raster 1,4 m): 2118/2124 Gebäude-Anstiege im Gesamtlauf; die sechs Fehlstellen bestehen nach den letzten Korrekturen im gezielten Nachtest (die betroffenen Fassaden wurden vollständig neu geprüft, die übrigen nicht erneut), 1265 von 1265 prüfbaren Anstiegen an weiteren Baukörpern (1 Stelle ohne Anlaufboden). Die Prüfung ist eine Stichprobe im Raster, kein Beweis für jeden Punkt. Einzelne Fälle hängen vom Verlauf der vorherigen Fälle in derselben Sitzung ab (Timer, Cooldowns), deshalb Fehlschläge immer einzeln nachprüfen.

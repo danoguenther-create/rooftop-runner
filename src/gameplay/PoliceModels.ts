@@ -26,6 +26,8 @@ export function buildStation(level:LevelLoader):THREE.Group {
  add([27,.14,23],[103,-.05,86],concrete,true);
  add([16,6,12],[103,3,89],plaster,true);
  add([16.6,.3,12.6],[103,6.15,89],concrete,true);
+ // Continuous masonry handholds connect every facade to the roof.
+ for(const y of [1.8,3.4,5])add([16.5,.11,12.5],[103,y-.055,89],concrete,true);
  add([16,.55,.12],[103,3.4,82.93],navy);
  add([16,.25,.12],[103,1,82.93],navy);
  for(const x of [97,100,106,109]){

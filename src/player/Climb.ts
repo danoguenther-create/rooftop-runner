@@ -19,10 +19,14 @@ import {
 } from './tuning';
 import { simNow } from '../core/SimClock';
 
+export const HANG_HALFHEIGHT = .3;
+export const HANG_RADIUS = .32;
+
 const CENTER_TO_FEET = CAPSULE_HALFHEIGHT + CAPSULE_RADIUS;
 
 /** Aktiver Griff: Kante einer Deckfläche, parametrisiert entlang der Kante. */
 export interface Grab {
+  offset?:number;
   face: TopFace;
   /** Kanten-Achse in Flächen-Lokalkoordinaten */
   axis: 'x' | 'z';
@@ -44,7 +48,7 @@ const _outward = new THREE.Vector3();
  */
 export class Climber {
   grab: Grab | null = null;
-  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number;bodyPoints?:THREE.Vector3[];corner?:boolean;fromBelow?:boolean}|null=null;
+  transfer: {from:THREE.Vector3;to:THREE.Vector3;outFrom:THREE.Vector3;outTo:THREE.Vector3;target:Grab;t:number;duration:number;bodyPoints?:THREE.Vector3[];corner?:boolean;fromBelow?:boolean;detour?:boolean;fromOffset?:number}|null=null;
   shimmyPhase=0;
   sideContinuation:{input:number;direction:number}|null=null;
   braced=true;
@@ -56,7 +60,8 @@ export class Climber {
     }
     this.edgePoint(out);const normal=this.outward(new THREE.Vector3());
     const arc=this.transfer?Math.sin(Math.PI*this.transfer.t):0;
-    return out.addScaledVector(normal,CAPSULE_RADIUS+.1+(this.transfer?.corner ? .55 : .18)*arc).add(new THREE.Vector3(0,-HANG_CENTER_BELOW+(this.transfer?.corner ? .08 : .45)*arc,0));
+    const offset=this.transfer?THREE.MathUtils.lerp(this.transfer.fromOffset??CAPSULE_RADIUS+.3,this.transfer.target.offset??CAPSULE_RADIUS+.3,THREE.MathUtils.smoothstep(this.transfer.t,0,1)):(this.grab?.offset??CAPSULE_RADIUS+.3);
+    return out.addScaledVector(normal,offset+(this.transfer?.corner ? .55 : .18)*arc).add(new THREE.Vector3(0,-HANG_CENTER_BELOW+(this.transfer?.corner ? .08 : .45)*arc,0));
   }
   moveAlong(p:PlayerController,delta:number):void {
     if(!this.grab||this.transfer)return;
@@ -64,7 +69,7 @@ export class Climber {
     if(this.sideContinuation&&input===this.sideContinuation.input&&input!==0)delta=Math.abs(delta)*this.sideContinuation.direction;
     else this.sideContinuation=null;
     const original={...this.grab},at=new THREE.Vector3().copy(p.body.translation()),finished=this.shimmy(delta),to=this.hangPosition(new THREE.Vector3());
-    if(!this.validGrip(p)||!clearTraversal(p,at,to,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){this.grab=original;this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)),true);return;}
+    if(!this.validGrip(p)||!clearTraversal(p,at,to,HANG_HALFHEIGHT,HANG_RADIUS)){this.grab=original;this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)),true);return;}
     this.shimmyPhase+=Math.abs(delta)*5;
     if(!finished)this.tryTransfer(p,0,this.edgeDir(new THREE.Vector3()).multiplyScalar(Math.sign(delta)),true);
   }
@@ -74,23 +79,50 @@ export class Climber {
     let best:NonNullable<Climber['transfer']>|null=null,score=Infinity;
     for(const face of p.level.topFaces){
       if(face===original.face&&!aroundCorner)continue;
-      const dy=face.y-from.y;if(vertical>0?(dy<.35||dy>2.2):vertical<0?(dy>-.6||dy< -3.2):Math.abs(dy)>1.25)continue;
+      const dy=face.y-from.y;if(vertical>0?(dy<.1||dy>2.2):vertical<0?(dy>-.6||dy< -3.2):Math.abs(dy)>1.25)continue;
       if(Math.hypot(face.cx-from.x,face.cz-from.z)>Math.hypot(face.halfX,face.halfZ)+3)continue;
       const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=from.x-face.cx,dz=from.z-face.cz,lx=dx*c-dz*s,lz=dx*s+dz*c;
       for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
         if(face===original.face&&axis===original.axis&&sign===original.sign)continue;
         const half=axis==='x'?face.halfZ:face.halfX;if(half<.06)continue;
-        const limit=half-Math.min(.18,half*.25);
-        const target:Grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
+        const limit=half-Math.min(.18,half*.25),projected=THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit);
+        // Reaching up, the hands may land beside the projected point when a frame or rail blocks it.
+        const spots=vertical>0?[...new Set([0,-.25,.25,-.5,.5].map(d=>THREE.MathUtils.clamp(projected+d,-limit,limit)))]:[projected];
+        for(const spot of spots){
+        const target:Grab={face,axis,sign,t:spot};
         this.grab=target;const to=this.edgePoint(new THREE.Vector3()),outTo=this.outward(new THREE.Vector3()),delta=to.clone().sub(from),horizontal=Math.hypot(delta.x,delta.z);
         if(horizontal> (vertical?2.2:3.5)||outTo.dot(outFrom)<-.1||(!vertical&&(horizontal<(face===original.face?.1:.3)||!direction||delta.clone().setY(0).normalize().dot(direction)<.25))||!this.validGrip(p)){this.grab=original;continue;}
         const rank=horizontal+Math.abs(dy)*.5;if(rank>=score){this.grab=original;continue;}
-        const candidate={from,to,outFrom,outTo,target,t:0,duration:THREE.MathUtils.clamp(.32+delta.length()*.2,.45,1),corner:outTo.dot(outFrom)<.75};
+        // A clear destination alone is not enough: try each body offset with its complete route.
+        for(const offset of [.65,.45,.36,.85,1.05,1.25]){
+        this.grab=target;
+        if(!this.fitGrip(p,[offset]))continue;
+        const candidate:NonNullable<Climber['transfer']>={from,to,outFrom,outTo,target,fromOffset:original.offset??CAPSULE_RADIUS+.3,t:0,duration:THREE.MathUtils.clamp(.32+delta.length()*.2,.45,1),corner:outTo.dot(outFrom)<.75};
         this.grab=original;this.transfer=candidate;
         let previous=this.hangPosition(new THREE.Vector3()),clear=true;
-        for(let i=1;i<=20;i++){candidate.t=i/20;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
+        for(let i=1;i<=20;i++){candidate.t=i/20;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,HANG_HALFHEIGHT,HANG_RADIUS)){clear=false;break;}previous=next;}
+        if(!clear&&(!candidate.corner||vertical!==0)){
+          const first=new THREE.Vector3().copy(p.body.translation());
+          const last=to.clone().addScaledVector(outTo,target.offset??CAPSULE_RADIUS+.3);last.y-=HANG_CENTER_BELOW;
+          for(const offset of [0,.25,.5,.85]){
+            const projection=last.clone().sub(first).dot(outFrom),aligned=outFrom.dot(outTo)>.9;
+            candidate.bodyPoints=[first,first.clone().addScaledVector(outFrom,(aligned?Math.max(0,projection):0)+offset),last.clone().addScaledVector(outTo,(aligned?Math.max(0,-projection):0)+offset),last];candidate.detour=true;candidate.t=0;
+            let previous=first;clear=true;
+            for(let i=1;i<=32;i++){candidate.t=i/32;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,HANG_HALFHEIGHT,HANG_RADIUS)){clear=false;break;}previous=next;}
+            if(clear){candidate.duration+=.15;break;}
+          }
+          if(!clear&&vertical>0){
+            // Clear an overhanging corner horizontally before rising beneath it.
+            candidate.bodyPoints=[first,last.clone().setY(first.y),last.clone(),last];candidate.detour=true;candidate.t=0;
+            let previous=first;clear=true;
+            for(let i=1;i<=32;i++){candidate.t=i/32;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,HANG_HALFHEIGHT,HANG_RADIUS)){clear=false;break;}previous=next;}
+            if(clear){candidate.corner=false;candidate.duration+=.15;}
+          }
+        }
         this.transfer=null;candidate.t=0;
-        if(clear){best=candidate;score=rank;}
+        if(clear){best=candidate;score=rank;break;}
+        }
+        }
       }
     }
     this.grab=original;this.transfer=best;return !!best;
@@ -99,7 +131,7 @@ export class Climber {
     if(!this.transfer)return false;const transfer=this.transfer,old=transfer.t;
     transfer.t=Math.min(1,transfer.t+dt/transfer.duration);
     const at=new THREE.Vector3().copy(p.body.translation()),to=this.hangPosition(new THREE.Vector3());
-    if(!clearTraversal(p,at,to,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){transfer.t=old;this.transfer=null;return false;}
+    if(!clearTraversal(p,at,to,HANG_HALFHEIGHT,HANG_RADIUS)){transfer.t=old;this.transfer=null;return false;}
     p.body.setNextKinematicTranslation(to);
     if(transfer.t===1){
       this.grab=transfer.target;
@@ -125,12 +157,12 @@ export class Climber {
         const normal=this.outwardWorld(face,axis,sign,new THREE.Vector3());if(normal.dot(direction)<.5)continue;
         const limit=(axis==='x'?face.halfZ:face.halfX)-.25;if(limit<=0)continue;
         this.grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
-        if(!this.validGrip(p)){this.grab=null;continue;}
+        if(!this.fitGrip(p)){this.grab=null;continue;}
         const edge=this.edgePoint(new THREE.Vector3()),end=this.hangPosition(new THREE.Vector3());
         const lift=start.clone().add(new THREE.Vector3(0,.08,0)),outside=end.clone().setY(lift.y);
         const candidate={from:edge.clone(),to:edge.clone(),outFrom:normal.clone(),outTo:normal.clone(),target:this.grab,t:0,duration:.85,bodyPoints:[start,lift,outside,end]};
         this.transfer=candidate;let previous=start,clear=true;
-        for(let i=1;i<=40;i++){candidate.t=i/40;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
+        for(let i=1;i<=40;i++){candidate.t=i/40;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,HANG_HALFHEIGHT,HANG_RADIUS)){clear=false;break;}previous=next;}
         candidate.t=0;
         if(clear)return true;
         this.transfer=null;this.grab=null;
@@ -257,11 +289,11 @@ export class Climber {
       for(const axis of ['x','z'] as const)for(const sign of [-1,1] as const){
         const normal=this.outwardWorld(face,axis,sign,new THREE.Vector3());if(normal.dot(wish)>-.5)continue;
         const distance=(axis==='x'?face.halfX:face.halfZ)-sign*(axis==='x'?lx:lz);
-        if(distance<-.4||distance>.45)continue;
+        if(distance<-.4||distance>.95)continue;
         const half=axis==='x'?face.halfZ:face.halfX;if(half<.06)continue;
         const limit=half-Math.min(.25,half*.25);
         this.grab={face,axis,sign,t:THREE.MathUtils.clamp(axis==='x'?lz:lx,-limit,limit)};
-        if(!this.validGrip(p)){this.grab=null;continue;}
+        if(!this.fitGrip(p)){this.grab=null;continue;}
         const edge=this.edgePoint(new THREE.Vector3()),end=this.hangPosition(new THREE.Vector3());
         // A solid wall below the rim uses ordinary wall climbing, not this overhang catch.
         const below=edge.clone().addScaledVector(normal,-.06).setY(start.y);
@@ -269,7 +301,7 @@ export class Climber {
         const outside=end.clone().setY(start.y);
         const candidate={from:edge.clone(),to:edge.clone(),outFrom:normal.clone(),outTo:normal.clone(),target:this.grab,t:0,duration:.38,bodyPoints:[start,start.clone(),outside,end],fromBelow:true};
         this.transfer=candidate;let previous=start,clear=true;
-        for(let i=1;i<=24;i++){candidate.t=i/24;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){clear=false;break;}previous=next;}
+        for(let i=1;i<=24;i++){candidate.t=i/24;const next=this.hangPosition(new THREE.Vector3());if(!clearTraversal(p,previous,next,HANG_HALFHEIGHT,HANG_RADIUS)){clear=false;break;}previous=next;}
         candidate.t=0;if(clear)return true;
         this.transfer=null;this.grab=null;
       }
@@ -280,14 +312,18 @@ export class Climber {
    * Kante in Griffweite? Greift während der Aufwärtsbewegung am Wandlauf
    * automatisch, im Fall nur mit Input Richtung Wand.
    */
-  tryGrab(p: PlayerController): boolean {
+  tryGrab(p: PlayerController, standing = false): boolean {
     const now = simNow();
     if (now < this.regrabAt) return false;
 
     const rising = p.velocity.y > 0.5;
     let wish: THREE.Vector3 | null = null;
-    if (rising) {
+    if (standing) {
+      if(!p.grounded)return false;
+      wish=p.getWishDir(_wish);if(!wish)return false;
+    } else if (rising) {
       if (!this.isWallClimbing) return false; // freier Sprung greift nicht von selbst
+      wish=p.getWishDir(_wish)??_wish.copy(p.velocity).setY(0).normalize();
     } else {
       wish = p.getWishDir(_wish);
       if (!wish) return false; // im Fall nur mit aktivem Input Richtung Wand
@@ -298,7 +334,7 @@ export class Climber {
 
     for (const face of p.level.topFaces) {
       const rel = face.y - feetY;
-      if (rel < LEDGE_GRAB_HAND_MIN || rel > LEDGE_GRAB_HAND_MAX) continue;
+      if (rel < (standing?.9:LEDGE_GRAB_HAND_MIN) || rel > (standing?1.6:LEDGE_GRAB_HAND_MAX)) continue;
 
       const cos = Math.cos(face.rotY);
       const sin = Math.sin(face.rotY);
@@ -331,12 +367,26 @@ export class Climber {
         t: THREE.MathUtils.clamp(axis === 'x' ? clz : clx, -other + margin, other - margin),
       };
       this.grab = candidate;
-      if (!this.validGrip(p)) { this.grab = null; continue; }
+      if(!this.fitGrip(p)){this.grab=null;continue;}
+      const destination=this.hangPosition(new THREE.Vector3());
+      if (!clearTraversal(p,new THREE.Vector3().copy(p.body.translation()),destination,HANG_HALFHEIGHT,HANG_RADIUS)) { this.grab = null; continue; }
+      if(standing){
+        const start=new THREE.Vector3().copy(p.body.translation()),edge=this.edgePoint(new THREE.Vector3()),normal=this.outward(new THREE.Vector3());
+        this.transfer={from:edge,to:edge.clone(),outFrom:normal,outTo:normal.clone(),target:candidate,t:0,duration:.3,bodyPoints:[start,start.clone(),destination,destination.clone()],fromBelow:true};
+      }
       return true;
     }
     return false;
   }
 
+  private fitGrip(p:PlayerController,offsets=[.65,.45,.36,.85,1.05,1.25]):boolean {
+    if(!this.validGrip(p))return false;
+    for(const offset of offsets){
+      this.grab!.offset=offset;
+      if(!p.physics.world.intersectionWithShape(this.hangPosition(new THREE.Vector3()),{x:0,y:0,z:0,w:1},new RAPIER.Capsule(HANG_HALFHEIGHT,HANG_RADIUS),undefined,undefined,p.collider,p.body))return true;
+    }
+    return false;
+  }
   /** Confirm a real exposed collider top, not an occluded or mirrored edge. */
   validGrip(p: PlayerController): boolean {
     if (!this.grab) return false;
@@ -351,18 +401,34 @@ export class Climber {
       (this.grab.face.collider === undefined || hit.collider.handle === this.grab.face.collider);
   }
 
+  mantlePath:THREE.Vector3[]|null=null;
+  mantlePosition(t:number,out:THREE.Vector3):THREE.Vector3 {
+    const points=this.mantlePath!,times=[0,.12,.5,.82,1];let i=0;
+    while(i<3&&t>times[i+1])i++;
+    return out.copy(points[i]).lerp(points[i+1],THREE.MathUtils.smoothstep(t,times[i],times[i+1]));
+  }
   mantleTarget(p: PlayerController, out: THREE.Vector3): boolean {
-    if (!this.validGrip(p)) return false;
-    this.edgePoint(out); this.outward(_outward);
-    out.addScaledVector(_outward, -0.45);
-    out.y += CENTER_TO_FEET + 0.025;
-    const occupied = p.physics.world.intersectionWithShape(out, {x:0,y:0,z:0,w:1},
-      new RAPIER.Capsule(CAPSULE_HALFHEIGHT, CAPSULE_RADIUS - 0.02), undefined, undefined, p.collider, p.body);
-    if (occupied) return false;
-    _ray.origin.x = out.x; _ray.origin.y = out.y; _ray.origin.z = out.z;
-    _ray.dir.x=0; _ray.dir.y=-1; _ray.dir.z=0;
-    const floor = p.physics.world.castRay(_ray, CENTER_TO_FEET + 0.06, true, undefined, undefined, p.collider, p.body);
-    return !!floor && Math.abs(floor.timeOfImpact - CENTER_TO_FEET - 0.025) < 0.06;
+    this.mantlePath=null;
+    if(!this.validGrip(p))return false;
+    const edge=this.edgePoint(new THREE.Vector3()),normal=this.outward(new THREE.Vector3()),start=new THREE.Vector3().copy(p.body.translation());
+    // Find actual support and standing room instead of assuming one fixed inset.
+    for(const lateral of [0,-.3,.3,-.6,.6])for(const inset of [.45,.25,.12,.7,1,1.35,1.7]){
+      const target=edge.clone().addScaledVector(normal,-inset).addScaledVector(this.edgeDir(new THREE.Vector3()),lateral);
+      const ray=new RAPIER.Ray({x:target.x,y:edge.y+.65,z:target.z},{x:0,y:-1,z:0});
+      const floor=p.physics.world.castRayAndGetNormal(ray,2.15,true,undefined,undefined,p.collider,p.body);
+      if(!floor||floor.normal.y<.75)continue;
+      target.y=edge.y+.65-floor.timeOfImpact+CENTER_TO_FEET+.025;
+      if(p.physics.world.intersectionWithShape(target,{x:0,y:0,z:0,w:1},new RAPIER.Capsule(CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02),undefined,undefined,p.collider,p.body))continue;
+      for(const offset of [null,.36,.45,.65,.85,1.05])for(const extra of [0,.4,.8,1.2]){
+        const base=offset===null?start.clone():edge.clone().addScaledVector(normal,offset).setY(start.y);
+        const high=Math.max(edge.y+.5,target.y)+extra;
+        this.mantlePath=[start.clone(),base,base.clone().setY(high),target.clone().setY(high),target.clone()];
+        let previous=start,clear=true;
+        for(let i=1;i<=32;i++){const next=this.mantlePosition(i/32,new THREE.Vector3());if(!clearTraversal(p,previous,next,.16,.3)){clear=false;break;}previous=next;}
+        if(clear){out.copy(target);return true;}
+      }
+    }
+    this.mantlePath=null;return false;
   }
 
   /** Weltposition des Griffpunkts auf der Kante. */

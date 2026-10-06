@@ -104,10 +104,10 @@ try {
       assert(Math.max(...s.errors) < 0.025, `${axis}/${sign} ${s.errors}`);
     }
   console.log("OK ledge contact from all four directions");
-  // A narrow hurdle uses a one-handed speed vault, a deep box the same compact one-handed speed vault.
+  // A narrow hurdle uses a one-handed speed vault, a deep box a supported climb onto its top.
   for (const test of [
-    { name: "speed", x: 3, z: -6.9, exit: -8.25 },
-    { name: "deep-speed", x: -16, z: 21.7, exit: 17.5 },
+    { kind: "speed", name: "speed", x: 3, z: -6.9, exit: -8.25 },
+    { kind: "reach", name: "deep-reach", x: -16, z: 21.7, exit: 17.5 },
   ]) {
     await reset();
     await teleport(test.x, 0.92, test.z, 0, 0, -6);
@@ -134,14 +134,14 @@ try {
     }
     await page.keyboard.up("s");
     assert(entered, `${test.name} entered`);
-    assert.equal(kind, "speed");
+    assert.equal(kind, test.kind);
     assert(maxProgress > 0.95);
     assert(final, `${test.name} lands`);
     assert(
-      final.pos.z < test.exit - 0.25,
+      test.kind==="reach" ? final.pos.y>1.7 : final.pos.z < test.exit - 0.25,
       `${test.name} clears back edge (${final.pos.z})`,
     );
-    assert.equal(maxContact, 1);
+    assert.equal(maxContact, test.kind==="reach" ? 2 : 1);
     console.log(`OK complete ${test.name} vault`, final.pos);
   }
   assert.deepEqual(errors, []);

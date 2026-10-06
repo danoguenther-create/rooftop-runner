@@ -43,7 +43,8 @@ export class DynamicParkour {
    if(this.floor(p,start.x+dir.x*d,top+.12,start.z+dir.z*d,.24)===null){exit=d;break;}
   }
   let end:THREE.Vector3,kind:VaultPlan['kind'];
-  if(exit!==null&&top-feet<=1.25){
+  // Broad boxes are landing platforms; only genuinely narrow obstacles use a through-vault.
+  if(exit!==null&&exit-hit.timeOfImpact<=1.6&&top-feet<=1.25){
    end=start.clone().addScaledVector(dir,exit+.55);const land=this.floor(p,end.x,top+1,end.z,4);
    if(land===null||land>top-.15||top-land>2.7)return null;end.y=land+FULL+.025;kind='speed';
   }else{

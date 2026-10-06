@@ -19,6 +19,8 @@ try {
    const face=g.level.topFaces.at(-1);g.physics.step();
    for(const axis of ['x','z'])for(const sign of [-1,1]){
     p.climb.grab={face,axis,sign,t:0};
+    const at=p.climb.hangPosition(p.velocity.clone());
+    p.body.setTranslation(at,true);p.body.setNextKinematicTranslation(at);g.physics.step();
     const out=p.mesh.position.clone();
     grips.push({valid:p.climb.validGrip(p),clear:p.climb.mantleTarget(p,out)});
    }

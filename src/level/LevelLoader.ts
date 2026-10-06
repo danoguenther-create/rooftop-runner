@@ -14,6 +14,8 @@ import type { TopFace } from '../gameplay/EdgeDetection';
 const RAIL_SAMPLES = 50;
 
 export interface LoadedRail {
+  balance?: boolean;
+  balanceSamples?: boolean[];
   swing: boolean;
   curve: THREE.CatmullRomCurve3;
   /** Bogenlänge in Metern (gecacht) */
@@ -74,13 +76,8 @@ export class LevelLoader {
       // Physical street furniture used to be incorrectly tagged as scenery.
       if (box.solid === false && box.style === 'plain' && box.pos[1] > 0.25 && box.size[1] >= 0.08 && Math.max(...box.size) < 120) {
         box.solid = true;
-        const [w,h,d]=box.size;
-        if (Math.min(w,d)<0.18 && Math.max(w,d)>1.2 && h<=1.05) {
-          const dx=w>d?w/2:0,dz=d>w?d/2:0;
-          const q=new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0,1,0),box.rotY??0);
-          const c=new THREE.Vector3(...box.pos);
-          this.addRail([new THREE.Vector3(-dx,h/2,-dz).applyQuaternion(q).add(c),new THREE.Vector3(dx,h/2,dz).applyQuaternion(q).add(c)],false,false);
-        }
+        // Decorative trim stays physical, but never creates an implicit balance rail.
+        // Balance belongs only to deliberately authored rails.
       }
       if (box.invisible) {
         if (box.solid !== false) this.registerBoxPhysics(box.pos, box.size, box.rotY ?? 0, 0);
@@ -126,6 +123,15 @@ export class LevelLoader {
         rail: points => this.addRail(points,false,false),
       }));
       this.physics.addStaticBox(new THREE.Vector3(8,-.22,142),new THREE.Vector3(420,.16,44));
+    }
+    // Coping or crate trim above broad walking surfaces must not capture a runner.
+    for(const rail of this.rails){
+      rail.balanceSamples=rail.samples.map(point=>!this.topFaces.some(face=>{
+        if(Math.min(face.halfX,face.halfZ)<.16||point.y-face.y<-.65||point.y-face.y>.8)return false;
+        const c=Math.cos(face.rotY),s=Math.sin(face.rotY),dx=point.x-face.cx,dz=point.z-face.cz;
+        return Math.abs(dx*c-dz*s)<=face.halfX+1&&Math.abs(dx*s+dz*c)<=face.halfZ+1;
+      }));
+      rail.balance=rail.balanceSamples.filter(Boolean).length>rail.samples.length*.3;
     }
     this.scene.add(this.group);
   }
@@ -259,7 +265,7 @@ export class LevelLoader {
 
     // Deckfläche registrieren: nur ebene Flächen, und keine Riesenflächen
     // wie der Boden (deren „Kanten" sind keine Precision-Ziele)
-    if (tiltX === 0 && Math.min(size[0], size[2]) >= 0.22 && Math.min(size[0], size[2]) / 2 <= 10) {
+    if (tiltX === 0 && Math.min(size[0], size[2]) >= 0.06 && Math.min(size[0], size[2]) <= 80) {
       this.topFaces.push({
         cx: pos[0],
         cz: pos[2],

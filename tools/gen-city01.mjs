@@ -159,10 +159,10 @@ for (let r = 0; r < rows.length; r++) {
     if (height >= 11 && !(r === 1 && i === 3)) {
       const th = 2.4 + hash(r, i * 3) * 1.6;
       boxes.push({
-        // Bündig mit der Südfassade und nur auf der hinteren Hälfte: die
-        // Dachmitte bleibt als Lauflinie frei
-        pos: [bx(i) + (hash(i, r) - 0.5) * 2, height + th / 2, rz(r) + D(r, i) * 0.3],
-        size: [W(r, i) * 0.55, th, D(r, i) * 0.4],
+        // Keep a 1.6 m landing strip at the south edge. A flush annex
+        // trapped runners inside its wall at the end of the sloped roof rail.
+        pos: [bx(i) + (hash(i, r) - 0.5) * 2, height + th / 2, rz(r) + D(r, i) * 0.3 - 0.8],
+        size: [W(r, i) * 0.55, th, D(r, i) * 0.4 - 1.6],
         color: f.color,
         style: f.style,
       });
@@ -185,11 +185,7 @@ for (let r = 0; r < rows.length; r++) {
       color: '#9c8f7e',
       style: 'windows-strip',
     });
-    // Attika-Rand des Lückenbaus: schmale Balance-Kante zur Straße
-    rail(
-      [xL + 0.3, top + 0.4, rz(r) - depth / 2 + 0.3],
-      [xR - 0.3, top + 0.4, rz(r) - depth / 2 + 0.3],
-    );
+    // Roof coping remains climbable/walkable, not an automatic balance rail.
   });
 }
 
@@ -284,7 +280,7 @@ for (const [r, i] of SHEDS) {
   const z = rz(r) - 3;
   box([x, h(r, i) + 1.5, z], [3, 3, 3], '#5d646e');
   deco([x, h(r, i) + 1.05, z + 1.55], [1.1, 2.1, 0.12], '#3f454d'); // Tür
-  rail([x - 1.3, h(r, i) + 3.4, z - 1.3], [x + 1.3, h(r, i) + 3.4, z - 1.3]);
+  // The shed roof is a landing surface; no coping rail should capture the climb.
 }
 
 // Reklametafeln über den Sprunglücken: Wandlauf-Ziele
@@ -292,9 +288,21 @@ const wallGaps = [[0, 1], [0, 4], [1, 5], [2, 2], [3, 3], [3, 6]];
 for (const [r, i] of wallGaps) {
   const top = Math.max(h(r, i), h(r, i + 1));
   const xm = bx(i) + PITCH / 2;
-  box([xm, top + 2, rz(r)], [5.5, 4, 0.5], TERRA);
-  deco([xm, top + 4.35, rz(r)], [5.5, 0.3, 0.7], METAL); // Beleuchtungsschiene
-  for (const dx of [-2.2, 2.2]) deco([xm + dx, top - 0.4, rz(r)], [0.2, 0.9, 0.2], METAL);
+  // Each post stands on its own roof 1 m behind the edge: a fixed offset left
+  // one floating over the lower roof's rim, and a post right at the rim blocks
+  // the top-out. The sign widens to rest on both.
+  const posts = [
+    [bx(i) + W(r, i) / 2 - 1, h(r, i)],
+    [bx(i + 1) - W(r, i + 1) / 2 + 1, h(r, i + 1)],
+  ];
+  const signW = Math.max(5.5, posts[1][0] - posts[0][0] + 0.6);
+  // Preserve headroom at both roof edges beneath the wall-run sign.
+  box([xm, top + 4.2, rz(r)], [signW, 4, 0.5], TERRA);
+  deco([xm, top + 6.55, rz(r)], [signW, 0.3, 0.7], METAL); // Beleuchtungsschiene
+  for (const [px, base] of posts) {
+    const len = top + 2.2 - base;
+    deco([px, base + len / 2, rz(r)], [0.2, len, 0.2], METAL);
+  }
 }
 
 // Vault-Kästen (Lüftung) auf den Lauflinien — Höhe 0.9 m
@@ -319,21 +327,7 @@ for (const s of slopedRails) {
   rail([bx(s.i), s.yHi, s.zHi], [bx(s.i), s.yLo, s.zLo]);
 }
 
-// Balance-Rails entlang von Dachkanten (immer 1 m innerhalb der Kante)
-const edgeRail = (r, i, along) => {
-  const y = h(r, i) + 0.4;
-  if (along === 'z') {
-    const x = bx(i) + W(r, i) / 2 - 1.5;
-    rail([x, y, zN(r, i) + 1], [x, y, zS(r, i) - 1]);
-  } else {
-    const z = zN(r, i) + 0.6;
-    rail([bx(i) - W(r, i) / 2 + 1, y, z], [bx(i) + W(r, i) / 2 - 1, y, z]);
-  }
-};
-edgeRail(0, 2, 'z');
-edgeRail(1, 4, 'x');
-edgeRail(2, 1, 'x');
-edgeRail(3, 4, 'z');
+// Roof coping stays a walking/climbing edge; balance rails belong in open space.
 
 // Schwungstangen-Reihen über die Straßen. Anzahl aus der Straßenbreite: die
 // Kette muss tatsächlich hinüberreichen, sonst hängt man über der Fahrbahn.
@@ -371,8 +365,12 @@ for (const s of slabs) {
   s.x = bx(s.i);
   s.zc = streetZ(s.a);
   s.top = h(s.a, s.i) + 3.1;
-  const len = zN(s.b, s.i) - zS(s.a, s.i) + 5;
-  box([s.x, s.top - 0.15, s.zc], [1.2, 0.3, len], '#4a4f57');
+  // Over the low roof the slab overhangs 2.5 m with ample headroom. Over the
+  // high roof it would hover ~1 m above the edge and trap facade climbers
+  // beneath it, so it stops 1.2 m short of that facade: a short hop down.
+  const z0 = zS(s.a, s.i) - 2.5;
+  const z1 = h(s.b, s.i) > s.top - 2.4 ? zN(s.b, s.i) - 1.2 : zN(s.b, s.i) + 2.5;
+  box([s.x, s.top - 0.15, (z0 + z1) / 2], [1.2, 0.3, z1 - z0], '#4a4f57');
 }
 
 // Fußgängerbrücke über die C–D-Straße: Stadtinfrastruktur und Route auf
@@ -385,8 +383,9 @@ const bridge = { x: bx(4) + PITCH / 2, y: 6.4, z: streetZ(2) };
   const len = zN(3, 4) - zS(2, 4) + 6;
   box([x, y, z], [2.6, 0.3, len], CONCRETE[2]);
   for (const dx of [-1.35, 1.35]) {
-    deco([x + dx, y + 1.1, z], [0.1, 0.1, len], METAL);
-    deco([x + dx, y + 0.72, z], [0.08, 0.06, len], METAL);
+    // Leave the bridge landings open so the guard cannot pinch a facade climb.
+    deco([x + dx, y + 1.1, z], [0.1, 0.1, len - 2.4], METAL);
+    deco([x + dx, y + 0.72, z], [0.08, 0.06, len - 2.4], METAL);
     for (const dz of [-len / 3, 0, len / 3]) {
       deco([x + dx, y + 0.65, z + dz], [0.12, 0.9, 0.12], METAL);
     }
@@ -548,7 +547,7 @@ const yard = { x: bx(4) - 8, z: zN(0, 4) - 9 };
   cont(6.6, 5.2, 0, 1);
   cont(-1, 0, 4.6, 2);
   cont(8, 0, 4.6, 3);
-  rail([cx + 4.0, 8.2, cz], [cx + 9.2, 8.2, cz]); // Balance auf dem obersten Container
+  // Container tops remain ordinary walkable surfaces, without balance capture.
 }
 
 // ============================================================ Stadtpark
@@ -818,6 +817,9 @@ for (const xc of [bx(0) - 85, TOWER_X + 245]) {
 
 addFactoryDistrict({boxes,rails,scenery});
 addFactorySewers({boxes,scenery});
+
+const {addClimbFacades}=await import('./climb-facades.mjs');
+console.log('Climb facades',addClimbFacades(boxes));
 
 const level = {
   name: 'Palm Quay — Coastal District',

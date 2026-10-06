@@ -1,3 +1,4 @@
+import {HANG_HALFHEIGHT,HANG_RADIUS} from './Climb';
 import RAPIER from '@dimforge/rapier3d-compat';
 import {clearTraversal,traversalPoint} from './DynamicParkour';
 import * as THREE from 'three';
@@ -116,8 +117,10 @@ class RunState extends PlayerState {
       return;
     }
 
+    if(p.climb.tryGrab(p,true)){p.fsm.transition("HANG");return;}
     p.climb.tryWallClimb(p);
     const jumped = p.tryJump();
+    if(p.climb.tryUnderhangGrab(p)){p.fsm.transition("HANG");return;}
     p.applyMovement(dt);
     if (jumped || !p.grounded) p.fsm.transition('AIR');
   }
@@ -409,6 +412,7 @@ class HangState extends PlayerState {
     this.mantleT = -1;
     this.mantleIntent = 0;
     p.mantleProgress = -1;
+    p.collider.setShape(new RAPIER.Capsule(HANG_HALFHEIGHT,HANG_RADIUS));
     // Kurze Schonfrist: beim Anflug gehaltene Tasten sollen nicht sofort
     // Mantle/Loslassen auslösen — erst greifen, dann entscheiden
     this.inputLockUntil = simNow() + 250;
@@ -430,13 +434,8 @@ class HangState extends PlayerState {
     if (this.mantleT >= 0) {
       this.mantleT = Math.min(this.mantleT + dt / MANTLE_S, 1);
       p.mantleProgress = this.mantleT;
-      // Pull vertically first, then transfer weight over the ledge and stand.
-      const u = this.mantleT;
-      const vertical = THREE.MathUtils.smoothstep(u,0,0.58);
-      const forward = THREE.MathUtils.smoothstep(u,0.6,1);
-      _hangPos.copy(this.mantleStart).lerp(this.mantleEnd,forward);
-      _hangPos.y = THREE.MathUtils.lerp(this.mantleStart.y,this.mantleEnd.y,vertical);
-      if(!clearTraversal(p,new THREE.Vector3().copy(p.body.translation()),_hangPos,CAPSULE_HALFHEIGHT,CAPSULE_RADIUS-.02)){
+      p.climb.mantlePosition(this.mantleT,_hangPos);
+      if(!clearTraversal(p,new THREE.Vector3().copy(p.body.translation()),_hangPos,.16,.3)){
         p.velocity.set(0,0,0);p.fsm.transition('AIR');return;
       }
       p.body.setNextKinematicTranslation({ x: _hangPos.x, y: _hangPos.y, z: _hangPos.z });
@@ -464,12 +463,16 @@ class HangState extends PlayerState {
     // Existing W / jump mantle input stays available when no transfer fits.
     if(moveY<=.5)this.mantleIntent=0;
     if (moveY > 0.5 || jump) {
-      if(!jump){this.mantleIntent+=dt;if(this.mantleIntent<.16)return;}
+      if(!jump){this.mantleIntent+=dt;if(this.mantleIntent<.1)return;}
       p.getPosition(this.mantleStart);
       p.climb.edgePoint(_edge);
       p.climb.outward(_out);
-      if (!p.climb.mantleTarget(p, this.mantleEnd)) return;
+      if (!p.climb.mantleTarget(p, this.mantleEnd)) {
+        if(!jump)p.climb.tryTransfer(p,1);
+        return;
+      }
       this.mantleT = 0;
+      p.collider.setShape(new RAPIER.Capsule(.16,.3));
       p.mantleProgress = 0;
       return;
     }
@@ -497,6 +500,7 @@ class HangState extends PlayerState {
 
   override exit(): void {
     this.player.climb.releaseGrab();
+    this.player.collider.setShape(new RAPIER.Capsule(CAPSULE_HALFHEIGHT,CAPSULE_RADIUS));
     this.player.mantleProgress = -1;
   }
 

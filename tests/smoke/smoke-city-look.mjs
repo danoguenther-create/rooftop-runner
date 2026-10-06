@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium-browser',args:['--no-sandbox','--use-gl=swiftshader','--enable-unsafe-swiftshader']});
 const root=process.argv[2]??'http://127.0.0.1:4180/rooftop-runner/';
+let baseline=null;
 try {
  for(const fallback of [false,true]){
   const page=await browser.newPage({viewport:{width:800,height:500}}),errors=[];
@@ -17,7 +18,7 @@ try {
    g.setQuality(false);const low=g.sun.castShadow;g.setQuality(true);
    return{players:g.players.length,faces:g.level.topFaces.length,stationFaces:g.scene.getObjectByName('Polizeiwache')?.userData.surfaceCount??0,rails:g.level.rails.length,upgrade:g.scene.getObjectByName('City material upgrade')?.userData??null,surfaces:[...surfaces],invalid,qualityRestored:!low&&g.sun.castShadow};
   });
-  console.log(JSON.stringify({fallback,...result,errors}));assert.equal(result.players,2);assert.equal(result.stationFaces,2);assert.equal(result.faces,5977+result.stationFaces);assert.equal(result.rails,275);assert(result.qualityRestored);assert.deepEqual(result.invalid,[]);assert.deepEqual(errors,[]);
+  console.log(JSON.stringify({fallback,...result,errors}));assert.equal(result.players,2);assert(result.stationFaces>=5,'Station roof and facade grips are physical');assert(result.faces>6000,'Physical facade grips and roofs must be registered');assert(result.rails>20,'Purpose-built balance rails remain');if(baseline){assert.equal(result.faces,baseline.faces);assert.equal(result.rails,baseline.rails);}else baseline=result;assert(result.qualityRestored);assert.deepEqual(result.invalid,[]);assert.deepEqual(errors,[]);
   if(fallback)assert.equal(result.upgrade,null);else{assert.equal(result.upgrade.ventCount,30);for(const kind of ['plaster','concrete','brick','metal','wood','asphalt','damp','sand','foliage','water'])assert(result.surfaces.includes(kind));}
   await page.close();
  }

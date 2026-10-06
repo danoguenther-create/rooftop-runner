@@ -51,7 +51,8 @@ const reset = async () => {
  * Treppenkanten; ein Test mit festen Koordinaten wäre nach jeder Änderung am
  * Stadtplan rot, ohne dass an der Physik etwas kaputt wäre.
  */
-const anchors = await page.evaluate(() => {
+const anchors = await page.evaluate(async () => {
+  const data=await (await fetch("levels/city01.json")).json();
   const level = window.game.level;
   const faces = level.topFaces;
   const flat = (f) => (f ? { x: f.cx, z: f.cz, y: f.y, halfX: f.halfX, halfZ: f.halfZ } : null);
@@ -59,7 +60,7 @@ const anchors = await page.evaluate(() => {
   // Zwei benachbarte Dächer mit einer springbaren Fuge dazwischen. Welche
   // Häuser das sind, entscheidet der Stadtplan — der Test sucht sie sich.
   const roofs = faces
-    .filter((f) => f.halfX > 5 && f.halfZ > 5 && f.y > 8)
+    .filter(f => data.scenery.buildings.some(b=>Math.abs(f.cx-b.x)<.001&&Math.abs(f.cz-b.z)<.001&&Math.abs(f.y-b.height)<.001&&Math.abs(f.halfX-b.width/2)<.001&&Math.abs(f.halfZ-b.depth/2)<.001))
     .sort((a, b) => a.cz - b.cz || a.cx - b.cx);
   let pair = null;
   for (let k = 0; k + 1 < roofs.length && !pair; k++) {
@@ -142,7 +143,8 @@ await page.waitForFunction(
   () =>
     [...document.querySelectorAll('#hud div')].some((el) => el.textContent?.includes('calls')),
   null,
-  { timeout: 15_000 },
+  // First SwiftShader compilation can exceed 15 s on the shared VPS.
+  { timeout: 60_000 },
 );
 results.stats = await stats();
 // Rendering/compilation and its draw-call budget have been checked above.

@@ -98,8 +98,11 @@ export function addFactoryDistrict({boxes,rails,scenery}) {
     box([cx+w/2+.27,1.4,cz],[.08,2.8,3],colors.steel);
     for(let k=0;k<5;k++)box([cx+w/2+.36,.3+k*.54,cz],[.16,.3,3.3],'#927757');
     for(let k=0;k<5;k++)box([cx-w/2+4+k*3,.55+k*.4,cz],[2,1.1+k*.8,2.3],k%2?colors.rust:colors.steel);
-    box([cx,height-2.1,back+2.5],[w-2,.22,3],'#7d8273','factory-annex-catwalk');
-    for(let k=0,top=1.2;top<height-2;top+=1.35,k++)box([cx-w/2+3+k*3,top/2,back+5],[2.3,top,2.4],'#767d69','factory-annex-access');
+    // Keep the maintenance catwalk reachable from the wall below, with standing room.
+    box([cx,height-2.1,back+1.05],[w-2,.22,1.6],'#7d8273','factory-annex-catwalk');
+    // In the boiler house this route belongs on the upper floor, not inside its ceiling.
+    const accessBase=upper?6.5:0;
+    for(let k=0,top=accessBase+1.2;top<height-2;top+=1.35,k++)box([cx-w/2+3+k*3,(top+accessBase)/2,back+5],[2.3,top-accessBase,2.4],'#767d69','factory-annex-access');
     for(const z of [cz-4,cz,cz+4])rail([cx+3,height-2.4,z],[cx+w/2-2,height-2.4,z],true);
     for(let k=0;k<5;k++){
       const x=cx-w/2+4+k*(w-8)/4;

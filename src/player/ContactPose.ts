@@ -319,8 +319,8 @@ export class ContactPose {
       this.edge.y += 0.065;
       const transfer=p.climb.transfer;
       // Push off, release in flight, reach for the destination, then catch.
-      const flight=transfer&&!transfer.corner&&!transfer.bodyPoints ? Math.sin(Math.PI*transfer.t) : 0;
-      const dropGrip=transfer?.bodyPoints ? ease(transfer.t,.45,.85) : 1;
+      const flight=transfer&&!transfer.corner&&(!transfer.bodyPoints||transfer.detour) ? Math.sin(Math.PI*transfer.t) : 0;
+      const dropGrip=transfer?.bodyPoints&&!transfer.detour ? ease(transfer.t,.45,.85) : 1;
       const grip=release*dropGrip*(1-ease(flight,.35,.8));
       if(grip>0)this.hands(this.edge,this.lateral,grip);
       if(flight>.15){

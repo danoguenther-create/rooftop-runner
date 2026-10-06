@@ -195,7 +195,10 @@ export function buildCityScenery(
       for (const dx of [-w / 2 + 0.18, w / 2 - 0.18])
         box(x + dx, h / 2, front, 0.3, h, 0.22, cream);
       // Projecting vertical blades make each Art Deco block legible in silhouette.
-      if (v === 0 || v === 3)
+      // Not where a sloped street rail lands: the 48 cm slots wedged its riders.
+      const railLanding = rails.some((r) =>
+        r.points.some(([px, py, pz]) => Math.abs(px - x) < 2 && Math.abs(pz - front) < 1.5 && py > h - 1));
+      if ((v === 0 || v === 3) && !railLanding)
         for (const dx of [-0.7, 0, 0.7])
           box(x + dx, h - 1.2, front, 0.22, 3.2, 0.3, accent);
       const bays = Math.floor((w - 1) / 2.8);
@@ -217,7 +220,7 @@ export function buildCityScenery(
             // Deep balcony slabs + open railings, not a solid decorative wall.
             box(wx, y - 0.98, front + side * 0.58, 2.25, 0.16, 1.2, cream);
             box(wx, y - 0.22, front + side * 1.13, 2.22, 0.065, 0.065, dark);
-            physics?.rail([new THREE.Vector3(wx-1.11,y-.1875,front+side*1.13),new THREE.Vector3(wx+1.11,y-.1875,front+side*1.13)]);
+            // Balcony coping is a handhold, never an automatic balance capture.
             for (let q = -1; q <= 1; q += 0.25)
               box(
                 wx + q,
@@ -275,13 +278,17 @@ export function buildCityScenery(
     // Narrow side elevations: independent bays, deep reveals and horizontal coping.
     for (const side of [-1, 1]) {
       const sideX = x + side * (w / 2 + 0.04);
+      // Keep fire-escape alleys clear: deep opposing sills used to form low ceilings.
+      const narrowAlley=data.buildings.some(other=>other!==b&&Math.abs(other.z-z)<(other.depth+d)/2&&
+        (other.x-side*other.width/2-sideX)*side>0&&(other.x-side*other.width/2-sideX)*side<3);
+      const sillDepth=narrowAlley?.32:.9;
       box(sideX, h - 0.12, z, 0.25, 0.22, d, cream);
       for (let wz = z - d / 2 + 1.5; wz < z + d / 2 - 1; wz += 2.8)
         for (let y = 1.5; y < h - 1; y += 3.2) {
           box(sideX, y, wz, 0.1, 1.95, 1.65, dark);
           box(sideX + side * 0.065, y, wz, 0.055, 1.78, 1.48, glass);
           box(sideX + side * 0.1, y, wz, 0.08, 1.8, 0.055, cream);
-          box(sideX + side * 0.44, y - 1, wz, 0.9, 0.1, 1.9, cream);
+          box(sideX + side * (sillDepth/2-.01), y - 1, wz, sillDepth, 0.1, 1.9, cream);
         }
     }
     // Roof gravel panels, service ducting, solar arrays; keep central running corridor clear.
