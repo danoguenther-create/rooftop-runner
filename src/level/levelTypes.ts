@@ -61,7 +61,12 @@ export interface MarkerData {
 export interface LevelData {
   scenery?: {
     industrial?: { kind: "barrel" | "pipe" | "compressor" | "sewer-light"; pos: Vec3; length?: number }[];
-    buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number }[];
+    buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number; interior?:HouseInterior }[];
+    /** Hollow infills between houses and the landmark towers (roof hatch only). */
+    infills?: { x:number; z:number; width:number; depth:number; height:number; interior?:HouseInterior }[];
+    towers?: { x:number; z:number; width:number; depth:number; height:number; interior?:HouseInterior }[];
+    /** Hollow roof annexes and stair sheds with one open doorway. */
+    rooms?: { x:number; z:number; width:number; depth:number; base:number; height:number; door:{ face:'x'|'z'; side:number; u:number } }[];
     cars: { x:number; z:number; color:string }[];
     trees: { x:number; z:number; scale:number; palm:boolean }[];
     lamps: { x:number; z:number; side:number }[];
@@ -75,4 +80,13 @@ export interface LevelData {
   markers?: MarkerData[];
   /** Medaillen-Zielzeiten fürs Zeitrennen in ms (Task 19) */
   trialTimes?: { gold: number; silver: number; bronze: number };
+}
+
+/** Enterable house (tools/city-interiors.mjs): storeys, stair core and the few open entrances. */
+export interface HouseOpening { face:'x'|'z'; side:number; u:number; row:number; floor:number; top?:number; door?:boolean }
+export interface HouseInterior {
+  floors:number[];
+  roofAccess:boolean;
+  core:{ sx:number; sz:number; xi:number; zi:number; zl:number; zh:number; ze:number; laneA:number[]; laneB:number[]; hole:{x0:number;x1:number;z0:number;z1:number} };
+  openings:HouseOpening[];
 }

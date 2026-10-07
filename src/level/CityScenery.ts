@@ -180,6 +180,13 @@ export function buildCityScenery(
   }
   data.buildings.forEach((b, index) => {
     const { x, z, width: w, depth: d, height: h, variant: v } = b;
+    // Enterable houses: the few open windows and doors have no glass, and the
+    // roof dressing leaves the stair hatch free (see tools/city-interiors.mjs).
+    const interior = b.interior;
+    const opening = (face: "x" | "z", side: number, u: number, row: number) =>
+      interior?.openings.find((o) => !o.door && o.face === face && o.side === side && Math.abs(o.u - u) < 0.05 && Math.abs(o.row - row) < 0.05);
+    const door = (side: number, u: number) =>
+      interior?.openings.find((o) => o.door && o.side === side && Math.abs(o.u - u) < 0.05);
     const accent = material(
       ["#799e97", "#b78169", "#7e949f", "#b0a782"][v],
       0.12,
@@ -205,16 +212,30 @@ export function buildCityScenery(
       for (let k = 0; k < bays; k++) {
         const wx = x + (k - (bays - 1) / 2) * 2.8;
         // Ground floor glazing with real mullions, entrance and canopy.
-        box(wx, 1.53, front + side * 0.06, 2.25, 2.55, 0.13, glass);
+        const unlocked = door(side, wx);
+        if (!unlocked) box(wx, 1.53, front + side * 0.06, 2.25, 2.55, 0.13, glass);
         box(wx - 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
         box(wx + 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
-        box(wx, 2.2, front + side * 0.15, 2.3, 0.065, 0.15, dark);
+        if (!unlocked) box(wx, 2.2, front + side * 0.15, 2.3, 0.065, 0.15, dark);
+        else {
+          // The rare unlocked door: lintel and a leaf swung into the shop.
+          box(wx, 2.52, front + side * 0.1, 1.6, 0.1, 0.2, dark);
+          box(wx - 0.74, 1.25, z + side * (d / 2 - 0.8), 0.05, 2.3, 0.95, wood);
+        }
         if (side !== b.stairSide)
           box(wx, 2.87, front + side * 0.5, 2.5, 0.13, 1.05, accent);
         for (let y = 4.7; y < h - 1; y += 3.2) {
-          box(wx, y, front + side * 0.035, 1.58, 1.86, 0.1, dark);
-          box(wx, y, front + side * 0.1, 1.4, 1.7, 0.08, glass);
-          box(wx, y, front + side * 0.17, 0.055, 1.74, 0.1, cream);
+          const open = opening("z", side, wx, y);
+          if (open) {
+            const v0 = open.floor + 0.5, v1 = open.top ?? open.floor + 2.55, mid = (v0 + v1) / 2;
+            for (const dx of [-0.8, 0.8]) box(wx + dx, mid, front + side * 0.035, 0.09, v1 - v0 + 0.1, 0.1, dark);
+            box(wx, v1 + 0.05, front + side * 0.035, 1.69, 0.1, 0.1, dark);
+            box(wx - 0.82, mid, z + side * (d / 2 - 0.63), 0.04, v1 - v0 - 0.1, 0.66, glass);
+          } else {
+            box(wx, y, front + side * 0.035, 1.58, 1.86, 0.1, dark);
+            box(wx, y, front + side * 0.1, 1.4, 1.7, 0.08, glass);
+            box(wx, y, front + side * 0.17, 0.055, 1.74, 0.1, cream);
+          }
           if (side !== b.stairSide) box(wx, y - 0.95, front + side * 0.56, 1.9, 0.12, 1.15, cream);
           if (v === 1 && k % 2 === 0 && side !== b.stairSide) {
             // Deep balcony slabs + open railings, not a solid decorative wall.
@@ -232,8 +253,9 @@ export function buildCityScenery(
                 dark,
               );
           }
+          // Over an open window the hood sits higher: headroom on the sill.
           if (v === 2 && side !== b.stairSide)
-            box(wx, y + 1.0, front + side * 0.38, 2.1, 0.12, 0.85, accent);
+            box(wx, y + (open ? 1.25 : 1.0), front + side * 0.38, 2.1, 0.12, 0.85, accent);
         }
       }
       if (side === 1)
@@ -270,9 +292,10 @@ export function buildCityScenery(
         add(
           new THREE.CylinderGeometry(0.28, 0.28, h, 12),
           cream,
-          x + side * (w / 2 - 0.15),
+          // Centred on the outer wall face: houses are hollow, keep the room clear.
+          x + side * (w / 2 - 0.02),
           h / 2,
-          z + d / 2 - 0.1,
+          z + d / 2 + 0.02,
         );
     }
     // Narrow side elevations: independent bays, deep reveals and horizontal coping.
@@ -282,27 +305,35 @@ export function buildCityScenery(
       const narrowAlley=data.buildings.some(other=>other!==b&&Math.abs(other.z-z)<(other.depth+d)/2&&
         (other.x-side*other.width/2-sideX)*side>0&&(other.x-side*other.width/2-sideX)*side<3);
       const sillDepth=narrowAlley?.32:.9;
+      // An infill against this side hides its lower windows (and would trap their sills inside).
+      const cover=data.infills?.find(f=>Math.abs(f.z-z)<1&&sideX>f.x-f.width/2-.1&&sideX<f.x+f.width/2+.1);
       box(sideX, h - 0.12, z, 0.25, 0.22, d, cream);
       for (let wz = z - d / 2 + 1.5; wz < z + d / 2 - 1; wz += 2.8)
         for (let y = 1.5; y < h - 1; y += 3.2) {
-          box(sideX, y, wz, 0.1, 1.95, 1.65, dark);
-          box(sideX + side * 0.065, y, wz, 0.055, 1.78, 1.48, glass);
-          box(sideX + side * 0.1, y, wz, 0.08, 1.8, 0.055, cream);
+          if (cover && y - 1 < cover.height) continue;
+          const open = y > 3 ? opening("x", side, +wz.toFixed(4), y) : undefined;
+          if (open) {
+            const v0 = open.floor + 0.5, v1 = open.top ?? open.floor + 2.55, mid = (v0 + v1) / 2;
+            for (const dz of [-0.8, 0.8]) box(sideX, mid, wz + dz, 0.1, v1 - v0 + 0.1, 0.09, dark);
+            box(sideX, v1 + 0.05, wz, 0.1, 0.1, 1.69, dark);
+            box(x + side * (w / 2 - 0.63), mid, wz - 0.82, 0.66, v1 - v0 - 0.1, 0.04, glass);
+          } else {
+            box(sideX, y, wz, 0.1, 1.95, 1.65, dark);
+            box(sideX + side * 0.065, y, wz, 0.055, 1.78, 1.48, glass);
+            box(sideX + side * 0.1, y, wz, 0.08, 1.8, 0.055, cream);
+          }
           box(sideX + side * (sillDepth/2-.01), y - 1, wz, sillDepth, 0.1, 1.9, cream);
         }
     }
     // Roof gravel panels, service ducting, solar arrays; keep central running corridor clear.
     for (const side of [-1, 1]) {
       box(x + side * (w / 2 - 0.12), h - 0.1, z, 0.24, 0.2, d, cream);
-      box(
-        x + side * (w / 2 - 1.2),
-        h + 0.012,
-        z,
-        1.65,
-        0.022,
-        d - 1.0,
-        material("#8e9996"),
-      );
+      const px = x + side * (w / 2 - 1.2), hole = interior?.roofAccess ? interior.core.hole : null;
+      const runs: [number, number][] = hole && px + 0.83 > hole.x0 && px - 0.83 < hole.x1
+        ? [[z - (d - 1) / 2, hole.z0 - 0.45], [hole.z1 + 0.45, z + (d - 1) / 2]]
+        : [[z - (d - 1) / 2, z + (d - 1) / 2]];
+      for (const [a, c] of runs)
+        if (c - a > 0.2) box(px, h + 0.012, (a + c) / 2, 1.65, 0.022, c - a, material("#8e9996"));
     }
     if (index % 3 === 0) {
       const px = x - w * 0.27,
@@ -325,7 +356,9 @@ export function buildCityScenery(
         [3, 2],
         [3, 4],
         [3, 6],
-      ].some(([r, i]) => r * 8 + i === index)
+      ].some(([r, i]) => r * 8 + i === index) &&
+      // A hollow roof annex stands there on the tall houses.
+      !data.rooms?.some((o) => Math.abs(o.x - x) < o.width / 2 + 1.2 && Math.abs(o.z - z - 2) < o.depth / 2 + 0.5)
     ) {
       for (let k = 0; k < 9; k++)
         box(x, h + 0.16 + k * 0.072, z + 2.31, 2.15, 0.035, 0.025, dark);
@@ -344,7 +377,7 @@ export function buildCityScenery(
     // Exterior rainwater stacks articulate side elevations without affecting roof jumps.
     for (const side of [-1, 1])
       rod(
-        new THREE.Vector3(x + side * (w / 2 + 0.09), 0.3, z + d * 0.3),
+        new THREE.Vector3(x + side * (w / 2 + 0.09), Math.max(0.3, data.infills?.find(f=>Math.abs(f.z-z)<1&&Math.abs(f.x-(x+side*w/2))<f.width/2+.1)?.height ?? 0), z + d * 0.3),
         new THREE.Vector3(x + side * (w / 2 + 0.09), h - 0.2, z + d * 0.3),
         0.045,
         trim,

@@ -196,7 +196,7 @@ export class PoliceSystem {
    if(a.age>=a.duration){o.action=null;o.path.shift();}return;
   }
   if(!o.yieldTo&&o.repath<=0&&(o.goal.distanceTo(target)>1.5||!o.path.length&&at.distanceTo(target.clone().add(new THREE.Vector3(0,.85,0)))>.4)){
-   o.path=this.navigation.path(at.clone().add(new THREE.Vector3(0,-.85,0)),target);o.goal.copy(target);o.planStart.copy(at);o.repath=o.path.length?1.2:.1;
+   o.path=this.navigation.path(at.clone().add(new THREE.Vector3(0,-.85,0)),target);o.goal.copy(target);o.planStart.copy(at);o.repath=o.path.length?1.2:0; // an unfinished search continues next frame
   }
   // Follow a nearby runner continuously instead of stopping at their stale
   // last grid position; the swept capsule still checks walls and parked cars.

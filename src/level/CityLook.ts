@@ -10,6 +10,7 @@ export function cityBoxStyle(box: BoxData): BoxStyle | undefined {
   if (!cityPBRReady() || box.style !== 'plain') return box.style;
   const tag=box.tag??'', color=box.color??'';
   if (tag.startsWith('sewer-')) return 'city-damp';
+  if (tag==='house-wall') return 'city-plaster';
   if (color==='#394d4c') return 'city-glass';
   if (color==='#343b40' || tag==='factory-ground' || tag==='industrial-outskirts') return 'city-asphalt';
   if (/boarded|crate/.test(tag) || timber.has(color)) return 'city-wood';

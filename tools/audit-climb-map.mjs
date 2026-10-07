@@ -3,7 +3,9 @@ import {readFile,writeFile,mkdir} from 'node:fs/promises';
 const data=JSON.parse(await readFile('public/levels/city01.json','utf8'));
 const buildings=data.scenery.buildings.map((b,i)=>({id:`city-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.height}));
 buildings.push({id:'main-mill',x:168,z:-10,w:48.5,d:40.5,h:28},{id:'workshop',x:186.5,z:30,w:27.45,d:16.45,h:7.125},{id:'turbine',x:238,z:-27,w:40.5,d:42.5,h:11},{id:'boiler',x:237,z:35,w:38.5,d:30.5,h:14});
-buildings.push({id:'police-station',x:103,z:89,w:16.6,d:12.6,h:6.3});
+buildings.push({id:'police-station',x:103,z:89,w:16.6,d:12.6,h:6});
+for(const [kind,list] of [['infill',data.scenery.infills??[]],['tower',data.scenery.towers??[]]])list.forEach((b,i)=>buildings.push({id:`${kind}-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.height}));
+(data.scenery.rooms??[]).forEach((b,i)=>buildings.push({id:`room-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.base+b.height,base:b.base}));
 for(const [index,box] of data.boxes.entries()){
  const [w,h,d]=box.size;if(box.solid===false||box.invisible||box.pos[1]<.4||h<2.4||Math.min(w,d)<2||/stair|sewer|fence|gate/.test(box.tag??''))continue;
  const b={id:`structure-${index}`,x:box.pos[0],z:box.pos[2],w,d,rotY:box.rotY??0,h:box.pos[1]+h/2};
@@ -12,6 +14,12 @@ for(const [index,box] of data.boxes.entries()){
 // Open factory windows are entrances, not facades: sideways to the masonry beside them.
 const openings=[{x:238,z:-27+42.5/2,half:1.9,clear:2.6},{x:237,z:35+30.5/2,half:1.9,clear:2.6},
  ...data.boxes.filter(o=>o.tag==='factory-open-window-sill').map(o=>({x:o.pos[0],z:o.pos[2],half:o.size[0]/2+1.4,clear:o.size[0]/2+1.6}))];
+// Open house windows and doors are entrances too (tools/city-interiors.mjs).
+for(const b of data.scenery.buildings)for(const o of b.interior?.openings??[])
+ openings.push(o.face==='z'?{x:o.u,z:b.z+o.side*b.depth/2,half:2.2,clear:2.4}:{axis:'x',x:b.x+o.side*b.width/2,z:o.u,half:2.2,clear:2.4});
+// Hollow buildings: a start floor inside one (through a hatch) is no facade approach.
+const hollow=[...data.scenery.buildings,...(data.scenery.infills??[]),...(data.scenery.towers??[])].map(b=>({x:b.x,z:b.z,w:b.width,d:b.depth,top:b.height}))
+ .concat((data.scenery.rooms??[]).map(r=>({x:r.x,z:r.z,w:r.width,d:r.depth,top:r.base+r.height})));
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium-browser',args:['--no-sandbox','--use-gl=swiftshader','--enable-unsafe-swiftshader']});
 const results=[];
 try{
@@ -33,7 +41,7 @@ try{
   if(process.env.CLIMB_FACE&&`${axis}:${sign}`!==process.env.CLIMB_FACE)continue;
   if(retry&&!retry.some(r=>r.id===b.id&&r.axis===axis&&r.sign===sign&&Math.abs(r.fraction-fraction)<1e-9))continue;
   if(process.env.CLIMB_ONLY&&!process.env.CLIMB_ONLY.split(',').includes(b.id))continue;
-  const r=await page.evaluate(({openings,b,axis,sign,fraction,evalCode,trace,hangJump})=>{
+  const r=await page.evaluate(({hollow,openings,b,axis,sign,fraction,evalCode,trace,hangJump})=>{
    const g=window.game,p=g.player;
    const input={moveX:0,moveY:0,lookDX:0,lookDY:0,jumpPressed:false,jumpHeld:false,divePressed:false,sprintHeld:false,rollHeld:false,pausePressed:false,respawnPressed:false,flipPressed:null,spinPressed:0};g.input.poll=()=>input;
    p.respawn();g.stepFixed(3);p.climb.climbCooldownUntil=0;p.climb.regrabAt=0;
@@ -49,12 +57,17 @@ try{
    // Step outward until the standing capsule is actually free, like a player would stand.
    // Falls back to the original sample (the solver then pushes the body free).
    let floor=null,y=0;
-   for(let out=0;out<=4.01;out+=.25){
+   // Closer to the wall first (a narrow roof strip in front of a roof room), then outward.
+   for(const out of [0,-.4,-.8,...Array.from({length:16},(_,k)=>.25*(k+1))]){
     ray.origin.x=x+normal.x*out;ray.origin.z=z+normal.z*out;
     const hit=g.physics.world.castRay(ray,b.h+50,true,undefined,undefined,p.collider,p.body);if(!hit)continue;
     const at={x:ray.origin.x,y:ray.origin.y-hit.timeOfImpact+.925,z:ray.origin.z};
     if(at.y<.6)continue; // a manhole shaft is no approach to a facade
-    if(!floor){floor=hit;y=at.y;}
+    // A roof room is approached from its roof, not from a balcony below the roof edge.
+    if(b.base!==undefined&&at.y-.925<b.base-.3)continue;
+    // Nor a floor inside a hollow building (seen through its roof hatch).
+    if(hollow.some(f=>Math.abs(at.x-f.x)<f.w/2-.3&&Math.abs(at.z-f.z)<f.d/2-.3&&at.y-.925<f.top-.5))continue;
+
     if(!g.physics.world.intersectionWithShape({...at,y:at.y+.02},{x:0,y:0,z:0,w:1},p.collider.shape,undefined,undefined,p.collider,p.body)){floor=hit;y=at.y;x=at.x;z=at.z;break;}
    }
    ray.origin.x=x;ray.origin.z=z;
@@ -63,10 +76,18 @@ try{
    // The central factory windows are entrances. Reach the roof via their adjacent
    // masonry, walking sideways from the original sample (never teleporting mid-route).
    let approachFrames=0;
-   const opening=b.id.startsWith('structure-')||axis!=='z'?null:openings.find(o=>Math.abs(x-o.x)<o.half&&Math.abs(z-o.z)<6);
-   if(opening){
-    const side=x>=opening.x?1:-1,targetX=opening.x+side*opening.clear;g.followCamera.setYaw(-side*Math.PI/2);
+   const opening=b.id.startsWith('structure-')?null:axis==='z'?openings.find(o=>!o.axis&&Math.abs(x-o.x)<o.half&&Math.abs(z-o.z)<6)
+    :openings.find(o=>o.axis==='x'&&Math.abs(z-o.z)<o.half&&Math.abs(x-o.x)<6);
+   if(opening&&axis==='z'){
+    // Step aside to the nearer masonry that still lies in front of this facade.
+    const targetX=[opening.x+opening.clear,opening.x-opening.clear].filter(t=>Math.abs(t-b.x)<b.w/2-.8).sort((p,q)=>Math.abs(p-x)-Math.abs(q-x))[0]??x;
+    const side=targetX>=x?1:-1;g.followCamera.setYaw(-side*Math.PI/2);
     for(;approachFrames<90&&side*(targetX-p.body.translation().x)>.1;approachFrames++)g.stepFixed(1);
+    g.followCamera.setYaw(Math.atan2(normal.x,normal.z));
+   }else if(opening){
+    const targetZ=[opening.z+opening.clear,opening.z-opening.clear].filter(t=>Math.abs(t-b.z)<b.d/2-.8).sort((p,q)=>Math.abs(p-z)-Math.abs(q-z))[0]??z;
+    const side=targetZ>=z?1:-1;g.followCamera.setYaw(side>0?Math.PI:0);
+    for(;approachFrames<90&&side*(targetZ-p.body.translation().z)>.1;approachFrames++)g.stepFixed(1);
     g.followCamera.setYaw(Math.atan2(normal.x,normal.z));
    }
    const history=[];let success=false,peak=y,stalled=0,lastY=y,balance=0,frames=0;
@@ -89,7 +110,7 @@ try{
    // CLIMB_EVAL=<js>: diagnostic expression over (g,p,THREE-free state) after a failed case.
    const probe=evalCode&&!success?(0,eval)(`(g,p,b)=>{${evalCode}}`)(g,p,b):undefined;
    return{probe,groundDebug,history:trace?history:undefined,diagnostics,id:b.id,axis,sign,fraction,success,frames,approachFrames,peak,startY:y,at,state:p.fsm.current,balance,grab:grab?{x:grab.face.cx,z:grab.face.cz,y:grab.face.y,axis:grab.axis,sign:grab.sign}:null};
-  },{openings,b,axis,sign,fraction,evalCode:process.env.CLIMB_EVAL,trace:!!process.env.CLIMB_TRACE,hangJump:!!process.env.CLIMB_HANG_JUMP});results.push(r);console.log(JSON.stringify(r));
+  },{hollow,openings,b,axis,sign,fraction,evalCode:process.env.CLIMB_EVAL,trace:!!process.env.CLIMB_TRACE,hangJump:!!process.env.CLIMB_HANG_JUMP});results.push(r);console.log(JSON.stringify(r));
  }
 }finally{await browser.close();await mkdir('artifacts/climb-audit',{recursive:true});await writeFile(process.env.CLIMB_REPORT??'artifacts/climb-audit/latest.json',JSON.stringify({total:results.length,passed:results.filter(r=>r.success).length,skipped:results.filter(r=>r.reason==='no-start-floor').length,results},null,2));}
 const skipped=results.filter(r=>r.reason==='no-start-floor').length;

@@ -31,6 +31,7 @@
 import { writeFileSync } from 'node:fs';
 import { addFactoryDistrict } from './factory-district.mjs';
 import { addFactorySewers } from './factory-sewers.mjs';
+import { buildRoom } from './city-interiors.mjs';
 
 // ============================================================ Raster
 const PITCH = 20.5; // Abstand der Gebäudezentren in x
@@ -57,7 +58,7 @@ const boxes = [];
 const ramps = [];
 const rails = [];
 const markers = [];
-const scenery = { buildings: [], cars: [], trees: [], lamps: [], signs: [] };
+const scenery = { buildings: [], infills: [], towers: [], rooms: [], cars: [], trees: [], lamps: [], signs: [] };
 
 /** Deterministischer Pseudo-Zufall — der Stadtplan ist bei jedem Lauf gleich. */
 const hash = (a, b) => {
@@ -72,6 +73,7 @@ const box = (pos, size, color, extra) =>
 const deco = (pos, size, color, extra) =>
   boxes.push({ pos, size, color, style: 'plain', solid: false, ...extra });
 const rail = (a, b) => rails.push({ points: [a, b] });
+const roomBox = (pos, size, color, tag, style) => box(pos, size, color, { tag, ...(style ? { style } : {}) });
 
 // Farbwelt: warmer Altbaubestand, kühle Nachkriegsbauten, Beton, Ziegel
 const FACADES = [
@@ -132,12 +134,8 @@ for (let r = 0; r < rows.length; r++) {
   for (let i = 0; i < 8; i++) {
     const height = h(r, i);
     const f = FACADES[Math.floor(hash(r * 11 + 3, i * 13) * FACADES.length)];
-    boxes.push({
-      pos: [bx(i), height / 2, rz(r)],
-      size: [W(r, i), height, D(r, i)],
-      color: f.color,
-      style: 'plain',
-    });
+    // The shell itself is built once everything on the roofs is known (see
+    // city-interiors.mjs): the stair hatch must not open under a roof structure.
     const stairSide = ({7:1,20:1,22:-1,31:-1})[r*8+i] ?? 0;
     scenery.buildings.push({ stairSide, x: bx(i), z: rz(r), width: W(r,i), depth: D(r,i), height, color: f.color, variant: (r * 3 + i) % 4 });
     const bays = Math.floor((W(r,i)-1)/2.8);
@@ -150,22 +148,20 @@ for (let r = 0; r < rows.length; r++) {
         box([wx,y-.98,front+side*.58],[2.25,.16,1.2],f.color,{invisible:true});
       }
     }
-    // Sockelzone: dunklerer, leicht vorstehender Fuß — gibt der Fassade
-    // Maßstab und nebenbei einen 1.4-m-Absatz zum Aufsteigen
-    box([bx(i), 0.7, rz(r)], [W(r, i) + 0.12, 1.4, D(r, i) + 0.12], '#9eaaab');
+    // Sockelzone (dunklerer, leicht vorstehender Fuß, 1.4-m-Absatz zum
+    // Aufsteigen) entsteht als Ring mit der Hülle in city-interiors.mjs.
 
     // Staffelgeschoss auf den hohen Häusern. B3 bleibt frei: dort steht der
     // Spawn, und ein Aufbau direkt davor verstellt den ersten Blick.
     if (height >= 11 && !(r === 1 && i === 3)) {
       const th = 2.4 + hash(r, i * 3) * 1.6;
-      boxes.push({
-        // Keep a 1.6 m landing strip at the south edge. A flush annex
-        // trapped runners inside its wall at the end of the sloped roof rail.
-        pos: [bx(i) + (hash(i, r) - 0.5) * 2, height + th / 2, rz(r) + D(r, i) * 0.3 - 0.8],
-        size: [W(r, i) * 0.55, th, D(r, i) * 0.4 - 1.6],
-        color: f.color,
-        style: f.style,
-      });
+      // Keep a 1.6 m landing strip at the south edge. A flush annex
+      // trapped runners inside its wall at the end of the sloped roof rail.
+      // Hollow, with its door towards the open roof.
+      const room = { x: bx(i) + (hash(i, r) - 0.5) * 2, z: rz(r) + D(r, i) * 0.3 - 0.8, width: W(r, i) * 0.55, depth: D(r, i) * 0.4 - 1.6, base: height, height: th, color: f.color, style: f.style };
+      room.door = { face: 'z', side: -1, u: room.x };
+      buildRoom(roomBox, room);
+      scenery.rooms.push(room);
     }
   }
 }
@@ -176,15 +172,13 @@ for (let r = 0; r < rows.length; r++) {
   plots[r].joints.forEach((kind, i) => {
     if (kind !== 'infill') return;
     const top = Math.min(h(r, i), h(r, i + 1)) - 1.4;
-    const xL = bx(i) + W(r, i) / 2 - 0.6;
-    const xR = bx(i + 1) - W(r, i + 1) / 2 + 0.6;
+    // Only as deep into the neighbours as their walls: they are hollow now.
+    const xL = bx(i) + W(r, i) / 2 - 0.3;
+    const xR = bx(i + 1) - W(r, i + 1) / 2 + 0.3;
     const depth = Math.min(D(r, i), D(r, i + 1)) - 1.2;
-    boxes.push({
-      pos: [(xL + xR) / 2, top / 2, rz(r)],
-      size: [xR - xL, top, depth],
-      color: '#9c8f7e',
-      style: 'windows-strip',
-    });
+    // Hollow like the houses (built with them below); CityScenery leaves the
+    // neighbours' side windows out where the infill covers them.
+    scenery.infills.push({ x: (xL + xR) / 2, z: rz(r), width: xR - xL, depth, height: top, color: '#9c8f7e', variant: 0, stairSide: 0 });
     // Roof coping remains climbable/walkable, not an automatic balance rail.
   });
 }
@@ -198,13 +192,8 @@ const towers = [
   { r: 2, height: 6, color: '#c08a63', style: 'windows-mixed' },
 ];
 for (const t of towers) {
-  boxes.push({
-    pos: [TOWER_X, t.height / 2, rz(t.r)],
-    size: [15, t.height, 14],
-    color: t.color,
-    style: t.style,
-  });
-  box([TOWER_X, 0.7, rz(t.r)], [15.5, 1.4, 14.5], PLINTH);
+  // Hollow, entered through a roof hatch (see Innenräume).
+  scenery.towers.push({ x: TOWER_X, z: rz(t.r), width: 15, depth: 14, height: t.height, color: t.color, style: t.style, variant: 0, stairSide: 0 });
 }
 
 // ============================================================ Dachlandschaft
@@ -278,8 +267,10 @@ const SHEDS = [[0, 2], [1, 0], [1, 6], [2, 4], [3, 0]];
 for (const [r, i] of SHEDS) {
   const x = bx(i) - 3;
   const z = rz(r) - 3;
-  box([x, h(r, i) + 1.5, z], [3, 3, 3], '#5d646e');
-  deco([x, h(r, i) + 1.05, z + 1.55], [1.1, 2.1, 0.12], '#3f454d'); // Tür
+  // Hollow, its door (formerly only drawn) open towards the south.
+  const room = { x, z, width: 3, depth: 3, base: h(r, i), height: 3, color: '#5d646e', door: { face: 'z', side: 1, u: x } };
+  buildRoom(roomBox, room);
+  scenery.rooms.push(room);
   // The shed roof is a landing surface; no coping rail should capture the climb.
 }
 
@@ -307,6 +298,8 @@ for (const [r, i] of wallGaps) {
 
 // Vault-Kästen (Lüftung) auf den Lauflinien — Höhe 0.9 m
 for (const [r, i] of [[0, 1], [0, 4], [1, 2], [1, 3], [1, 5], [2, 1], [2, 3], [3, 2], [3, 4], [3, 6]]) {
+  // Not inside a (now hollow) roof annex, where it used to be buried.
+  if (scenery.rooms.some((o) => Math.abs(o.x - bx(i)) < o.width / 2 + 1.2 && Math.abs(o.z - rz(r) - 2) < o.depth / 2 + 0.3 && Math.abs(o.base - h(r, i)) < 0.1)) continue;
   box([bx(i), h(r, i) + 0.45, rz(r) + 2], [2.4, 0.9, 0.6], '#879b98');
 }
 
@@ -817,6 +810,72 @@ for (const xc of [bx(0) - 85, TOWER_X + 245]) {
 
 addFactoryDistrict({boxes,rails,scenery});
 addFactorySewers({boxes,scenery});
+
+// ============================================================ Innenräume
+// Every house is hollow and enterable: open upper windows, a roof hatch over
+// the stairwell, and only on two streets an unlocked front door.
+const { planHouse, buildHouse } = await import('./city-interiors.mjs');
+{
+  const DOORS = new Set([5, 29]); // not 26: the free-standing marina rail runs past its door
+  const rect = (x0, x1, z0, z1) => ({ x0: Math.min(x0, x1), x1: Math.max(x0, x1), z0: Math.min(z0, z1), z1: Math.max(z0, z1) });
+  /** Anything standing on this roof, plus CityScenery's roof dressing on houses. */
+  const roofObstacles = (b, index, dressed) => {
+    const H = b.height;
+    const inPlot = (x, z, pad) => Math.abs(x - b.x) < b.width / 2 + pad && Math.abs(z - b.z) < b.depth / 2 + pad;
+    const obstacles = boxes
+      .filter((o) => o.tag !== 'climb-facade-course' && !(o.tag ?? '').startsWith('house-') && o.pos[1] - o.size[1] / 2 > H - 0.4 && o.pos[1] - o.size[1] / 2 < H + 3 && inPlot(o.pos[0], o.pos[2], (o.size[0] + o.size[2]) / 2))
+      .map((o) => rect(o.pos[0] - o.size[0] / 2, o.pos[0] + o.size[0] / 2, o.pos[2] - o.size[2] / 2, o.pos[2] + o.size[2] / 2));
+    for (const rl of rails) for (const [x, y, z] of rl.points) if (y > H - 0.5 && y < H + 3.5 && inPlot(x, z, 0.5)) obstacles.push(rect(x - 0.6, x + 0.6, z - 0.6, z + 0.6));
+    if (dressed && index % 3 === 0) obstacles.push(rect(b.x - b.width * 0.27 - 1.5, b.x - b.width * 0.27 + 1.5, b.z - b.depth * 0.3 - 0.8, b.z - b.depth * 0.3 + 0.8));
+    if (dressed) obstacles.push(rect(b.x - 1.2, b.x + 1.2, b.z + 1.6, b.z + 2.6)); // vault box dressing
+    return obstacles;
+  };
+  const shell = (pos, size, color, tag, style) => box(pos, size, color, { tag, ...(style ? { style } : {}) });
+  const record = (b, plan) => {
+    const L = plan.layout;
+    b.interior = {
+      floors: plan.floors,
+      roofAccess: plan.roofAccess,
+      core: { sx: L.sx, sz: L.sz, xi: L.xi, zi: L.zi, zl: L.zl, zh: L.zh, ze: L.ze, laneA: L.laneA, laneB: L.laneB, hole: L.hole },
+      openings: plan.openings.map(({ face, side, u, row, floor, top, door }) => ({ face, side, u, row, floor, ...(top ? { top } : {}), ...(door ? { door } : {}) })),
+    };
+  };
+  scenery.buildings.forEach((b, index) => {
+    const obstacles = roofObstacles(b, index, true);
+    // Infills cover the lower part of the side walls.
+    const blockedSides = [];
+    for (const f of scenery.infills) {
+      if (Math.abs(f.z - b.z) > 1) continue;
+      for (const side of [-1, 1]) {
+        const edge = b.x + side * b.width / 2;
+        if (edge > f.x - f.width / 2 - 0.05 && edge < f.x + f.width / 2 + 0.05) blockedSides.push({ face: 'x', side, top: f.height });
+      }
+    }
+    const plan = planHouse(b, index, { hash, obstacles, doorOpen: DOORS.has(index), roofAccess: hash(index * 3 + 1, 17) < 0.55, blockedSides });
+    // No climb courses inside an infill: they would ledge over its stairs.
+    buildHouse(b, plan, shell, { covered: blockedSides });
+    record(b, plan);
+  });
+  // Infills and the landmark towers: textured facades without drawn windows to
+  // open, so their way in is the roof hatch.
+  for (const [n, f] of scenery.infills.entries()) {
+    const plan = planHouse(f, 100 + n, { hash, obstacles: roofObstacles(f, n, false), roofAccess: true, windows: false });
+    buildHouse(f, plan, shell, { style: 'windows-strip', sideWalls: false, ringFaces: ['z'], plinth: false });
+    record(f, plan);
+  }
+  for (const [n, t] of scenery.towers.entries()) {
+    const plan = planHouse(t, 200 + n, { hash, obstacles: roofObstacles(t, n, false), roofAccess: true, windows: false });
+    buildHouse(t, plan, shell, { style: t.style });
+    record(t, plan);
+  }
+  const houses = scenery.buildings;
+  console.log('Interiors', houses.length, 'houses,', houses.filter((b) => b.interior.roofAccess).length, 'roof hatches,',
+    houses.reduce((n, b) => n + b.interior.openings.filter((o) => !o.door).length, 0), 'open windows,',
+    houses.filter((b) => b.interior.openings.some((o) => o.door)).length, 'open doors,',
+    houses.filter((b) => !b.interior.roofAccess && !b.interior.openings.length).length, 'without entrance;',
+    scenery.infills.length, 'infills,', scenery.towers.length, 'towers,',
+    [...scenery.infills, ...scenery.towers].filter((b) => !b.interior.roofAccess).length, 'of them without hatch');
+}
 
 const {addClimbFacades}=await import('./climb-facades.mjs');
 console.log('Climb facades',addClimbFacades(boxes));

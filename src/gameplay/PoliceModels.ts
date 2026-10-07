@@ -1,3 +1,4 @@
+import {planHouse,buildHouse} from '../../tools/city-interiors.mjs';
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
@@ -24,10 +25,14 @@ export function buildStation(level:LevelLoader):THREE.Group {
   if(solid){level.registerBoxPhysics(pos as [number,number,number],size as [number,number,number],0,0);colliders++;}
  };
  add([27,.14,23],[103,-.05,86],concrete,true);
- add([16,6,12],[103,3,89],plaster,true);
- add([16.6,.3,12.6],[103,6.15,89],concrete,true);
- // Continuous masonry handholds connect every facade to the roof.
- for(const y of [1.8,3.4,5])add([16.5,.11,12.5],[103,y-.055,89],concrete,true);
+ // Hollow like the city houses: two storeys and a roof hatch over the stair
+ // core; the same shell builder adds the facade handholds as a ring.
+ const station={x:103,z:89,width:16,depth:12,height:6,color:'#d6d4c4',variant:0,stairSide:0};
+ const plan=planHouse(station,0,{hash:()=>0,obstacles:[],roofAccess:true,windows:false});
+ buildHouse(station,plan,(pos,size,_color,tag)=>add(size,pos,tag==='house-wall'?plaster:tag==='house-furniture'?navy:concrete,true),{plinth:false});
+ // Eave ring instead of the former solid roof cap, leaving the hatch open.
+ for(const z of [83.15,94.85])add([16.6,.3,.6],[103,6.15,z],concrete,true);
+ for(const x of [95.15,110.85])add([.6,.3,11.4],[x,6.15,89],concrete,true);
  add([16,.55,.12],[103,3.4,82.93],navy);
  add([16,.25,.12],[103,1,82.93],navy);
  for(const x of [97,100,106,109]){

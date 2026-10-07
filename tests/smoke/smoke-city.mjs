@@ -59,8 +59,10 @@ const anchors = await page.evaluate(async () => {
 
   // Zwei benachbarte Dächer mit einer springbaren Fuge dazwischen. Welche
   // Häuser das sind, entscheidet der Stadtplan — der Test sucht sie sich.
-  const roofs = faces
-    .filter(f => data.scenery.buildings.some(b=>Math.abs(f.cx-b.x)<.001&&Math.abs(f.cz-b.z)<.001&&Math.abs(f.y-b.height)<.001&&Math.abs(f.halfX-b.width/2)<.001&&Math.abs(f.halfZ-b.depth/2)<.001))
+  // Houses are hollow now (roof slab between the walls, cut by a hatch):
+  // take the roofs from the building metadata instead of one matching face.
+  const roofs = data.scenery.buildings
+    .map((b) => ({ cx: b.x, cz: b.z, y: b.height, halfX: b.width / 2, halfZ: b.depth / 2 }))
     .sort((a, b) => a.cz - b.cz || a.cx - b.cx);
   let pair = null;
   for (let k = 0; k + 1 < roofs.length && !pair; k++) {
@@ -93,8 +95,9 @@ const anchors = await page.evaluate(async () => {
     );
 
   // Kletterhäuschen auf einem Dach (3 x 3 x 3)
-  const shed = faces
-    .filter((f) => Math.abs(f.halfX - 1.5) < 0.01 && Math.abs(f.halfZ - 1.5) < 0.01)
+  const shed = (data.scenery.rooms ?? [])
+    .filter((r) => r.width === 3 && r.depth === 3)
+    .map((r) => ({ cx: r.x, cz: r.z, y: r.base + r.height, halfX: 1.5, halfZ: 1.5 }))
     .sort((a, b) => b.y - a.y)[0];
 
   // Erstes Feuerleiter-Podest in einer Gasse (1.4 x 3.2)

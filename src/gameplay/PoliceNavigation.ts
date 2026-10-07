@@ -135,7 +135,9 @@ export class PoliceNavigation {
   const push=(v:typeof heap[number])=>{heap.push(v);let i=heap.length-1;while(i){const p=(i-1)>>1;if(heap[p].rank<=v.rank)break;heap[i]=heap[p];i=p;}heap[i]=v;};
   const pop=()=>{const first=heap[0],last=heap.pop()!;if(heap.length){let i=0;while(i*2+1<heap.length){let c=i*2+1;if(c+1<heap.length&&heap[c+1].rank<heap[c].rank)c++;if(last.rank<=heap[c].rank)break;heap[i]=heap[c];i=c;}heap[i]=last;}return first;};
   const h=(n:Node)=>Math.hypot(n.x-anchor.x,n.z-anchor.z)+Math.abs(n.y-anchor.y);
-  const deadline=this.deadline??performance.now()+5;
+  // One search never takes the whole frame: a long chase across the city
+  // starved an officer standing right next to his own target.
+  const deadline=Math.min(this.deadline??Infinity,performance.now()+2);
   for(let visits=0;!settled.has(start.key)&&heap.length&&visits<2500;visits++){
    if(visits%16===0&&performance.now()>=deadline)break;
    const {node:a,cost}=pop();if(cost!==costs.get(a.key)||settled.has(a.key))continue;
