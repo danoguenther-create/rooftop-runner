@@ -159,6 +159,7 @@ export class HUD {
     bus.on('trick:walljump', () => this.tick('WALL JUMP'));
     bus.on('trick:vault', (e) => this.tick(e.kind === 'kong' ? 'KONG VAULT' : e.kind === 'reach' ? 'CLIMB ON' : e.kind === 'slide' ? 'SLIDE' : e.kind === 'drop' ? 'VAULT DOWN' : 'SPEED VAULT'));
     bus.on('trick:gap', () => this.tick('GAP!'));
+    bus.on('player:splash', () => this.tick('SPLASH!'));
     bus.on('trick:precision', () => this.tick('PRECISION!'));
     bus.on('player:roll', () => this.tick('ROLL'));
     bus.on('trick:flip', ({ kind, count, gainer }) => {

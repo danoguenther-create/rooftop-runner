@@ -6,7 +6,9 @@ try{
  page.on('pageerror',e=>errors.push(String(e)));
  await page.goto(`${process.argv[2]??'http://127.0.0.1:4180/rooftop-runner/'}?level=city01&play=1`);
  await page.waitForFunction(()=>window.game?.state==='PLAYING'&&window.game.player?.contactPose,null,{timeout:120000});
- await page.evaluate(()=>{const g=window.game;g.renderFrame(0);g.renderFrame=()=>{};g.stepFixed(80);});
+ // A pure route test: the factory alarm would otherwise send officers to
+ // block or arrest the runner mid-route (smoke-police covers that).
+ await page.evaluate(()=>{const g=window.game;g.renderFrame(0);g.renderFrame=()=>{};g.police.update=()=>{};g.police.fixedUpdate=()=>{};g.stepFixed(80);});
  const prepare=async(pos)=>page.evaluate(pos=>{
   const g=window.game,p=g.player;window.dispatchEvent(new Event('blur'));p.respawn();g.stepFixed(80);
   p.body.setTranslation({x:pos[0],y:pos[1],z:pos[2]},true);p.body.setNextKinematicTranslation({x:pos[0],y:pos[1],z:pos[2]});p.velocity.set(0,0,0);p.grounded=false;p.fsm.transition('AIR');p.beginAirborne();g.physics.step();g.stepFixed(15);

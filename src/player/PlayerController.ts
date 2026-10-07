@@ -100,6 +100,8 @@ export class PlayerController {
 
   private input: InputState | null = null;
   private readonly spawnPos = new THREE.Vector3();
+  /** Last place stood on outside open water (see checkWater). */
+  private readonly lastDry = new THREE.Vector3(NaN, NaN, NaN);
 
   // Timing (simNow()-Basis für Eingabe-Fenster)
   private timeSinceGroundedS = 0;
@@ -330,6 +332,7 @@ export class PlayerController {
 
     // Sicherheitsnetz: aus der Welt gefallen
     if (this.body.translation().y < -10) this.respawn();
+    this.checkWater();
   }
 
   /** Bodenbewegung: Beschleunigen/Bremsen Richtung Wunschgeschwindigkeit. */
@@ -444,11 +447,31 @@ export class PlayerController {
     const t = this.body.translation();
     this.body.setNextKinematicTranslation({ x: t.x + m.x, y: t.y + m.y, z: t.z + m.z });
     this.grounded = this.cc.computedGrounded();
+    // Rapier's autostep now and then refuses a 0.3 m stair riser at sprint
+    // speed and pins the runner against it for good: step up by hand when
+    // the body fits on top.
+    if (this.grounded && this.velocity.y <= 0 && this.fsm.current === 'RUN') {
+      const want = Math.hypot(_move.x, _move.z);
+      if (want > 0.05 && Math.hypot(m.x, m.z) < want * 0.2) this.stepUp(t, _move.x / want, _move.z / want, want);
+    }
 
     // Kopf gestoßen: Aufwärtsbewegung wurde geblockt
     if (this.velocity.y > 0 && m.y < this.velocity.y * dt * 0.5) {
       this.velocity.y = 0;
     }
+  }
+
+  /** Manual autostep onto a riser up to 0.42 m (see applyMovement). */
+  private stepUp(t: { x: number; y: number; z: number }, dx: number, dz: number, dist: number): void {
+    const feet = t.y - CENTER_TO_FEET, reach = CAPSULE_RADIUS + 0.12;
+    const ray = new RAPIER.Ray({ x: t.x + dx * reach, y: feet + 0.47, z: t.z + dz * reach }, { x: 0, y: -1, z: 0 });
+    const hit = this.physics.world.castRay(ray, 0.45, true, undefined, undefined, this.collider, this.body);
+    if (!hit) return;
+    const rise = 0.47 - hit.timeOfImpact;
+    if (rise < 0.05 || rise > 0.42) return;
+    const to = { x: t.x + dx * dist, y: t.y + rise + 0.02, z: t.z + dz * dist };
+    if (this.physics.world.intersectionWithShape(to, { x: 0, y: 0, z: 0, w: 1 }, this.collider.shape, undefined, undefined, this.collider, this.body)) return;
+    this.body.setNextKinematicTranslation(to);
   }
 
   // ---------------------------------------------------------- Landung (Task 8)
@@ -549,6 +572,29 @@ export class PlayerController {
   }
 
   // ---------------------------------------------------------- Sonstiges
+
+  /**
+   * Into the river: back onto the bank where the runner last stood. Only
+   * solid ground outside the water counts: from a barge or the arch the way
+   * back would be a perch to slip off again at once.
+   */
+  private checkWater(): void {
+    const at = this.body.translation(), feet = at.y - CENTER_TO_FEET;
+    const pool = this.level.water.find((w) => at.x > w.x0 && at.x < w.x1 && at.z > w.z0 && at.z < w.z1);
+    if (!pool) {
+      if (this.grounded && this.fsm.current === 'RUN') this.lastDry.set(at.x, feet, at.z);
+      return;
+    }
+    if (feet > pool.y - 0.1) return;
+    const back = this.lastDry.clone();
+    this.respawn();
+    if (!Number.isFinite(back.x)) return;
+    const to = { x: back.x, y: back.y + CENTER_TO_FEET + 0.05, z: back.z };
+    this.body.setTranslation(to, true);
+    this.body.setNextKinematicTranslation(to);
+    this.peakY = to.y;
+    this.bus.emit('player:splash', { x: at.x, z: at.z });
+  }
 
   respawn(): void {
     // Aktiven Zustand sauber verlassen (BALANCE/SWING/HANG würden sonst

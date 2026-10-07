@@ -180,6 +180,11 @@ export function buildCityScenery(
   }
   data.buildings.forEach((b, index) => {
     const { x, z, width: w, depth: d, height: h, variant: v } = b;
+    // West bank houses (tools/west-bank.mjs): homes get house windows and a
+    // front door instead of a shopfront, and none of the old grid's roof kit.
+    const grid = !b.kind;
+    const home = b.kind === "villa" || b.kind === "townhouse" || b.kind === "lone";
+    const entranceSide = b.stairSide === 1 ? -1 : 1;
     // Enterable houses: the few open windows and doors have no glass, and the
     // roof dressing leaves the stair hatch free (see tools/city-interiors.mjs).
     const interior = b.interior;
@@ -213,16 +218,31 @@ export function buildCityScenery(
         const wx = x + (k - (bays - 1) / 2) * 2.8;
         // Ground floor glazing with real mullions, entrance and canopy.
         const unlocked = door(side, wx);
-        if (!unlocked) box(wx, 1.53, front + side * 0.06, 2.25, 2.55, 0.13, glass);
-        box(wx - 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
-        box(wx + 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
-        if (!unlocked) box(wx, 2.2, front + side * 0.15, 2.3, 0.065, 0.15, dark);
-        else {
+        const entrance = home && side === entranceSide && k === Math.floor(bays / 2);
+        if (home && !unlocked) {
+          if (entrance) {
+            // Closed front door with a canopy over it.
+            box(wx, 1.25, front + side * 0.04, 1.3, 2.5, 0.1, wood);
+            box(wx, 2.6, front + side * 0.06, 1.6, 0.12, 0.16, dark);
+            box(wx, 2.87, front + side * 0.5, 2.2, 0.13, 1.05, accent);
+          } else {
+            box(wx, 1.6, front + side * 0.035, 1.58, 1.86, 0.1, dark);
+            box(wx, 1.6, front + side * 0.1, 1.4, 1.7, 0.08, glass);
+            box(wx, 1.6, front + side * 0.17, 0.055, 1.74, 0.1, cream);
+          }
+        }
+        if (!home && !unlocked) box(wx, 1.53, front + side * 0.06, 2.25, 2.55, 0.13, glass);
+        if (!home) {
+          box(wx - 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
+          box(wx + 1.15, 1.5, front + side * 0.15, 0.09, 2.8, 0.15, dark);
+        }
+        if (!home && !unlocked) box(wx, 2.2, front + side * 0.15, 2.3, 0.065, 0.15, dark);
+        else if (unlocked) {
           // The rare unlocked door: lintel and a leaf swung into the shop.
           box(wx, 2.52, front + side * 0.1, 1.6, 0.1, 0.2, dark);
           box(wx - 0.74, 1.25, z + side * (d / 2 - 0.8), 0.05, 2.3, 0.95, wood);
         }
-        if (side !== b.stairSide)
+        if (side !== b.stairSide && !home)
           box(wx, 2.87, front + side * 0.5, 2.5, 0.13, 1.05, accent);
         for (let y = 4.7; y < h - 1; y += 3.2) {
           const open = opening("z", side, wx, y);
@@ -231,6 +251,10 @@ export function buildCityScenery(
             for (const dx of [-0.8, 0.8]) box(wx + dx, mid, front + side * 0.035, 0.09, v1 - v0 + 0.1, 0.1, dark);
             box(wx, v1 + 0.05, front + side * 0.035, 1.69, 0.1, 0.1, dark);
             box(wx - 0.82, mid, z + side * (d / 2 - 0.63), 0.04, v1 - v0 - 0.1, 0.66, glass);
+          } else if (b.look === "glass") {
+            // Floor-to-floor glazing: the glass house reads as one curtain wall.
+            box(wx, y + 0.1, front + side * 0.035, 2.62, 2.75, 0.1, dark);
+            box(wx, y + 0.1, front + side * 0.1, 2.5, 2.62, 0.08, glass);
           } else {
             box(wx, y, front + side * 0.035, 1.58, 1.86, 0.1, dark);
             box(wx, y, front + side * 0.1, 1.4, 1.7, 0.08, glass);
@@ -258,19 +282,23 @@ export function buildCityScenery(
             box(wx, y + (open ? 1.25 : 1.0), front + side * 0.38, 2.1, 0.12, 0.85, accent);
         }
       }
-      if (side === 1)
+      if (side === 1 && (grid || b.sign))
         sign(
           x,
           2.45,
           front + 0.72,
-          names[index % names.length],
+          b.sign ?? names[index % names.length],
           v === 1 ? "#733f36" : "#164b50",
           1,
           Math.min(w - 1, 6),
           0.68,
         );
     }
-    if (index % 8 === 2) {
+    // Stepped gable over the townhouse front: three more steps to climb.
+    if (b.kind === "townhouse")
+      for (let k = 0; k < 3; k++)
+        box(x, h + 0.35 + k * 0.7, z + d / 2 - 0.2, w * (0.78 - k * 0.24), 0.7, 0.4, cream);
+    if (grid && index % 8 === 2) {
       const rz=z+d/2+2.1;
       const a=new THREE.Vector3(x-3,1.25,rz), b=new THREE.Vector3(x+3,1.25,rz);
       rod(a,b,.05,dark);
@@ -335,7 +363,7 @@ export function buildCityScenery(
       for (const [a, c] of runs)
         if (c - a > 0.2) box(px, h + 0.012, (a + c) / 2, 1.65, 0.022, c - a, material("#8e9996"));
     }
-    if (index % 3 === 0) {
+    if (grid && !b.look && index % 3 === 0) {
       const px = x - w * 0.27,
         pz = z - d * 0.3;
       box(px, h + 0.12, pz, 2.8, 0.24, 1.5, dark);
@@ -704,7 +732,9 @@ export function buildCityScenery(
   root.add(signMesh);
   for (const g of signParts) g.dispose();
   // Coastal water and beach beyond the playable boardwalk.
-  box(8, -0.22, 142, 420, 0.16, 44, material("#cbbb95"));
+  // The beach stops at the river mouth (tools/west-bank.mjs).
+  box(61, -0.22, 142, 314, 0.16, 44, material("#cbbb95"));
+  box(-190, -0.22, 142, 144, 0.16, 44, material("#cbbb95"));
   const water = new THREE.Mesh(
     new THREE.PlaneGeometry(1800, 1300),
     new THREE.MeshStandardMaterial({
@@ -722,6 +752,22 @@ export function buildCityScenery(
   root.add(water);
   for (let k = 0; k < 13; k++)
     box(8, -0.2, 165 + k * 5, 390, 0.012, 0.12, material("#86b7ad", 0.3, 0.4));
+  for (const w of data.water ?? []) {
+    const river = new THREE.Mesh(
+      new THREE.PlaneGeometry(w.x1 - w.x0, w.z1 - w.z0),
+      new THREE.MeshStandardMaterial({ color: "#2f6f74", roughness: 0.2, metalness: 0.45 }),
+    );
+    if (cityPBRReady()) {
+      surfaceFinish(river.material, "water");
+      river.material.normalScale.set(0.5, 0.5);
+    }
+    river.rotation.x = -Math.PI / 2;
+    river.position.set((w.x0 + w.x1) / 2, w.y, (w.z0 + w.z1) / 2);
+    river.receiveShadow = true;
+    root.add(river);
+  }
+  for (const { a, b, r, color } of data.struts ?? [])
+    rod(new THREE.Vector3(...a), new THREE.Vector3(...b), r, material(color ?? "#4f6470", 0.5, 0.4));
   for (const { material: mat, parts } of batches.values()) {
     const merged = mergeGeometries(parts, false);
     for (const g of parts) g.dispose();

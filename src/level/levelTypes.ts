@@ -61,7 +61,12 @@ export interface MarkerData {
 export interface LevelData {
   scenery?: {
     industrial?: { kind: "barrel" | "pipe" | "compressor" | "sewer-light"; pos: Vec3; length?: number }[];
-    buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number; interior?:HouseInterior }[];
+    /** `kind` marks the west bank's house types (tools/west-bank.mjs); absent on the old grid. */
+    buildings: { x:number; z:number; width:number; depth:number; height:number; color:string; variant:number; stairSide:number; kind?:'highrise'|'office'|'townhouse'|'villa'|'lone'; look?:'turret'|'brick'|'glass'|'pavilion'; sign?:string; interior?:HouseInterior }[];
+    /** Open water: falling in puts the runner back on the bank (PlayerController). */
+    water?: { x0:number; x1:number; z0:number; z1:number; y:number }[];
+    /** Steel members between two points (truss diagonals, masts); physical from r 0.04. */
+    struts?: { a:Vec3; b:Vec3; r:number; color?:string }[];
     /** Hollow infills between houses and the landmark towers (roof hatch only). */
     infills?: { x:number; z:number; width:number; depth:number; height:number; interior?:HouseInterior }[];
     towers?: { x:number; z:number; width:number; depth:number; height:number; interior?:HouseInterior }[];

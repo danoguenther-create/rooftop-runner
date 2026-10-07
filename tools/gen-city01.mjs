@@ -32,6 +32,8 @@ import { writeFileSync } from 'node:fs';
 import { addFactoryDistrict } from './factory-district.mjs';
 import { addFactorySewers } from './factory-sewers.mjs';
 import { buildRoom } from './city-interiors.mjs';
+import { addWestBank } from './west-bank.mjs';
+import { STATION } from './police-station.mjs';
 
 // ============================================================ Raster
 const PITCH = 20.5; // Abstand der Gebäudezentren in x
@@ -39,9 +41,12 @@ const ROW_GAP = 30; // Abstand der Zeilenmitten in z
 const X0 = -70;
 const Z0 = -54;
 const HEIGHTS = [
-  { name: 'A', heights: [10, 11, 9, 8, 9, 7, 8, 6] },
-  { name: 'B', heights: [14, 13, 14, 12, 11, 12, 10, 9] },
-  { name: 'C', heights: [8, 9, 7, 8, 6, 7, 5, 6] },
+  // 2026-10: the river corners A0 and B0 and the east end B7 rise as
+  // landmarks, C7 drops to a one-storey pavilion. None of them carries a
+  // street crossing or lies on the time-trial route.
+  { name: 'A', heights: [17, 11, 9, 8, 9, 7, 8, 6] },
+  { name: 'B', heights: [19, 13, 14, 12, 11, 12, 10, 18] },
+  { name: 'C', heights: [8, 9, 7, 8, 6, 7, 5, 4.2] },
   { name: 'D', heights: [12, 11, 12, 10, 9, 8, 9, 6] },
 ];
 const rows = HEIGHTS.map((r, k) => ({ ...r, z: Z0 + ROW_GAP * k }));
@@ -133,11 +138,25 @@ const zS = (r, i) => rz(r) + D(r, i) / 2;
 for (let r = 0; r < rows.length; r++) {
   for (let i = 0; i < 8; i++) {
     const height = h(r, i);
-    const f = FACADES[Math.floor(hash(r * 11 + 3, i * 13) * FACADES.length)];
+    let f = FACADES[Math.floor(hash(r * 11 + 3, i * 13) * FACADES.length)];
+    // Looks that break the grid's plaster rhythm (CityScenery dresses them).
+    const look = ({ 0: 'turret', 8: 'brick', 15: 'glass', 23: 'pavilion' })[r * 8 + i];
+    if (look === 'turret') f = { color: '#c98f73' };
+    if (look === 'brick') f = { color: '#9a5b45', style: 'windows-mixed' };
+    if (look === 'glass') f = { color: '#7f98a3', style: 'windows-strip' };
+    if (look === 'pavilion') f = { color: '#e8d6a8' };
     // The shell itself is built once everything on the roofs is known (see
     // city-interiors.mjs): the stair hatch must not open under a roof structure.
     const stairSide = ({7:1,20:1,22:-1,31:-1})[r*8+i] ?? 0;
-    scenery.buildings.push({ stairSide, x: bx(i), z: rz(r), width: W(r,i), depth: D(r,i), height, color: f.color, variant: (r * 3 + i) % 4 });
+    scenery.buildings.push({ stairSide, x: bx(i), z: rz(r), width: W(r,i), depth: D(r,i), height, color: f.color, variant: (r * 3 + i) % 4, ...(look ? { look } : {}) });
+    // The corner turret over the river: a hollow lookout with a stepped cap.
+    if (look === 'turret') {
+      const t = { x: bx(i) - W(r, i) / 2 + 2.5, z: rz(r) - D(r, i) / 2 + 2.5, width: 4.4, depth: 4.4, base: height, height: 3.6, color: '#c98f73', style: 'windows-mixed', door: { face: 'z', side: 1, u: bx(i) - W(r, i) / 2 + 2.5 } };
+      buildRoom(roomBox, t);
+      scenery.rooms.push(t);
+      // Small enough to leave a 0.8 m walk round it on the turret roof.
+      for (let k = 0; k < 3; k++) box([t.x, t.base + t.height + 0.25 + k * 0.5, t.z], [2.8 - k * 0.9, 0.5, 2.8 - k * 0.9], '#5f6f73');
+    }
     const bays = Math.floor((W(r,i)-1)/2.8);
     for (const side of [-1,1]) for(let k=0;k<bays;k++) {
       if (side === stairSide) continue;
@@ -416,7 +435,8 @@ for (let r = 0; r < rows.length; r++) {
 
 // ============================================================ Straßenraum
 // Fahrbahn: eine große Fläche (bewusst kein Precision-/Ledge-Ziel)
-boxes.push({ pos: [10, -0.5, -5], size: [250, 1, 170], color: ASPHALT });
+// Ends at the river's east quay (west-bank.mjs).
+boxes.push({ pos: [19.5, -0.5, -5], size: [231, 1, 170], color: ASPHALT });
 
 // Gehwege mit Bordstein an allen Zeilenkanten
 for (let r = 0; r < rows.length; r++) {
@@ -754,11 +774,12 @@ cps.forEach((pos, i) => markers.push({ type: 'checkpoint', id: `cp${i + 1}`, pos
 markers.push({ type: 'finish', id: 'finish-1', pos: [bx(6), h(0, 6) + 1.4, rz(0)] });
 
 // Coastal extension: connected boardwalk, training plaza and pavilion roofs.
-box([8, -0.5, 94], [224, 1, 50], '#8a968b');
-box([8, 0.08, 96], [220, 0.16, 30], '#b8b6a4');
+box([12, -0.5, 94], [216, 1, 50], '#8a968b');
+box([11, 0.08, 96], [214, 0.16, 30], '#b8b6a4');
 for (let x = -94; x <= 108; x += 12) {
   scenery.trees.push({ x, z: 108, scale: 1.15 + hash(x, 9) * 0.3, palm: true });
-  scenery.lamps.push({ x: x + 4, z: 85, side: -1 });
+  // Not inside the police headquarters (tools/police-station.mjs): it is hollow.
+  if (Math.abs(x + 4 - STATION.x) > STATION.width / 2 + 1.5) scenery.lamps.push({ x: x + 4, z: 85, side: -1 });
   // Seating is also a low vault and precision line.
   box([x, 0.48, 104], [3.6, 0.96, 0.65], '#bdaf95');
 }
@@ -800,7 +821,8 @@ for (const [zc, sign] of [[zN(0, 0) - 85, -1], [zS(3, 0) + 165, 1]]) {
     skyline([x, height / 2, zc + sign * hash(k, zc + 3) * 22], [9 + hash(k * 5, zc) * 6, height, 10], k + zc);
   }
 }
-for (const xc of [bx(0) - 85, TOWER_X + 245]) {
+// The western skyline stands behind the new west bank.
+for (const xc of [-310, TOWER_X + 245]) {
   for (let k = 0; k < 16; k++) {
     const z = Z0 - 40 + k * 13;
     const height = 14 + hash(k * 11, xc) * 30;
@@ -810,6 +832,7 @@ for (const xc of [bx(0) - 85, TOWER_X + 245]) {
 
 addFactoryDistrict({boxes,rails,scenery});
 addFactorySewers({boxes,scenery});
+console.log('West bank', addWestBank({ box, deco, rail, ramps, scenery, hash }));
 
 // ============================================================ Innenräume
 // Every house is hollow and enterable: open upper windows, a roof hatch over
@@ -826,7 +849,7 @@ const { planHouse, buildHouse } = await import('./city-interiors.mjs');
       .filter((o) => o.tag !== 'climb-facade-course' && !(o.tag ?? '').startsWith('house-') && o.pos[1] - o.size[1] / 2 > H - 0.4 && o.pos[1] - o.size[1] / 2 < H + 3 && inPlot(o.pos[0], o.pos[2], (o.size[0] + o.size[2]) / 2))
       .map((o) => rect(o.pos[0] - o.size[0] / 2, o.pos[0] + o.size[0] / 2, o.pos[2] - o.size[2] / 2, o.pos[2] + o.size[2] / 2));
     for (const rl of rails) for (const [x, y, z] of rl.points) if (y > H - 0.5 && y < H + 3.5 && inPlot(x, z, 0.5)) obstacles.push(rect(x - 0.6, x + 0.6, z - 0.6, z + 0.6));
-    if (dressed && index % 3 === 0) obstacles.push(rect(b.x - b.width * 0.27 - 1.5, b.x - b.width * 0.27 + 1.5, b.z - b.depth * 0.3 - 0.8, b.z - b.depth * 0.3 + 0.8));
+    if (dressed && !b.look && index % 3 === 0) obstacles.push(rect(b.x - b.width * 0.27 - 1.5, b.x - b.width * 0.27 + 1.5, b.z - b.depth * 0.3 - 0.8, b.z - b.depth * 0.3 + 0.8));
     if (dressed) obstacles.push(rect(b.x - 1.2, b.x + 1.2, b.z + 1.6, b.z + 2.6)); // vault box dressing
     return obstacles;
   };
@@ -841,7 +864,8 @@ const { planHouse, buildHouse } = await import('./city-interiors.mjs');
     };
   };
   scenery.buildings.forEach((b, index) => {
-    const obstacles = roofObstacles(b, index, true);
+    // The new districts' houses carry none of the old grid's roof dressing.
+    const obstacles = roofObstacles(b, index, !b.kind);
     // Infills cover the lower part of the side walls.
     const blockedSides = [];
     for (const f of scenery.infills) {
@@ -851,9 +875,9 @@ const { planHouse, buildHouse } = await import('./city-interiors.mjs');
         if (edge > f.x - f.width / 2 - 0.05 && edge < f.x + f.width / 2 + 0.05) blockedSides.push({ face: 'x', side, top: f.height });
       }
     }
-    const plan = planHouse(b, index, { hash, obstacles, doorOpen: DOORS.has(index), roofAccess: hash(index * 3 + 1, 17) < 0.55, blockedSides });
+    const plan = planHouse(b, index, { hash, obstacles, doorOpen: b.doorOpen ?? DOORS.has(index), roofAccess: hash(index * 3 + 1, 17) < 0.55, blockedSides });
     // No climb courses inside an infill: they would ledge over its stairs.
-    buildHouse(b, plan, shell, { covered: blockedSides });
+    buildHouse(b, plan, shell, { covered: blockedSides, ...(b.look === 'brick' ? { style: 'mill-brick' } : {}) });
     record(b, plan);
   });
   // Infills and the landmark towers: textured facades without drawn windows to

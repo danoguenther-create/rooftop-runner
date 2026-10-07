@@ -1,11 +1,12 @@
 import {planHouse,buildHouse} from '../../tools/city-interiors.mjs';
+import {STATION,HELIPAD} from '../../tools/police-station.mjs';
 import * as THREE from 'three';
 import {RoundedBoxGeometry} from 'three/examples/jsm/geometries/RoundedBoxGeometry.js';
 import {mergeGeometries} from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import {surfaceFinish} from '../level/SurfaceFinish';
 import type {LevelLoader} from '../level/LevelLoader';
 const mat=(color:string,metalness=0)=>new THREE.MeshStandardMaterial({color,metalness,roughness:metalness?.42:.85});
-const navy=mat('#173447'),white=mat('#dce4df',.2),black=mat('#17212a'),glass=mat('#477483',.45),silver=mat('#afb8b8',.65);
+const yellow=mat('#e8c547'),beacon=new THREE.MeshStandardMaterial({color:'#ff4a3a',emissive:'#ff2a1a',emissiveIntensity:1.2}),navy=mat('#173447'),white=mat('#dce4df',.2),black=mat('#17212a'),glass=mat('#477483',.45),silver=mat('#afb8b8',.65);
 function box(root:THREE.Object3D,size:number[],pos:number[],material:THREE.Material):THREE.Mesh {
  const mesh=new THREE.Mesh(new THREE.BoxGeometry(...size as [number,number,number]),material);mesh.position.set(...pos as [number,number,number]);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);return mesh;
 }
@@ -24,28 +25,44 @@ export function buildStation(level:LevelLoader):THREE.Group {
   const parts=batches.get(material)??[];parts.push(g);batches.set(material,parts);
   if(solid){level.registerBoxPhysics(pos as [number,number,number],size as [number,number,number],0,0);colliders++;}
  };
- add([27,.14,23],[103,-.05,86],concrete,true);
- // Hollow like the city houses: two storeys and a roof hatch over the stair
+ add([32,.14,27],[103,-.05,87.5],concrete,true);
+ // Hollow like the city houses: four storeys and a roof hatch over the stair
  // core; the same shell builder adds the facade handholds as a ring.
- const station={x:103,z:89,width:16,depth:12,height:6,color:'#d6d4c4',variant:0,stairSide:0};
- const plan=planHouse(station,0,{hash:()=>0,obstacles:[],roofAccess:true,windows:false});
+ const station={...STATION},{x,z,width:W,depth:D,height:H}=station,front=z-D/2;
+ const roofKit=[{x0:HELIPAD.x-HELIPAD.size/2,x1:HELIPAD.x+HELIPAD.size/2,z0:HELIPAD.z-HELIPAD.size/2,z1:HELIPAD.z+HELIPAD.size/2},{x0:x-W/2,x1:x-W/2+5,z0:z+D/2-4,z1:z+D/2}];
+ const plan=planHouse(station,0,{hash:()=>0,obstacles:roofKit,roofAccess:true,windows:false});
  buildHouse(station,plan,(pos,size,_color,tag)=>add(size,pos,tag==='house-wall'?plaster:tag==='house-furniture'?navy:concrete,true),{plinth:false});
- // Eave ring instead of the former solid roof cap, leaving the hatch open.
- for(const z of [83.15,94.85])add([16.6,.3,.6],[103,6.15,z],concrete,true);
- for(const x of [95.15,110.85])add([.6,.3,11.4],[x,6.15,89],concrete,true);
- add([16,.55,.12],[103,3.4,82.93],navy);
- add([16,.25,.12],[103,1,82.93],navy);
- for(const x of [97,100,106,109]){
-  add([2.3,1.7,.08],[x,4.7,82.91],navy);add([2.1,1.5,.09],[x,4.7,82.85],glass);
-  add([.06,1.5,.1],[x,4.7,82.79],white);
+ // Eave ring instead of a solid roof cap, leaving the hatch open.
+ for(const zz of [front+.15,z+D/2-.15])add([W+.6,.3,.6],[x,H+.15,zz],concrete,true);
+ for(const xx of [x-W/2+.15,x+W/2-.15])add([.6,.3,D-.6],[xx,H+.15,z],concrete,true);
+ add([W,.55,.12],[x,3.4,front-.07],navy);
+ add([W,.25,.12],[x,1,front-.07],navy);
+ // Window rows on every storey, all four sides (drawn; the way in is the roof).
+ const bays=[1.5,4.5,7.5,10.5].flatMap(d=>[x-d,x+d]);
+ for(let y=4.7;y<H-1;y+=3.2)for(const [face,out] of [[front-.09,-1],[z+D/2+.09,1]] as const)for(const wx of bays){
+  add([2.3,1.7,.08],[wx,y,face],navy);add([2.1,1.5,.09],[wx,y,face+out*.06],glass);add([.06,1.5,.1],[wx,y,face+out*.12],white);
  }
- add([2.4,2.7,.14],[103,1.4,82.83],glass);
- add([3.4,.2,1.7],[103,2.9,82.4],navy);
- for(const x of [101.2,104.8])add([.18,2.8,.18],[x,1.4,81.8],silver,true);
+ for(let y=4.7;y<H-1;y+=3.2)for(const [face,out] of [[x-W/2-.09,-1],[x+W/2+.09,1]] as const)for(const wz of [z-4.5,z-1.5,z+1.5,z+4.5]){
+  add([.08,1.7,2.3],[face,y,wz],navy);add([.09,1.5,2.1],[face+out*.06,y,wz],glass);
+ }
+ for(const wx of bays.filter(v=>Math.abs(v-x)>2))add([2.1,1.5,.09],[wx,1.6,front-.13],glass);
+ add([2.4,2.7,.14],[x,1.4,front-.17],glass);
+ add([3.4,.2,1.7],[x,2.9,front-.6],navy);
+ for(const xx of [x-1.8,x+1.8])add([.18,2.8,.18],[xx,1.4,front-1.2],silver,true);
+ // Roof: helipad, radio mast with its equipment hut (a step up to the mast).
+ add([HELIPAD.size,.06,HELIPAD.size],[HELIPAD.x,H+.03,HELIPAD.z],mat('#3b4246'),true);
+ for(let k=0;k<28;k++){const a=k/28*Math.PI*2;add([.7,.02,.18],[HELIPAD.x+Math.cos(a)*3.3,H+.07,HELIPAD.z+Math.sin(a)*3.3],yellow);}
+ for(const dx of [-1,1])add([.4,.02,3],[HELIPAD.x+dx,H+.07,HELIPAD.z],white);
+ add([1.6,.02,.4],[HELIPAD.x,H+.07,HELIPAD.z],white);
+ add([3,2.4,2.6],[x-W/2+2,H+1.2,z+D/2-2],concrete,true);
+ add([.4,11,.4],[x-W/2+1.2,H+2.4+5.5,z+D/2-1.2],silver,true);
+ for(const y of [H+5,H+8,H+11])add([2.2,.08,.08],[x-W/2+1.2,y,z+D/2-1.2],silver);
+ add([.3,.3,.3],[x-W/2+1.2,H+14.05,z+D/2-1.2],beacon);
  // Forecourt parking marks; no obstruction across the driving lane.
- for(const x of Array.from({length:7},(_,i)=>114-i*3.6))add([.08,.015,5.5],[x,.035,77],white);
+ for(const xx of Array.from({length:7},(_,i)=>114-i*3.6))add([.08,.015,5.5],[xx,.035,77],white);
  for(const [material,parts] of batches){const mesh=new THREE.Mesh(mergeGeometries(parts)! ,material);mesh.castShadow=mesh.receiveShadow=true;root.add(mesh);for(const g of parts)g.dispose();}
- const sign=label('POLIZEI',5.8,.95);sign.position.set(103,3.8,82.78);sign.rotation.y=Math.PI;root.add(sign);
+ const sign=label('POLIZEI',5.8,.95);sign.position.set(x,3.8,front-.22);sign.rotation.y=Math.PI;root.add(sign);
+ const crest=label('POLIZEIPRÄSIDIUM',13,1.6);crest.position.set(x,H+1.1,front+.4);crest.rotation.y=Math.PI;root.add(crest);
  root.userData.colliderCount=colliders;root.userData.surfaceCount=level.topFaces.length-initialFaces;return root;
 }
 function rounded(root:THREE.Object3D,size:number[],pos:number[],material:THREE.Material,radius=.04){

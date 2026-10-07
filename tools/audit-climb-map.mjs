@@ -1,9 +1,11 @@
 import {chromium} from 'playwright-core';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
+import {STATION} from './police-station.mjs';
 const data=JSON.parse(await readFile('public/levels/city01.json','utf8'));
 const buildings=data.scenery.buildings.map((b,i)=>({id:`city-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.height}));
 buildings.push({id:'main-mill',x:168,z:-10,w:48.5,d:40.5,h:28},{id:'workshop',x:186.5,z:30,w:27.45,d:16.45,h:7.125},{id:'turbine',x:238,z:-27,w:40.5,d:42.5,h:11},{id:'boiler',x:237,z:35,w:38.5,d:30.5,h:14});
-buildings.push({id:'police-station',x:103,z:89,w:16.6,d:12.6,h:6});
+// The eave ring overhangs the walls by 0.3 m (PoliceModels).
+buildings.push({id:'police-station',x:STATION.x,z:STATION.z,w:STATION.width+.6,d:STATION.depth+.6,h:STATION.height});
 for(const [kind,list] of [['infill',data.scenery.infills??[]],['tower',data.scenery.towers??[]]])list.forEach((b,i)=>buildings.push({id:`${kind}-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.height}));
 (data.scenery.rooms??[]).forEach((b,i)=>buildings.push({id:`room-${i}`,x:b.x,z:b.z,w:b.width,d:b.depth,h:b.base+b.height,base:b.base}));
 for(const [index,box] of data.boxes.entries()){
@@ -91,7 +93,8 @@ try{
     g.followCamera.setYaw(Math.atan2(normal.x,normal.z));
    }
    const history=[];let success=false,peak=y,stalled=0,lastY=y,balance=0,frames=0;
-   for(;frames<1800;frames++){
+   // A 58 m tower is some 36 courses: allow roughly a second per metre.
+   for(const limit=Math.max(1800,b.h*75);frames<limit;frames++){
     const before=p.body.translation(),bx=(before.x-b.x)*c-(before.z-b.z)*s,bz=(before.x-b.x)*s+(before.z-b.z)*c;
     // Brake over the landing instead of running straight off a small rooftop box.
     // At roof height but outside the plot (a cornice or gutter ledge): turn to the roof like a player would.

@@ -44,6 +44,7 @@ const TESTS = [
   'smoke-window-grips',
   'smoke-climb-surfaces',
   'smoke-interiors',
+  'smoke-west-bank',
   'smoke-motion-flow',
   'smoke-split',
   'smoke-park',

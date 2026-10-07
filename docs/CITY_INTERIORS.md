@@ -1,6 +1,6 @@
 # Begehbare Häuser
 
-Alle Gebäude der Stadt sind innen begehbar: die 32 Häuser des Rasters, die fünf Lückenbauten dazwischen, die vier Landmarken-Türme, die Polizeiwache sowie 14 Dachräume (Staffelgeschosse und Treppenhäuschen). Die Fabrik hatte ihre Innenräume schon vorher. Erzeugt werden sie in `tools/city-interiors.mjs`, aufgerufen aus `tools/gen-city01.mjs` im Abschnitt „Innenräume“, nachdem alles auf den Dächern steht. Die Wache entsteht zur Laufzeit in `PoliceModels.ts` mit demselben Modul (`buildHouse`, Typen in `city-interiors.d.mts`).
+Alle Gebäude der Stadt sind innen begehbar (seit Oktober 2026 auch die 15 Häuser am Westufer und das größere Präsidium, siehe `docs/CITY_DISTRICTS.md`): die 32 Häuser des Rasters, die fünf Lückenbauten dazwischen, die vier Landmarken-Türme, die Polizeiwache sowie 14 Dachräume (Staffelgeschosse und Treppenhäuschen). Die Fabrik hatte ihre Innenräume schon vorher. Erzeugt werden sie in `tools/city-interiors.mjs`, aufgerufen aus `tools/gen-city01.mjs` im Abschnitt „Innenräume“, nachdem alles auf den Dächern steht. Die Wache entsteht zur Laufzeit in `PoliceModels.ts` mit demselben Modul (`buildHouse`, Typen in `city-interiors.d.mts`).
 
 ## Aufbau
 

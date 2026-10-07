@@ -7,9 +7,10 @@
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright-core';
 import {planHouse} from '../../tools/city-interiors.mjs';
+import {STATION,HELIPAD} from '../../tools/police-station.mjs';
 // The police station is built at runtime from the same plan (PoliceModels.ts).
-const station={x:103,z:89,width:16,depth:12,height:6,color:'#d6d4c4',variant:0,stairSide:0};
-{const plan=planHouse(station,0,{hash:()=>0,obstacles:[],roofAccess:true,windows:false});station.interior={floors:plan.floors,roofAccess:plan.roofAccess,core:plan.layout,openings:[]};}
+const station={...STATION},roofKit=[{x0:HELIPAD.x-HELIPAD.size/2,x1:HELIPAD.x+HELIPAD.size/2,z0:HELIPAD.z-HELIPAD.size/2,z1:HELIPAD.z+HELIPAD.size/2},{x0:STATION.x-STATION.width/2,x1:STATION.x-STATION.width/2+5,z0:STATION.z+STATION.depth/2-4,z1:STATION.z+STATION.depth/2}];
+{const plan=planHouse(station,0,{hash:()=>0,obstacles:roofKit,roofAccess:true,windows:false});station.interior={floors:plan.floors,roofAccess:plan.roofAccess,core:plan.layout,openings:[]};}
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium-browser',args:['--no-sandbox','--use-gl=swiftshader','--enable-unsafe-swiftshader']});
 try {
  const page=await browser.newPage({viewport:{width:480,height:320}}),errors=[];

@@ -50,7 +50,7 @@ export class PoliceNavigation {
    const floor={x:p.x,y:p.y+h.y,z:p.z,hx:h.x,hz:h.z,c:co,s:si};
    if(floor.y< -9||floor.y>42)return;
    const ex=Math.abs(co)*h.x+Math.abs(si)*h.z,ez=Math.abs(si)*h.x+Math.abs(co)*h.z;
-   for(let x=Math.max(-35,Math.floor((p.x-ex)/4));x<=Math.min(72,Math.floor((p.x+ex)/4));x++)
+   for(let x=Math.max(-70,Math.floor((p.x-ex)/4));x<=Math.min(72,Math.floor((p.x+ex)/4));x++)
     for(let z=Math.max(-28,Math.floor((p.z-ez)/4));z<=Math.min(30,Math.floor((p.z+ez)/4));z++){
      const key=`${x}/${z}`,list=this.floors.get(key)??[];list.push(floor);this.floors.set(key,list);
     }

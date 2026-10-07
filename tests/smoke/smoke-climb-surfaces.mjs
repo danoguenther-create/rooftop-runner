@@ -41,7 +41,7 @@ try {
    }
    inputs[index]={...idle};routes.push({player:index+1,building:buildingIndex,reached,at:player.body.translation()});
   }
-  return {states,routes,marinaPresent:!!rail,marinaSnap,rails:g.level.rails.length,authored:data.rails.length,streetRails:data.scenery.buildings.filter((_,i)=>i%8===2).length};
+  return {states,routes,marinaPresent:!!rail,marinaSnap,rails:g.level.rails.length,authored:data.rails.length,streetRails:data.scenery.buildings.filter((b,i)=>!b.kind&&i%8===2).length};
  });
  console.log(JSON.stringify(result));
  assert(result.states.every(states=>states.every(s=>s!=='BALANCE')),'Both players must walk along container rims without balance capture');

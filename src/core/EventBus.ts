@@ -12,6 +12,8 @@ export interface GameEvents {
   'player:roll': { fallHeight: number };
   'player:hardLanding': { fallHeight: number };
   'player:bail': { fallHeight: number };
+  /** Fell into open water and was put back on the bank. */
+  'player:splash': { x: number; z: number };
   'trick:wallrun': { side: WallSide };
   'trick:walljump': { side: WallSide };
   'trick:vault': { obstacleHeight: number; kind?: 'speed' | 'kong' | 'reach' | 'slide' | 'drop' };

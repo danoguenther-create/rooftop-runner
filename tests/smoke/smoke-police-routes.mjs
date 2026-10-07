@@ -10,7 +10,9 @@ try{
   const v=(x,y,z)=>s.car.root.position.clone().set(x,y,z);
   s.officers[1].boarded=true;s.officers[1].collider.setEnabled(false);
   const o=s.officers[0],results=[];
-  for(const target of [[180,7.125,32],[183.5,21,-26.35],[238,0,-27],[237,6.5,35],[-8.5,12,-24],[-70,10,-54]]){
+  // The far west target is the A1 roof: A0 now rises 6 m above it as a
+  // climbers-only landmark (tools/gen-city01.mjs).
+  for(const target of [[180,7.125,32],[183.5,21,-26.35],[238,0,-27],[237,6.5,35],[-8.5,12,-24],[-49.5,11,-54]]){
    s.navigation.reset();o.boarded=false;o.collider.setEnabled(true);o.path=[];o.action=null;o.yieldTo=null;o.yieldFor=null;o.repath=0;o.stuck=0;o.goal.set(Infinity,Infinity,Infinity);
    const start={x:140,y:.85,z:35};o.body.setTranslation(start,true);o.body.setNextKinematicTranslation(start);g.physics.step();
    let frames=0,peak=0,minY=0;

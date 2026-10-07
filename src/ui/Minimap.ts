@@ -3,7 +3,8 @@ import type {PlayerController} from '../player/PlayerController';
 import type {PoliceSystem} from '../gameplay/PoliceSystem';
 
 const RANGE=60, SIZE=240;
-const BOUNDS={x:-140,z:-112,w:430,h:280};
+// Reaches past the river to the west bank (tools/west-bank.mjs).
+const BOUNDS={x:-280,z:-112,w:570,h:280};
 /** North-up local map; each viewport has its own centre and police proximity. */
 export class Minimap {
  readonly element=document.createElement('div');
@@ -25,13 +26,15 @@ export class Minimap {
  }
  get background():HTMLCanvasElement{return this.staticMap;}
  private static bake(level:LevelLoader):HTMLCanvasElement{
-  const map=document.createElement('canvas');map.width=1720;map.height=1120;
+  const map=document.createElement('canvas');map.width=2280;map.height=1120;
   const c=map.getContext('2d')!;const scale=map.width/BOUNDS.w;
   c.scale(scale,scale);c.translate(-BOUNDS.x,-BOUNDS.z);
   c.fillStyle='#253c3e';c.fillRect(BOUNDS.x,BOUNDS.z,BOUNDS.w,BOUNDS.h);
   c.fillStyle='#1a4b62';c.fillRect(BOUNDS.x,154,BOUNDS.w,100);
   c.fillStyle='#7b7962';c.fillRect(-104,120,224,34);
-  c.fillStyle='#384c50';c.fillRect(-115,-90,250,170);
+  c.fillStyle='#384c50';c.fillRect(-96,-90,231,170);c.fillRect(-262,-100,144,170);
+  c.fillStyle='#7b7962';c.fillRect(-262,120,144,34);
+  c.fillStyle='#1a4b62';for(const w of level.water)c.fillRect(w.x0,w.z0,w.x1-w.x0,w.z1-w.z0);
   for(const f of [...level.topFaces].sort((a,b)=>a.y-b.y)){
    if(f.y<.45||f.halfX*f.halfZ<.5||f.halfX*f.halfZ>2500)continue;
    c.save();c.translate(f.cx,f.cz);c.rotate(-f.rotY);

@@ -36,6 +36,8 @@ export class LevelLoader {
   /** Begehbare Deckflächen für Kanten-Precision (15c) und Ledge-Grab (M3.5) */
   readonly topFaces: TopFace[] = [];
   readonly spawn = new THREE.Vector3(0, 1, 0);
+  /** Open water areas (river): falling in returns the runner to the bank. */
+  readonly water: { x0: number; x1: number; z0: number; z1: number; y: number }[] = [];
   name = '';
   /** Medaillen-Zielzeiten fürs Zeitrennen (Task 19), falls im Level definiert */
   trialTimes: { gold: number; silver: number; bronze: number } | null = null;
@@ -66,6 +68,7 @@ export class LevelLoader {
     this.name = data.name;
     this.spawn.fromArray(data.spawn);
     this.trialTimes = data.trialTimes ?? null;
+    this.water.push(...(data.scenery?.water ?? []));
 
     // Stadt-Batch (17b): pro Stil ein InstancedMesh, Größe und Farbe stecken
     // in der Instanz — unabhängig von den Maßen der einzelnen Box
