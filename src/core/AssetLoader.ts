@@ -158,7 +158,11 @@ async function addParkourClips(model:THREE.Group,clips:Map<string,THREE.Animatio
 }
 
 /** Contact timing of a motion clip (tools/blender/analyze_clips.py), in clip seconds. */
-export interface MotionMarkers { duration:number; takeoff:number|null; apex:number|null; touchdown:number|null; lowest:number|null; hipsY:'strip'|'keep' }
+export interface MotionMarkers { duration:number; takeoff:number|null; apex:number|null; touchdown:number|null; lowest:number|null; hipsY:'strip'|'keep';
+  /** Flips: [time, degrees turned since takeoff], monotonic (tools/blender/flip_turns.py). */
+  turn?:[number,number][];
+  /** Landings: [time, hip height above the lowest foot] in metres, plus the rest pose's hip and foot height (tools/blender/ground_curve.py). */
+  ground?:[number,number][]; hipsRest?:number; footRest?:number }
 /** Markers of the loaded motion clips, by clip name. */
 export const motionMarkers = new Map<string, MotionMarkers>();
 
@@ -167,8 +171,9 @@ export const motionMarkers = new Map<string, MotionMarkers>();
  * catches (public/models/motion/). Their takeoff and touchdown markers let
  * PlayerAnimator lock the clip onto the physical jump. Travel always stays
  * with the physics capsule: horizontal hip motion is removed, and so is the
- * vertical one for airborne clips; landings keep their crouch, measured
- * against the clip's final standing height.
+ * vertical one for airborne clips. Landings rebuild their crouch from the
+ * measured hip height above the lowest foot, so the feet stay on the floor
+ * even when a clip ends in a running stance rather than standing.
  */
 async function addMotionClips(model:THREE.Group,clips:Map<string,THREE.AnimationClip>):Promise<void>{
   let prefix='mixamorig';let hipsY=100;
@@ -181,8 +186,10 @@ async function addMotionClips(model:THREE.Group,clips:Map<string,THREE.Animation
     for(const track of clip.tracks){
       track.name=track.name.replace(/^mixamorig\d*:?/,prefix);
       if(!track.name.endsWith('Hips.position'))continue;
-      const v=track.values,standing=v[v.length-2];
-      for(let i=0;i<v.length;i+=3){v[i]=0;v[i+1]=m.hipsY==='keep'?hipsY+Math.min(0,v[i+1]-standing):hipsY;v[i+2]=0;}
+      const v=track.values,g=m.hipsY==='keep'?m.ground:undefined,perMetre=hipsY/(m.hipsRest??1);
+      // Hip height above the lowest foot at a clip time, linear between frames.
+      const ground=(t:number)=>{if(!g)return 0;let k=1;while(k<g.length-1&&g[k][0]<t)k++;const [t0,a]=g[k-1],[t1,b]=g[k];return a+(b-a)*Math.min(1,Math.max(0,(t-t0)/((t1-t0)||1)));};
+      for(let i=0;i<v.length;i+=3){v[i]=0;v[i+1]=g?Math.min(hipsY,(ground(track.times[i/3])+(m.footRest??0))*perMetre):hipsY;v[i+2]=0;}
     }
     clips.set(name,clip);motionMarkers.set(name,m);
   }));

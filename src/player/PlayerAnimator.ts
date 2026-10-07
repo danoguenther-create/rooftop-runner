@@ -191,7 +191,10 @@ export class PlayerAnimator {
       const m = motionMarkers.get(name);
       if (m) {
         const touch = m.touchdown ?? 0, low = m.lowest ?? touch + 0.25;
-        this.landing = { name, until: this.time + (this.landingKind === "run" ? m.duration - touch : low - touch + 0.3), lowAt: this.time + low - touch, run: this.landingKind === "run" };
+        // At sprint pace the clip's own steps are far slower than the runner:
+        // keep only the absorbing crouch, then the sprint cycle takes over.
+        const run = this.landingKind === "run" ? (hSpeed > 6 ? 0.42 : m.duration - touch) : low - touch + 0.3;
+        this.landing = { name, until: this.time + run, lowAt: this.time + low - touch, run: this.landingKind === "run" };
         this.play(name);
         if (this.current && this.currentName === name) { this.current.time = touch; this.current.paused = false; }
       }
@@ -203,21 +206,28 @@ export class PlayerAnimator {
       else return { name: this.landing.name, time: null };
     }
     if (state !== "AIR" || climbing || diveJump) return null;
+    const air = this.air;
+    if (air) air.elapsed += dt;
     const flip = this.flip;
-    if (flip && (flip.kind === "front" || flip.kind === "back")) {
+    if (flip && (flip.kind === "front" || flip.kind === "back") && flip.progress < flip.target) {
       const name = `flip-${flip.kind}`, m = motionMarkers.get(name);
-      if (m && m.takeoff !== null && m.touchdown !== null) {
-        // The clip turns once over its airborne span; further turns stay procedural.
+      if (m?.turn?.length) {
+        // The clip turns once; further turns stay procedural. Progress maps
+        // through the clip's measured rotation, not its takeoff..touchdown
+        // span: mocap flips land folded and finish the turn on the ground,
+        // so the airborne span alone would leave the body half inverted.
         this.flipShare = 1 / flip.target;
-        const u = Math.min(1, flip.progress / flip.target);
-        return { name, time: m.takeoff + (m.touchdown - m.takeoff) * u };
+        const turn = m.turn, deg = Math.min(1, flip.progress / flip.target) * turn[turn.length - 1][1];
+        let k = 1;
+        while (k < turn.length - 1 && turn[k][1] < deg) k++;
+        const [t0, a0] = turn[k - 1], [t1, a1] = turn[k];
+        return { name, time: t0 + (t1 - t0) * (a1 > a0 ? Math.min(1, Math.max(0, (deg - a0) / (a1 - a0))) : 1) };
       }
     }
-    const air = this.air;
+    // A finished flip opens into the jump's descent: legs reach for the ground.
     if (!air) return null;
     const m = motionMarkers.get(air.name)!;
     if (m.takeoff === null || m.apex === null || m.touchdown === null) return null;
-    air.elapsed += dt;
     if (vy > 0) {
       const toApex = air.vy0 / GRAVITY;
       return { name: air.name, time: m.takeoff + (m.apex - m.takeoff) * Math.min(1, air.elapsed / toApex) };

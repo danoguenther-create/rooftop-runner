@@ -430,23 +430,30 @@ export class ContactPose {
         }
       }
     } else if (state === "AIR" && p.airTricks.tuckWeight > 0) {
-      // Over a motion-capture flip only half strength: the clip keeps its
-      // arms and timing, the knees just come in tighter.
-      const weight = p.airTricks.tuckWeight * (p.airTricks.clipShare > 0 ? 0.6 : 1);
-      const hips = this.bones.get("Hips");
-      if (hips) {
+      const weight = p.airTricks.tuckWeight;
+      const hips = this.bones.get("Hips"), chest = this.bones.get("Spine2");
+      const leftHip = this.bones.get("LeftUpLeg"), rightHip = this.bones.get("RightUpLeg");
+      if (hips && chest && leftHip && rightHip) {
+        // Feet below the pelvis, knees forward toward the chest, in the
+        // pelvis' own frame: a motion-capture flip turns the hips itself, so
+        // mesh-space "below" would put the shoes inside the torso.
         hips.getWorldPosition(this.edge);
-        p.mesh.worldToLocal(this.edge);
-        // Feet below the pelvis, knees forward toward the chest. Targets are
-        // in body space so front/back/side flips share the same compact pose.
+        chest.getWorldPosition(this.a).sub(this.edge).normalize(); // up
+        leftHip.getWorldPosition(this.lateral);
+        rightHip.getWorldPosition(this.b);
+        this.lateral.sub(this.b); // left
+        this.lateral.addScaledVector(this.a, -this.lateral.dot(this.a)).normalize();
+        this.outward.crossVectors(this.lateral, this.a); // forward
+        const body = (x: number, y: number, z: number, out: THREE.Vector3) =>
+          out.copy(this.edge).addScaledVector(this.lateral, x).addScaledVector(this.a, y).addScaledVector(this.outward, z);
         for (let i = 0; i < 2; i++) {
           const side = i === 0 ? 1 : -1;
           const leg = this.legs[i];
           if (leg) {
             leg.end.getWorldPosition(this.endpoint);
-            this.local(this.edge.x + side * 0.16, this.edge.y - 0.18, this.edge.z + 0.2, this.target);
+            body(side * 0.16, -0.18, 0.2, this.target);
             this.target.lerp(this.endpoint, 1 - weight);
-            this.local(this.edge.x + side * 0.2, this.edge.y + 0.65, this.edge.z + 1, this.pole);
+            body(side * 0.2, 0.65, 1, this.pole);
             this.solve(leg, this.target, this.pole);
           }
           const arm = this.arms[i];
@@ -454,7 +461,7 @@ export class ContactPose {
             leg.lower.getWorldPosition(this.target);
             arm.end.getWorldPosition(this.endpoint);
             this.target.lerp(this.endpoint, 1 - weight);
-            this.local(side * 0.65, 0.15, 0.65, this.pole);
+            body(side * 0.65, 0.15, 0.65, this.pole);
             this.solve(arm, this.target, this.pole);
           }
         }

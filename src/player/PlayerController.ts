@@ -531,9 +531,13 @@ export class PlayerController {
     this.swinger.resetChain(); // Bodenkontakt beendet die Stangen-Kette
 
     // Lufttricks zuerst: unfertige Rotation überstimmt die Roll-Logik
-    if (this.airTricks.evaluateLanding(this.bus, this.horizontalSpeed)) {
+    const flipLanding = this.airTricks.evaluateLanding(this.bus, this.horizontalSpeed);
+    if (flipLanding !== 'stuck') {
       this.pendingLanding = null;
       this.diving = false;
+      this.diveJumpActive = false;
+      // Knapp unfertig: abrollen, solange der Fall nicht ohnehin zum Sturz zwingt.
+      if (flipLanding === 'roll' && fallHeight <= LANDING_BAIL_M) { this.doRoll(fallHeight); return false; }
       return true;
     }
 

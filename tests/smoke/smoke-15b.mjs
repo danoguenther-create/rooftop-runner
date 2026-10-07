@@ -66,6 +66,25 @@ results.flipBail = await debug();
 await reset();
 await stepMs(page, 1500); // BAIL ausstehen lassen
 
+// 3b) Knapp unfertig (über die Hälfte gedreht) -> Rolle statt BAIL, ohne Punkte
+results.flipRoll = await page.evaluate(() => {
+  const g = window.game, p = g.player, t = p.body.translation();
+  let rolled = false;
+  const onRoll = () => { rolled = true; };
+  p.bus.on('player:roll', onRoll);
+  p.body.setTranslation({ x: t.x, y: t.y + 0.25, z: t.z }, true);
+  p.body.setNextKinematicTranslation({ x: t.x, y: t.y + 0.25, z: t.z });
+  p.velocity.set(0, -1, 0);
+  g.stepFixed(2);
+  p.airTricks.queueFlip('front');
+  p.airTricks.update(0.55 * 0.62);
+  const states = [];
+  for (let i = 0; i < 40; i++) { g.stepFixed(1); states.push(p.fsm.current); }
+  p.bus.off('player:roll', onRoll);
+  return { rolled, states: [...new Set(states)] };
+});
+await reset();
+
 // 4) Spin 180 (E in der Luft — seit dem Splitscreen-Umbau wieder Q/E)
 await teleport(0, 5, -20, 0, 2, 0);
 await stepMs(page, 100); // erst AIR werden — Lufttricks werden nur im Flug gequeued
@@ -88,7 +107,7 @@ await stepMs(page, 1300);
 results.gainer = await debug();
 await page.keyboard.up('w');
 
-for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===\n${v}\n`);
+for (const [k, v] of Object.entries(results)) console.log(`=== ${k} ===\n${typeof v === 'string' ? v : JSON.stringify(v)}\n`);
 console.log('Konsolen-Fehler:', errors.length ? errors : 'keine');
 await browser.close();
 
@@ -97,6 +116,7 @@ if (!results.backflip?.includes('flip (back x1')) fails.push('backflip');
 if (!results.doubleBackflip?.includes('flip (back x2')) fails.push('double');
 if (!results.flipBail?.includes('state: BAIL')) fails.push('flip-bail');
 if (results.flipBail?.includes('flip (front')) fails.push('bail-darf-nicht-punkten');
+if (!results.flipRoll.rolled || results.flipRoll.states.includes('BAIL')) fails.push(`flip-roll ${JSON.stringify(results.flipRoll)}`);
 if (!results.spin?.includes('spin (180°)')) fails.push('spin');
 if (!results.gainer?.includes('gainer')) fails.push('gainer');
 

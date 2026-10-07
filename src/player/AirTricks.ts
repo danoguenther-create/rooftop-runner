@@ -4,6 +4,7 @@ import {
   FLIP_COMPLETE_MIN,
   FLIP_DURATION_S,
   FLIP_MAX_COUNT,
+  FLIP_ROLL_MIN,
   GAINER_MIN_SPEED,
   SPIN_FORGIVE_DEG,
   SPIN_SPEED_DEG,
@@ -14,7 +15,8 @@ export type FlipKind = 'front' | 'back' | 'left' | 'right';
 /**
  * Lufttricks (Task 15b): Flips (Pfeiltasten, mehrfach queuebar) und
  * Spins (Q/E, 180°-Schritte). Rein visuell aufs Mesh — die Physik-Kapsel
- * rotiert nie. Die Landung wertet aus: unfertige Flip-Rotation = Bail.
+ * rotiert nie. Die Landung wertet aus: knapp unfertige Flip-Rotation = Rolle,
+ * deutlich unfertige = Bail.
  */
 export class AirTricks {
   private flipKind: FlipKind | null = null;
@@ -102,32 +104,33 @@ export class AirTricks {
   }
 
   /**
-   * Bei der Landung auswerten. Emittiert trick:flip/trick:spin und
-   * liefert true, wenn die unfertige Flip-Rotation einen Bail erzwingt.
+   * Bei der Landung auswerten. Emittiert trick:flip/trick:spin. Liefert
+   * 'bail', wenn die unfertige Flip-Rotation einen Sturz erzwingt, 'roll',
+   * wenn die letzte Umdrehung zwar unfertig, aber über die Hälfte gedreht ist
+   * (der Läufer rollt die Restrotation ab, ohne dass der Flip zählt).
    */
-  evaluateLanding(bus: EventBus, horizontalSpeed: number): boolean {
-    let bail = false;
+  evaluateLanding(bus: EventBus, horizontalSpeed: number): 'stuck' | 'roll' | 'bail' {
+    let result: 'stuck' | 'roll' | 'bail' = 'stuck';
 
     if (this.flipKind) {
       const lastTurnProgress = this.flipProgress - (this.flipTarget - 1);
-      if (lastTurnProgress >= FLIP_COMPLETE_MIN) {
+      if (lastTurnProgress < FLIP_COMPLETE_MIN) result = lastTurnProgress >= FLIP_ROLL_MIN ? 'roll' : 'bail';
+      else {
         bus.emit('trick:flip', {
           kind: this.flipKind,
           count: this.flipTarget,
           gainer: this.flipKind === 'back' && horizontalSpeed > GAINER_MIN_SPEED,
         });
-      } else {
-        bail = true;
       }
     }
 
-    if (!bail) {
+    if (result === 'stuck') {
       const halfTurns = Math.floor((Math.abs(this.spinDeg) + SPIN_FORGIVE_DEG) / 180);
       if (halfTurns >= 1) bus.emit('trick:spin', { halfTurns });
     }
 
     this.cancel();
-    return bail;
+    return result;
   }
 
   /** Rotation verwerfen (Respawn, Zustandswechsel in WALLRUN/GRIND/VAULT). */

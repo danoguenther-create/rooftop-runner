@@ -32,7 +32,7 @@ try{const page=await browser.newPage({viewport:{width:800,height:600}}),errors=[
   place(80,3.525,-82.5,0);input.rollHeld=true;g.stepFixed(1);const dropStarted=p.fsm.current==='HANG'&&!!p.climb.transfer;
   input.moveY=0;input.rollHeld=false;g.stepFixed(65);const dropHang={started:dropStarted,state:p.fsm.current,y:p.climb.grab?.face.y,z:p.body.translation().z};
   place(100,2.7,-79.55,0);input.moveY=0;p.handleFrameInput(input);p.climb.grab={face:g.level.topFaces.find(f=>f.cx===100&&Math.abs(f.y-3.4)<.01),axis:'z',sign:1,t:0};p.fsm.transition('AIR');p.fsm.transition('HANG');g.stepFixed(20);
-  const lowerBraced=p.climb.braced;input.moveY=1;input.jumpPressed=true;g.stepFixed(1);const up=!!p.climb.transfer;input.moveY=0;input.jumpPressed=false;g.stepFixed(65);const upperY=p.climb.grab?.face.y,upperBraced=p.climb.braced;
+  const lowerBraced=p.climb.braced;g.followCamera.setYaw(0);/* looking at the wall: W climbs, W facing away would jump off */input.moveY=1;input.jumpPressed=true;g.stepFixed(1);const up=!!p.climb.transfer;input.moveY=0;input.jumpPressed=false;g.stepFixed(65);g.followCamera.setYaw(Math.PI);const upperY=p.climb.grab?.face.y,upperBraced=p.climb.braced;
   input.moveX=-1;input.jumpPressed=true;g.stepFixed(1);const side=!!p.climb.transfer;input.moveX=0;input.jumpPressed=false;g.stepFixed(65);const sideX=p.climb.grab?.face.cx;
   // Return to the original wall to check controlled downward transfer.
   p.climb.releaseGrab();p.climb.grab={face:g.level.topFaces.find(f=>f.cx===100&&Math.abs(f.y-5.1)<.01),axis:'z',sign:1,t:0};const at=p.climb.hangPosition(v(0,0,0));p.body.setTranslation(at,true);p.body.setNextKinematicTranslation(at);g.physics.step();

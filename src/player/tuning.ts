@@ -102,6 +102,8 @@ export const FLIP_DURATION_S = 0.55;
 export const FLIP_MAX_COUNT = 3;
 /** Fortschritt der letzten Umdrehung, ab dem die Landung als „gestanden" gilt */
 export const FLIP_COMPLETE_MIN = 0.8;
+/** Darunter, aber ab hier rollt der Läufer die Restrotation ab statt zu stürzen */
+export const FLIP_ROLL_MIN = 0.5;
 /** Spin-Drehgeschwindigkeit (°/s) um die Hochachse */
 export const SPIN_SPEED_DEG = 540;
 /** Unvollendete Spins bis zu diesem Rest (°) werden bei der Landung verziehen */
@@ -149,6 +151,9 @@ export const HANG_CENTER_BELOW = 0.7;
 export const MANTLE_S = 0.7;
 /** Hangeln entlang der Kante (m/s) */
 export const SHIMMY_SPEED = 1.5;
+/** Abspringen aus dem Hängen: Tempo weg von der Wand (m/s) und Steigen */
+export const HANG_EJECT_SPEED = 5.5;
+export const HANG_EJECT_VY = 5;
 
 // ------------------------------------------------------------- Bar-Swing (Task 16c)
 /** Aufschnapp-Radius der Hände zur Stange (m) */

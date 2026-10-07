@@ -13,6 +13,8 @@ import {
   GRAVITY,
   MANTLE_S,
   SHIMMY_SPEED,
+  HANG_EJECT_SPEED,
+  HANG_EJECT_VY,
   WALLJUMP_NORMAL_IMPULSE,
   WALLJUMP_UP_IMPULSE,
   WALLRUN_GRAVITY_FACTOR,
@@ -453,6 +455,20 @@ class HangState extends PlayerState {
     const moveY = locked&&!jump ? 0 : (input?.moveY ?? 0);
     const moveX = input?.moveX ?? 0;
 
+    // --- Abspringen: Sprung mit Richtung weg von der Wand (kamerarelativ,
+    // also S bei Blick zur Wand oder W bei Blick vom Haus weg).
+    if(jump&&Math.hypot(moveX,moveY)>.5){
+      const sy=Math.sin(p.cameraYaw),cy=Math.cos(p.cameraYaw);
+      _edgeDir.set(-sy*moveY+cy*moveX,0,-cy*moveY-sy*moveX).normalize();
+      p.climb.outward(_out);
+      if(_edgeDir.dot(_out)>.35){
+        // Mindestens zur Hälfte von der Wand weg, auch bei schrägem Input.
+        _edgeDir.addScaledVector(_out,Math.max(0,.5-_edgeDir.dot(_out))).normalize();
+        p.velocity.set(_edgeDir.x*HANG_EJECT_SPEED,HANG_EJECT_VY,_edgeDir.z*HANG_EJECT_SPEED);
+        p.fsm.transition('AIR');
+        return;
+      }
+    }
     if(jump&&(Math.abs(moveX)>.5||moveY>=0)){
       p.climb.edgeDir(_camRight);
       const cameraRight=new THREE.Vector3(Math.cos(p.cameraYaw),0,-Math.sin(p.cameraYaw));

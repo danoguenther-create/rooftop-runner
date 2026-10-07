@@ -77,6 +77,24 @@ await page.keyboard.up('s');
 await stepMs(page, 800);
 results.released = await state();
 
+// --- 4) Abspringen: wieder an die 3.5-m-Wand, dann W (weg von der Wand,
+//        die Kamera blickt nach +z) + Sprung -> Flug von der Wand weg
+await reset();
+await page.keyboard.down('s');
+await teleport(-16, 1.0, -3.5, 0, 0, -6);
+await stepMs(page, 450);
+await page.keyboard.up('s');
+await stepMs(page, 800);
+results.ejectHang = await state();
+await page.keyboard.down('w');
+await page.keyboard.press('Space');
+await stepMs(page, 120);
+results.ejectAir = await state();
+await stepMs(page, 300);
+await page.keyboard.up('w');
+await stepMs(page, 900);
+results.ejected = await state();
+
 for (const [k, v] of Object.entries(results))
   console.log(`=== ${k} === ${v.st} @ (${v.pos.x.toFixed(2)}, ${v.pos.y.toFixed(2)}, ${v.pos.z.toFixed(2)})`);
 console.log('Konsolen-Fehler:', errors.length ? errors : 'keine');
@@ -89,6 +107,10 @@ if (results.fallGrab.st !== 'HANG') fails.push('fall-grab');
 if (results.shimmy.st !== 'HANG' || Math.abs(results.shimmy.pos.x - results.fallGrab.pos.x) < 0.3)
   fails.push('shimmy');
 if (results.released.st !== 'RUN' || results.released.pos.y > 2) fails.push('loslassen');
+
+if (results.ejectHang.st !== 'HANG') fails.push('abspringen-grab');
+if (results.ejectAir.st !== 'AIR' || results.ejectAir.pos.y < results.ejectHang.pos.y) fails.push('abspringen-steigt');
+if (results.ejected.st === 'HANG' || results.ejected.pos.z < results.ejectHang.pos.z + 2) fails.push('abspringen-weg');
 
 console.log(fails.length ? `FAILS: ${fails.join(', ')}` : 'HANG/CLIMB OK');
 process.exit(fails.length || errors.length ? 1 : 0);

@@ -77,9 +77,12 @@ Stand 6. Oktober 2026 (Raster 1,4 m): 2118/2124 Gebäude-Anstiege im Gesamtlauf;
 Sprünge, Flips, Landungen und das Fangen einer Kante laufen auf echten Mixamo-Mocap-Clips (`public/models/motion/`), die auf unser Skelett angepasst sind. Sie werden nicht einfach abgespielt, sondern an die Physik gekoppelt:
 
 - **Sprung:** Der Clip läuft vom Absprung bis zum Scheitel genau so lang, wie die Physik bis zum Scheitel braucht (vy0 / g). Den Abstieg bestimmt die vorausberechnete Zeit bis zur Landung (`PlayerController.timeToLanding`).
-- **Flips:** Der Flip-Clip wird über den Flip-Fortschritt gesteuert. `AirTricks.clipShare` teilt die Drehung zwischen Clip und prozeduraler Rotation auf, damit sich die Rotation nicht verdoppelt.
+- **Flips:** Der Flip-Clip wird über den Flip-Fortschritt gesteuert, und zwar über den gemessenen Drehwinkel des Clips (`turn` in den Markern), nicht über die Spanne von Absprung bis Aufsetzen. Mocap-Flips landen eingeknickt und drehen das letzte Viertel erst am Boden zu Ende. Über die reine Luftspanne hinge die Figur halb kopfüber. `AirTricks.clipShare` teilt die Drehung zwischen Clip und prozeduraler Rotation auf, damit sich die Rotation nicht verdoppelt. Die Hocke richtet sich nach dem Becken, nicht nach der Figur, sonst landen die Schuhe im Rumpf.
+- **Unfertiger Flip:** Ist die letzte Umdrehung mindestens zur Hälfte gedreht (`FLIP_ROLL_MIN`), rollt der Läufer ab, ohne dass der Flip zählt. Darunter stürzt er.
 - **Landung:** Der Clip startet an seinem Aufsetz-Marker. Welcher Clip läuft, hängt von der Landeart ab (`landingKind`): `precision` auf schmalen Flächen oder bei langsamer Landung aus der Höhe, `run` bei hoher Geschwindigkeit, sonst `soft`/`stand`. Harte Landungen gehen weiter in Rolle oder Sturz.
 - **Kante fangen:** Ein direkter Griff aus dem Sprung spielt den Hang-Catch-Clip.
+- **Abspringen:** Sprung plus eine Richtung weg von der Wand (kamerarelativ) stößt den Läufer aus dem Hängen ab (`HANG_EJECT_SPEED`, `HANG_EJECT_VY`). Sprung allein oder mit Richtung zur Wand klettert weiter hoch.
+- **Bodenkontakt der Landeclips:** Die Hüfte wird pro Bild aus der gemessenen Hüfthöhe über dem tiefsten Fuß gesetzt (`ground` in den Markern). Clips, die in Laufhaltung enden, schweben so nicht über dem Boden. Bei Sprinttempo bleibt vom Lauf-Landeclip nur das Abfedern (0,42 s).
 
 Darüber liegt die prozedurale Kontaktschicht (`ContactPose`): Landeprofile (Tiefe und Dauer nach Fallhöhe, Tempo und Breite der Fläche), Füße, die vor der Landung zur Fläche greifen, und Hand-über-Hand-Anker beim Hangeln.
 
@@ -87,7 +90,7 @@ Die Marker (Absprung, Scheitel, Aufsetzen, tiefster Punkt) stehen in `public/mod
 
 - `tools/mixamo-fetch.mjs` lädt Kandidaten nach `public/models/incoming/` (nicht im Repo). Das Token liegt nur kurzzeitig in `~/.mixamo-token` und gehört nie ins Repo.
 - `tools/blender/review_clips.py` und `clip_sheets.py` rendern Kontaktbögen auf der Spielfigur.
-- `tools/blender/analyze_clips.py` ermittelt die Marker.
+- `tools/blender/analyze_clips.py` ermittelt die Marker, `flip_turns.py` die Drehkurven der Flips, `ground_curve.py` die Bodenkurven der Landungen.
 - `tools/capture-moves.mjs`, `capture-landings.mjs` und `capture-catch.mjs` filmen die Bewegungen im Spiel.
 
 Mixamo-Animationen dürfen in Spielen lizenzfrei verwendet werden. Es fehlen noch brauchbare Clips für Speed Vault, Kong, Cat Leap und Precision-Absprung; dafür bleibt ein kommerzielles Parkour-Paket die nächste Stufe.
