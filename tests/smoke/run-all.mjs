@@ -55,8 +55,11 @@ const url = process.argv[2] ?? 'http://localhost:4173/rooftop-runner/';
 let preview = null;
 
 if (url.includes('localhost')) {
-  preview = spawn('npx', ['vite', 'preview', '--port', '4173'], {
+  // Own process group: npx forks the real vite server, and killing only npx
+  // left it running. --strictPort fails loudly instead of quietly moving on.
+  preview = spawn('npx', ['vite', 'preview', '--port', '4173', '--strictPort'], {
     stdio: 'ignore',
+    detached: true,
     cwd: fileURLToPath(new URL('../..', import.meta.url)),
   });
   await new Promise((r) => setTimeout(r, 2500));
@@ -72,7 +75,7 @@ for (const test of TESTS) {
   if (code !== 0) failed.push(test);
 }
 
-preview?.kill();
+if (preview) process.kill(-preview.pid);
 console.log(
   failed.length
     ? `\nFEHLGESCHLAGEN: ${failed.join(', ')}`
