@@ -293,7 +293,13 @@ export class PlayerController {
     const hopLeft=transfer?((transfer.to.x-transfer.from.x)*Math.cos(this.meshYaw)-(transfer.to.z-transfer.from.z)*Math.sin(this.meshYaw))<0:false;
     const shimmyLeft=(this.input?.moveX??0)*Math.cos(this.cameraYaw-this.meshYaw)<0;
     const hangClip=this.mantleProgress>=0?'hang-climb':transfer?.fromBelow?'hang-up':transfer?.bodyPoints&&!transfer.detour?'hang-drop':transfer&&!transfer.corner?(transfer.to.y-transfer.from.y>.35?'hang-up':transfer.to.y-transfer.from.y<-.35?'hang-down':hopLeft?'hang-hop-left':'hang-hop'):Math.abs(this.input?.moveX??0)>.5?(shimmyLeft?'hang-shimmy-left':'hang-shimmy'):this.climb.braced?'hang-braced':'hang-free';
+    if(this.animator){
+      this.animator.timeToLanding=this.fsm.current==='AIR'?this.timeToLanding():Infinity;
+      this.animator.landingKind=this.landingKind;
+      this.animator.flip=this.fsm.current==='AIR'?this.airTricks.flip:null;
+    }
     this.animator?.update(dt, this.fsm.current, hs, this.velocity.y, this.climb.isWallClimbing, this.mantleProgress, this.vaultProgress, this.diveJumpActive,hangClip,this.mantleProgress>=0?this.mantleProgress:transfer?.t??-1);
+    this.airTricks.clipShare=this.animator?.flipShare??0;
     this.contactPose?.update(dt);
   }
 
@@ -459,6 +465,39 @@ export class PlayerController {
     if (this.velocity.y > 0 && m.y < this.velocity.y * dt * 0.5) {
       this.velocity.y = 0;
     }
+  }
+
+  /** Seconds until the feet meet the ground below on the current fall, or Infinity. */
+  timeToLanding(): number {
+    if (this.velocity.y > 0.5) return Infinity;
+    const t = this.body.translation();
+    const ray = new RAPIER.Ray({ x: t.x + this.velocity.x * 0.1, y: t.y, z: t.z + this.velocity.z * 0.1 }, { x: 0, y: -1, z: 0 });
+    const hit = this.physics.world.castRay(ray, 30, true, undefined, undefined, this.collider, this.body);
+    if (!hit) return Infinity;
+    const drop = hit.timeOfImpact - CENTER_TO_FEET, v = -this.velocity.y;
+    if (drop <= 0) return 0;
+    // drop = v t + g t^2 / 2
+    return (-v + Math.sqrt(v * v + 2 * GRAVITY * drop)) / GRAVITY;
+  }
+
+  /**
+   * How the last touchdown reads: 'precision' on a narrow top or from a
+   * standing jump, 'run' with pace, 'hard' from a big drop, else 'soft'.
+   */
+  get landingKind(): 'precision' | 'soft' | 'run' | 'hard' {
+    const fall = this.lastFallHeight, speed = this.horizontalSpeed;
+    if (fall > LANDING_AUTO_ROLL_MIN_M) return 'hard';
+    const at = this.body.translation(), feet = at.y - CENTER_TO_FEET;
+    let narrow = Infinity;
+    for (const f of this.level.topFaces) {
+      if (Math.abs(f.y - feet) > 0.3) continue;
+      const dx = at.x - f.cx, dz = at.z - f.cz, c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+      if (Math.abs(dx * c - dz * s) > f.halfX + 0.05 || Math.abs(dx * s + dz * c) > f.halfZ + 0.05) continue;
+      narrow = Math.min(narrow, 2 * Math.min(f.halfX, f.halfZ));
+    }
+    if (narrow <= 0.9) return 'precision';
+    if (speed > 5) return 'run';
+    return speed < 2.5 && fall > 0.5 ? 'precision' : 'soft';
   }
 
   /** Manual autostep onto a riser up to 0.42 m (see applyMovement). */

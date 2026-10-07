@@ -71,3 +71,23 @@ Beim Wechsel nach oben aus dem Hängen sucht `Climb.tryTransfer` den Griff auch 
 `tools/audit-climb-map.mjs` lässt die echte Figur mit Rapier-Physik jede Fassade hochklettern, ohne Rendering und ohne Polizei. Mit `CLIMB_SPACING=1.4` wird jede Fassade alle 1,4 m geprüft. `CLIMB_RETRY=<report>` wiederholt nur die Fehlschläge eines Reports, `CLIMB_EVAL=<js>` wertet bei Fehlschlägen einen Diagnoseausdruck im Spielzustand aus. Startpunkte in zu engen Spalten werden nach außen verschoben. Stellen ohne Anlaufboden (Schacht, Rinne) werden als übersprungen gezählt. Offene Fabrikfenster gelten als Eingänge, nicht als Fassade.
 
 Stand 6. Oktober 2026 (Raster 1,4 m): 2118/2124 Gebäude-Anstiege im Gesamtlauf; die sechs Fehlstellen bestehen nach den letzten Korrekturen im gezielten Nachtest (die betroffenen Fassaden wurden vollständig neu geprüft, die übrigen nicht erneut), 1265 von 1265 prüfbaren Anstiegen an weiteren Baukörpern (1 Stelle ohne Anlaufboden). Die Prüfung ist eine Stichprobe im Raster, kein Beweis für jeden Punkt. Einzelne Fälle hängen vom Verlauf der vorherigen Fälle in derselben Sitzung ab (Timer, Cooldowns), deshalb Fehlschläge immer einzeln nachprüfen.
+
+## Bewegungsclips (Mocap)
+
+Sprünge, Flips, Landungen und das Fangen einer Kante laufen auf echten Mixamo-Mocap-Clips (`public/models/motion/`), die auf unser Skelett angepasst sind. Sie werden nicht einfach abgespielt, sondern an die Physik gekoppelt:
+
+- **Sprung:** Der Clip läuft vom Absprung bis zum Scheitel genau so lang, wie die Physik bis zum Scheitel braucht (vy0 / g). Den Abstieg bestimmt die vorausberechnete Zeit bis zur Landung (`PlayerController.timeToLanding`).
+- **Flips:** Der Flip-Clip wird über den Flip-Fortschritt gesteuert. `AirTricks.clipShare` teilt die Drehung zwischen Clip und prozeduraler Rotation auf, damit sich die Rotation nicht verdoppelt.
+- **Landung:** Der Clip startet an seinem Aufsetz-Marker. Welcher Clip läuft, hängt von der Landeart ab (`landingKind`): `precision` auf schmalen Flächen oder bei langsamer Landung aus der Höhe, `run` bei hoher Geschwindigkeit, sonst `soft`/`stand`. Harte Landungen gehen weiter in Rolle oder Sturz.
+- **Kante fangen:** Ein direkter Griff aus dem Sprung spielt den Hang-Catch-Clip.
+
+Darüber liegt die prozedurale Kontaktschicht (`ContactPose`): Landeprofile (Tiefe und Dauer nach Fallhöhe, Tempo und Breite der Fläche), Füße, die vor der Landung zur Fläche greifen, und Hand-über-Hand-Anker beim Hangeln.
+
+Die Marker (Absprung, Scheitel, Aufsetzen, tiefster Punkt) stehen in `public/models/motion/markers.json`. Sie wurden mit Blender aus den Fußhöhen ermittelt:
+
+- `tools/mixamo-fetch.mjs` lädt Kandidaten nach `public/models/incoming/` (nicht im Repo). Das Token liegt nur kurzzeitig in `~/.mixamo-token` und gehört nie ins Repo.
+- `tools/blender/review_clips.py` und `clip_sheets.py` rendern Kontaktbögen auf der Spielfigur.
+- `tools/blender/analyze_clips.py` ermittelt die Marker.
+- `tools/capture-moves.mjs`, `capture-landings.mjs` und `capture-catch.mjs` filmen die Bewegungen im Spiel.
+
+Mixamo-Animationen dürfen in Spielen lizenzfrei verwendet werden. Es fehlen noch brauchbare Clips für Speed Vault, Kong, Cat Leap und Precision-Absprung; dafür bleibt ein kommerzielles Parkour-Paket die nächste Stufe.

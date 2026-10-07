@@ -7,3 +7,6 @@ dist/
 
 # Generated visual-review evidence
 artifacts/
+
+# Raw Mixamo downloads for review (tools/mixamo-fetch.mjs); only chosen clips are committed.
+public/models/incoming/

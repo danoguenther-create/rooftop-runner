@@ -17,12 +17,18 @@ export class ContactPose {
   private diveRolling = false;
   private diveBlendAge = 1;
   private readonly identity = new THREE.Quaternion();
-  private previousState = "RUN";
-  private landingAge = 1;
+  private previousLanding = "RUN";
+  private handFace: unknown = null;
+  private handKey = "";
+  private handAnchor = [new THREE.Vector3(), new THREE.Vector3()];
+  private handFrom = [new THREE.Vector3(), new THREE.Vector3()];
+  private handGoal = [new THREE.Vector3(), new THREE.Vector3()];
+  private handOut = [new THREE.Vector3(), new THREE.Vector3()];
+  private handStep = [-1, -1];
+  private landing: { age: number; depth: number; duration: number; precision: boolean; running: boolean; feet: THREE.Vector3[] } | null = null;
   private runLean = 0;
   private turnLean = 0;
   private previousYaw = 0;
-  private landingFeet = [new THREE.Vector3(),new THREE.Vector3()];
   private bones = new Map<string, THREE.Bone>();
   private sampled: {
     bone: THREE.Bone;
@@ -81,6 +87,104 @@ export class ContactPose {
       this.legs.push(this.chain(side + "UpLeg", side + "Leg", side + "Foot"));
     }
   }
+  /** Classify the touchdown that just happened (see update). */
+  private beginLanding() {
+    const p = this.p, fall = p.lastFallHeight, speed = p.horizontalSpeed;
+    if (fall < 0.15) return;
+    const at = p.body.translation(), feet = at.y - 0.925;
+    // Width of the surface underfoot: narrow tops make a precision landing.
+    let narrow = Infinity;
+    for (const f of p.level.topFaces) {
+      if (Math.abs(f.y - feet) > 0.3) continue;
+      const dx = at.x - f.cx, dz = at.z - f.cz, c = Math.cos(f.rotY), s = Math.sin(f.rotY);
+      if (Math.abs(dx * c - dz * s) > f.halfX + 0.05 || Math.abs(dx * s + dz * c) > f.halfZ + 0.05) continue;
+      narrow = Math.min(narrow, 2 * Math.min(f.halfX, f.halfZ));
+    }
+    const precision = narrow <= 0.9 || (speed < 2.5 && fall > 0.5);
+    const running = !precision && speed > 5;
+    const depth = precision ? THREE.MathUtils.clamp(0.16 + fall * 0.05, 0.16, 0.3) : THREE.MathUtils.clamp(0.04 + fall * 0.06, 0.04, running ? 0.14 : 0.24);
+    const duration = precision ? 0.5 : THREE.MathUtils.clamp(0.22 + fall * 0.06, 0.22, 0.42) * (running ? 0.75 : 1);
+    const anchors = this.legs.map((leg) => (leg ? leg.end.getWorldPosition(new THREE.Vector3()) : new THREE.Vector3()));
+    if (precision) {
+      // Feet land together, a hand's width apart.
+      const mid = anchors[0].clone().add(anchors[1]).multiplyScalar(0.5);
+      for (const a of anchors) a.lerp(mid, 0.45).setY(feet + 0.09);
+    }
+    this.landing = { age: 0, depth, duration, precision, running, feet: anchors };
+  }
+
+  private applyLanding(dt: number) {
+    const l = this.landing!, p = this.p;
+    l.age += dt;
+    if (l.age >= l.duration) { this.landing = null; return; }
+    // Fast compression, slow rise: the knees take the load, then extend.
+    const down = l.duration * 0.28;
+    const c = l.age < down ? Math.sin((l.age / down) * Math.PI / 2) : 0.5 + 0.5 * Math.cos(((l.age - down) / (l.duration - down)) * Math.PI);
+    // A motion-capture landing clip carries the crouch itself; only plant the feet.
+    const clip = p.animationName.startsWith("land-");
+    if (!clip) this.model.position.y -= l.depth * c;
+    const spine = clip ? null : this.bones.get("Spine");
+    if (spine) spine.rotateX(c * (l.precision ? 0.5 : l.running ? 0.18 : 0.3) * Math.min(1, l.depth / 0.2 + 0.3));
+    p.mesh.updateMatrixWorld(true);
+    // Running landings keep the clip's stride (feet follow it); standing and
+    // precision landings stay planted where they touched down.
+    for (let i = 0; i < 2; i++) {
+      const leg = this.legs[i];
+      if (!leg) continue;
+      if (l.running) leg.end.getWorldPosition(this.target);
+      else this.target.copy(l.feet[i]);
+      this.local(i === 0 ? 0.25 : -0.25, -0.35, 0.6, this.pole);
+      this.solve(leg, this.target, this.pole);
+    }
+    if (l.precision && !clip) {
+      // Arms forward for balance, swinging back as the legs extend.
+      for (let i = 0; i < 2; i++) {
+        const arm = this.arms[i];
+        if (!arm) continue;
+        arm.end.getWorldPosition(this.endpoint);
+        this.local(i === 0 ? 0.24 : -0.24, 0.2 - 0.25 * c, 0.45, this.target);
+        this.target.lerp(this.endpoint, 1 - c);
+        this.local(i === 0 ? 0.6 : -0.6, -0.1, -0.3, this.pole);
+        this.solve(arm, this.target, this.pole);
+      }
+    }
+  }
+
+  private reachForLanding() {
+    const p = this.p, at = p.body.translation(), vy = -p.velocity.y;
+    this.ray.origin.x = at.x + p.velocity.x * 0.12;
+    this.ray.origin.y = at.y;
+    this.ray.origin.z = at.z + p.velocity.z * 0.12;
+    const hit = p.physics.world.castRay(this.ray, 4, true, undefined, undefined, p.collider, p.body);
+    if (!hit) return;
+    const gap = hit.timeOfImpact - 0.925, tti = gap / vy;
+    if (tti > 0.28 || tti < 0) return;
+    const w = 1 - tti / 0.28, ground = at.y - hit.timeOfImpact;
+    for (let i = 0; i < 2; i++) {
+      const leg = this.legs[i];
+      if (!leg) continue;
+      leg.end.getWorldPosition(this.endpoint);
+      // Feet slightly ahead of the hips and close together, knees bent.
+      this.local(i === 0 ? 0.12 : -0.12, 0, 0.18, this.target);
+      this.target.x += p.velocity.x * tti;
+      this.target.z += p.velocity.z * tti;
+      this.target.y = Math.max(ground + 0.12, this.endpoint.y);
+      this.target.lerp(this.endpoint, 1 - w * 0.8);
+      this.local(i === 0 ? 0.2 : -0.2, -0.3, 0.8, this.pole);
+      this.solve(leg, this.target, this.pole);
+    }
+    // A motion-capture jump brings its own arms.
+    for (let i = 0; i < (p.animationName.startsWith("jump-") ? 0 : 2); i++) {
+      const arm = this.arms[i];
+      if (!arm) continue;
+      arm.end.getWorldPosition(this.endpoint);
+      this.local(i === 0 ? 0.26 : -0.26, 0.3, 0.42, this.target);
+      this.target.lerp(this.endpoint, 1 - w * 0.6);
+      this.local(i === 0 ? 0.6 : -0.6, -0.1, -0.3, this.pole);
+      this.solve(arm, this.target, this.pole);
+    }
+  }
+
   restore(): void {
     for (const s of this.sampled) {
       s.bone.quaternion.copy(s.rotation);
@@ -138,6 +242,50 @@ export class ContactPose {
     this.aim(chain.upper, chain.lower, this.wantedJoint);
     this.aim(chain.lower, chain.end, target);
   }
+  /**
+   * Hand over hand while hanging: each hand keeps its grip on the edge until
+   * the body has moved 14 cm past it, then lifts and re-grips ahead, never
+   * both at once. Without this both hands slid along with the body.
+   */
+  private shimmyHands(dt: number): THREE.Vector3[] {
+    const grab = this.p.climb.grab!;
+    // Same left/right resolution as hands(): index 0 is the rig's left arm.
+    if (this.arms[0] && this.arms[1]) {
+      this.arms[0].upper.getWorldPosition(this.a);
+      this.arms[1].upper.getWorldPosition(this.b);
+      if (this.a.sub(this.b).dot(this.lateral) < 0) this.lateral.negate();
+    }
+    const desired = [0, 1].map((i) => this.edge.clone().addScaledVector(this.lateral, (i === 0 ? 1 : -1) * 0.21));
+    // A new edge, side or corner, or a grip left far behind: grip afresh.
+    const key = `${grab.axis}${grab.sign}`;
+    if (this.handFace !== grab.face || this.handKey !== key || this.handAnchor.some((h, i) => h.distanceTo(desired[i]) > 0.4)) {
+      this.handFace = grab.face;
+      this.handKey = key;
+      for (let i = 0; i < 2; i++) { this.handAnchor[i].copy(desired[i]); this.handStep[i] = -1; }
+    }
+    for (let i = 0; i < 2; i++) {
+      const other = 1 - i;
+      if (this.handStep[i] >= 0) {
+        this.handStep[i] += dt / 0.16;
+        if (this.handStep[i] >= 1) { this.handStep[i] = -1; this.handAnchor[i].copy(this.handGoal[i]); }
+      } else if (this.handStep[other] < 0 && this.handAnchor[i].distanceTo(desired[i]) > 0.14) {
+        // Re-grip a little ahead in the direction of travel.
+        this.handFrom[i].copy(this.handAnchor[i]);
+        this.handGoal[i].copy(desired[i]).addScaledVector(this.a.copy(desired[i]).sub(this.handAnchor[i]).normalize(), 0.07);
+        this.handStep[i] = 0;
+      }
+    }
+    return [0, 1].map((i) => {
+      const out = this.handOut[i];
+      if (this.handStep[i] < 0) return out.copy(this.handAnchor[i]);
+      const u = this.handStep[i];
+      out.copy(this.handFrom[i]).lerp(this.handGoal[i], ease(u, 0, 1));
+      out.y += Math.sin(Math.PI * u) * 0.06;
+      out.addScaledVector(this.outward, Math.sin(Math.PI * u) * 0.04);
+      return out;
+    });
+  }
+
   private local(x: number, y: number, z: number, out: THREE.Vector3) {
     out.set(x, y, z);
     return this.p.mesh.localToWorld(out);
@@ -147,6 +295,7 @@ export class ContactPose {
     lateral: THREE.Vector3,
     weight: number,
     both = true,
+    targets?: THREE.Vector3[],
   ) {
     const p = this.p;
     // Rail parameter direction is arbitrary. Match left/right to the rig,
@@ -168,7 +317,8 @@ export class ContactPose {
         const reach =
           this.origin.distanceTo(this.joint) +
           this.joint.distanceTo(this.endpoint);
-        this.target
+        if (targets) this.target.copy(targets[i]);
+        else this.target
           .copy(center)
           .addScaledVector(lateral, (i === 0 ? 1 : -1) * 0.21);
         this.a.copy(this.target).sub(this.origin);
@@ -185,7 +335,8 @@ export class ContactPose {
       const chain = this.arms[i];
       if (!chain || (!both && i === 1)) continue;
       const side = i === 0 ? 1 : -1;
-      this.target.copy(center).addScaledVector(lateral, side * 0.21);
+      if (targets) this.target.copy(targets[i]);
+      else this.target.copy(center).addScaledVector(lateral, side * 0.21);
       chain.end.getWorldPosition(this.endpoint);
       this.target.lerp(this.endpoint, 1 - weight);
       this.handTargets[i].copy(this.target);
@@ -235,27 +386,24 @@ export class ContactPose {
     p.mesh.updateMatrixWorld(true);
     if(visualTrial){
       const locomotion=state==='RUN' && ['run','sprint','idle'].includes(p.animationName);
-      if(state==='RUN'&&this.previousState==='AIR')this.landingAge=0;
-      this.landingAge+=_dt;
       const yawDelta=THREE.MathUtils.euclideanModulo(p.mesh.rotation.y-this.previousYaw+Math.PI,Math.PI*2)-Math.PI;
-      this.previousYaw=p.mesh.rotation.y;this.previousState=state;
+      this.previousYaw=p.mesh.rotation.y;
       const mix=1-Math.exp(-10*_dt);
       this.runLean=THREE.MathUtils.lerp(this.runLean,locomotion?THREE.MathUtils.clamp(p.horizontalSpeed/9,0,1)*.10:0,mix);
       this.turnLean=THREE.MathUtils.lerp(this.turnLean,locomotion?THREE.MathUtils.clamp(yawDelta/Math.max(_dt,.001)*-.025,-.08,.08):0,mix);
       if(locomotion){
         const spine=this.bones.get('Spine');
         if(spine){spine.rotateX(this.runLean);spine.rotateZ(this.turnLean);}
-        // Absorb small landings with bent knees while retaining each foot's anchor.
-        if(this.landingAge<.24 && p.lastFallHeight<2.4){
-          for(let i=0;i<2;i++)this.legs[i]?.end.getWorldPosition(this.landingFeet[i]);
-          const compression=Math.sin(this.landingAge/.24*Math.PI)*Math.min(.10,.035+p.lastFallHeight*.025);
-          this.model.position.y-=compression;p.mesh.updateMatrixWorld(true);
-          for(let i=0;i<2;i++)if(this.legs[i]){
-            this.local(i===0?.25:-.25,-.35,.5,this.pole);
-            this.solve(this.legs[i]!,this.landingFeet[i],this.pole);
-          }
-        }
       }
+      // Landing profiles: depth, duration and body shape follow fall height,
+      // run-in speed and the width of what was landed on.
+      if(state==='RUN'&&this.previousLanding==='AIR'&&!['sprint-roll','roll'].includes(p.animationName))this.beginLanding();
+      this.previousLanding=state;
+      if(this.landing&&(state!=='RUN'||['sprint-roll','roll'].includes(p.animationName)))this.landing=null;
+      if(this.landing)this.applyLanding(_dt);
+      // Spotting the landing: shortly before touchdown the feet reach for the
+      // predicted contact and the arms come forward, like a precision jump.
+      if(state==='AIR'&&!p.diveJumpActive&&!p.airTricks.active&&!p.climb.isWallClimbing&&p.velocity.y< -1.5)this.reachForLanding();
     }
     if(state === "AIR" && p.diveJumpActive){
       const weight=ease(p.diveJumpTime,0,.14);
@@ -282,7 +430,9 @@ export class ContactPose {
         }
       }
     } else if (state === "AIR" && p.airTricks.tuckWeight > 0) {
-      const weight = p.airTricks.tuckWeight;
+      // Over a motion-capture flip only half strength: the clip keeps its
+      // arms and timing, the knees just come in tighter.
+      const weight = p.airTricks.tuckWeight * (p.airTricks.clipShare > 0 ? 0.6 : 1);
       const hips = this.bones.get("Hips");
       if (hips) {
         hips.getWorldPosition(this.edge);
@@ -322,7 +472,8 @@ export class ContactPose {
       const flight=transfer&&!transfer.corner&&(!transfer.bodyPoints||transfer.detour) ? Math.sin(Math.PI*transfer.t) : 0;
       const dropGrip=transfer?.bodyPoints&&!transfer.detour ? ease(transfer.t,.45,.85) : 1;
       const grip=release*dropGrip*(1-ease(flight,.35,.8));
-      if(grip>0)this.hands(this.edge,this.lateral,grip);
+      if(grip>0&&t<0&&!transfer)this.hands(this.edge,this.lateral,grip,true,this.shimmyHands(_dt));
+      else{this.handFace=null;if(grip>0)this.hands(this.edge,this.lateral,grip);}
       if(flight>.15){
         for(let i=0;i<2;i++){
           const arm=this.arms[i];if(!arm)continue;
@@ -461,7 +612,7 @@ export class ContactPose {
         this.local(i === 0 ? 0.5 : -0.5, 0.0, -0.4, this.pole);
         this.solve(chain, this.target, this.pole);
       }
-    } else if (state === "RUN" && p.grounded && !["sprint-roll","roll"].includes(p.animationName)) {
+    } else if (state === "RUN" && p.grounded && !["sprint-roll","roll"].includes(p.animationName) && !(this.landing && !this.landing.running)) {
       // Ground adaptation preserves the clip's stride; only the planted foot is corrected.
       for (let i = 0; i < 2; i++) {
         const chain = this.legs[i];

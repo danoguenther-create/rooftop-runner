@@ -157,6 +157,37 @@ async function addParkourClips(model:THREE.Group,clips:Map<string,THREE.Animatio
   }));
 }
 
+/** Contact timing of a motion clip (tools/blender/analyze_clips.py), in clip seconds. */
+export interface MotionMarkers { duration:number; takeoff:number|null; apex:number|null; touchdown:number|null; lowest:number|null; hipsY:'strip'|'keep' }
+/** Markers of the loaded motion clips, by clip name. */
+export const motionMarkers = new Map<string, MotionMarkers>();
+
+/**
+ * Mixamo motion-capture clips chosen for jumps, landings, flips and ledge
+ * catches (public/models/motion/). Their takeoff and touchdown markers let
+ * PlayerAnimator lock the clip onto the physical jump. Travel always stays
+ * with the physics capsule: horizontal hip motion is removed, and so is the
+ * vertical one for airborne clips; landings keep their crouch, measured
+ * against the clip's final standing height.
+ */
+async function addMotionClips(model:THREE.Group,clips:Map<string,THREE.AnimationClip>):Promise<void>{
+  let prefix='mixamorig';let hipsY=100;
+  model.traverse(o=>{if((o as THREE.Bone).isBone&&o.name.endsWith('Hips')){prefix=o.name.slice(0,-4);hipsY=o.position.y;}});
+  const base=`${import.meta.env.BASE_URL}models/motion/`;
+  const markers=await (await fetch(`${base}markers.json`)).json() as Record<string,MotionMarkers>;
+  const loader=new FBXLoader();
+  await Promise.all(Object.entries(markers).map(async([name,m])=>{
+    const clip=(await loader.loadAsync(`${base}${name}.fbx`)).animations[0];if(!clip)return;clip.name=name;
+    for(const track of clip.tracks){
+      track.name=track.name.replace(/^mixamorig\d*:?/,prefix);
+      if(!track.name.endsWith('Hips.position'))continue;
+      const v=track.values,standing=v[v.length-2];
+      for(let i=0;i<v.length;i+=3){v[i]=0;v[i+1]=m.hipsY==='keep'?hipsY+Math.min(0,v[i+1]-standing):hipsY;v[i+2]=0;}
+    }
+    clips.set(name,clip);motionMarkers.set(name,m);
+  }));
+}
+
 /** Optimized runtime asset; original FBX sources remain a recoverable fallback. */
 export async function loadCharacter(): Promise<CharacterAssets> {
   const overlay=document.createElement('div');
@@ -171,6 +202,8 @@ export async function loadCharacter(): Promise<CharacterAssets> {
     gltf.scene.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=true;o.frustumCulled=false;}});
     const clips=new Map(gltf.animations.map(c=>[c.name,c]));
     await addParkourClips(gltf.scene,clips);
+    // Optional: the game falls back to the base clips without them.
+    try { await addMotionClips(gltf.scene,clips); } catch(error) { console.warn('Motion clips unavailable.',error); }
     return {model:gltf.scene,clips};
   } catch(error) {
     console.warn('Optimierter Charakter nicht verfügbar, lade FBX-Quelldaten.',error);

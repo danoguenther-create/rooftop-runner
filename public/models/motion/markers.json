@@ -1,0 +1,101 @@
+{
+ "jump-stand": {
+  "source": "standing-jump-c9ccff",
+  "hipsY": "strip",
+  "duration": 2.433,
+  "takeoff": 0.867,
+  "apex": 1.067,
+  "touchdown": 1.333,
+  "lowest": 1.533
+ },
+ "jump-run": {
+  "source": "running-jump-c9c81b",
+  "hipsY": "strip",
+  "duration": 0.9,
+  "takeoff": 0.133,
+  "apex": 0.3,
+  "touchdown": 0.567,
+  "lowest": 0.9
+ },
+ "land-soft": {
+  "source": "landing-c9c808",
+  "hipsY": "keep",
+  "duration": 2.1,
+  "takeoff": 0.0,
+  "apex": 0.0,
+  "touchdown": 0.333,
+  "lowest": 0.6
+ },
+ "land-stand": {
+  "source": "standing-land-to-standing-idle-38a6c4",
+  "hipsY": "keep",
+  "duration": 1.1,
+  "takeoff": 0.0,
+  "apex": 0.0,
+  "touchdown": 0.267,
+  "lowest": 0.533
+ },
+ "land-precision": {
+  "source": "fall-a-land-to-standing-idle-01-c9ceb6",
+  "hipsY": "keep",
+  "duration": 0.7,
+  "takeoff": null,
+  "apex": null,
+  "touchdown": null,
+  "lowest": null
+ },
+ "land-run": {
+  "source": "fall-a-land-to-run-forward-c9ceb6",
+  "hipsY": "keep",
+  "duration": 0.933,
+  "takeoff": null,
+  "apex": null,
+  "touchdown": null,
+  "lowest": null
+ },
+ "land-hard": {
+  "source": "hard-landing-c9c9d3",
+  "hipsY": "keep",
+  "duration": 2.0,
+  "takeoff": 0.0,
+  "apex": 0.0,
+  "touchdown": 0.033,
+  "lowest": 0.333
+ },
+ "flip-front": {
+  "source": "running-forward-flip-c9c9e9",
+  "hipsY": "strip",
+  "duration": 1.1,
+  "takeoff": 0.367,
+  "apex": 0.567,
+  "touchdown": 0.9,
+  "lowest": 0.933
+ },
+ "flip-back": {
+  "source": "backflip-c9c6af",
+  "hipsY": "strip",
+  "duration": 4.1,
+  "takeoff": 1.267,
+  "apex": 1.6,
+  "touchdown": 1.833,
+  "lowest": 2.033
+ },
+ "hang-catch": {
+  "source": "jumping-to-hanging-c9c9cc",
+  "hipsY": "strip",
+  "duration": 1.5,
+  "takeoff": 0.0,
+  "apex": 0.133,
+  "touchdown": 0.4,
+  "lowest": 1.367
+ },
+ "hang-crouch": {
+  "source": "braced-hang-to-crouch-c9cc03",
+  "hipsY": "strip",
+  "duration": 1.133,
+  "takeoff": 0.233,
+  "apex": null,
+  "touchdown": null,
+  "lowest": null
+ }
+}

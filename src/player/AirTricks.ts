@@ -25,6 +25,15 @@ export class AirTricks {
   private spinTargetDeg = 0;
   private spinDeg = 0;
 
+  /** Current flip for clip-driven poses: kind, turns queued, turns done. */
+  get flip(): { kind: FlipKind; target: number; progress: number } | null {
+    return this.flipKind ? { kind: this.flipKind, target: this.flipTarget, progress: this.flipProgress } : null;
+  }
+  /**
+   * Share of the flip's turns that its motion clip rotates itself (1 for a
+   * single flip, 1/n for an n-fold one); the rest stays procedural.
+   */
+  clipShare = 0;
   get active(): boolean {
     return this.flipKind !== null || this.spinTargetDeg !== 0;
   }
@@ -69,7 +78,8 @@ export class AirTricks {
     mesh.rotation.y += (this.spinDeg * Math.PI) / 180;
     mesh.rotation.x = 0;
     mesh.rotation.z = 0;
-    const angle = this.flipProgress * Math.PI * 2;
+    // A motion clip turns the body itself for its share of the turns.
+    const angle = this.flipProgress * (1 - this.clipShare) * Math.PI * 2;
     switch (this.flipKind) {
       case 'front':
         mesh.rotation.x = angle;
